@@ -1,0 +1,50 @@
+---
+name: guile-repl-eval
+description: Evaluate Scheme in a running Guile REPL over its socket, and use tracing, breakpoints, macro expansion and profiling from it. Use whenever a claim about Guile code should be checked by running it - before asserting an API exists, after editing a module, or when asked what shape a recursion has.
+---
+
+# Evaluate before you assert
+
+The failure this prevents is claiming success without running anything — the
+second most-policed anti-pattern across 75 close-read Clojure skills, and
+identical in Guile. The socket REPL is what makes "verified" checkable.
+
+```sh
+./bin/guile-repl-eval.sh '(+ 1 1)'                   # => $1 = 2
+./bin/guile-repl-eval.sh '(use-modules (my mod)) (my-proc 3)'
+echo '(assoc-ref my-alist "k")' | ./bin/guile-repl-eval.sh
+./bin/guile-repl-eval.sh --raw ',trace (fib 4)'      # keep banner and prompt
+./bin/guile-repl-eval.sh --direct '(+ 1 1)'          # bypass the proxy, no log
+```
+
+Output is stripped of the eight-line banner and the trailing prompt, so what you
+read back is the value.
+
+## What the REPL gives you beyond eval
+
+| Ask | Meta-command | Answers |
+|---|---|---|
+| what shape is this process? | `,trace FORM` | indented call tree with arguments and returns |
+| how does it grow? | `,time FORM` | real, run and GC time separately |
+| where does the time go? | `,profile FORM` | flat profile, self and cumulative |
+| what did the macro expander do? | `,expand FORM` | expanded source |
+| what did the optimiser do? | `,optimize FORM` | partially evaluated source |
+| what bytecode? | `,disassemble PROC` | VM instructions |
+| stop here | `,break PROC` then `,bt` | breakpoint, backtrace |
+
+## Traps that will mislead you
+
+- **`,profile` on a fast form prints `No samples recorded.`** It is a sampling
+  profiler with nothing to sample, not a broken profiler. Use a workload of at
+  least ~0.5 s.
+- **`,locals` may report "No local variables"** at a frame where an argument is
+  clearly in scope. Unexplained. Do not conclude the variable is unbound.
+- **Each connection is a fresh REPL.** `$N` numbering restarts and bindings from
+  a previous invocation are gone. State only persists within one connection.
+- **Reload after editing.** A module already loaded does not pick up file
+  changes: `(reload-module (resolve-module '(my mod)))`. Redefining a record type
+  or a GOOPS class leaves existing instances on the old definition.
+- **There is no linter.** `guild3 compile -W 3 -o /tmp/x.go file.scm` gives
+  warnings, and that is the whole story — no clj-kondo equivalent exists. Never
+  instruct anyone to "run the linter". (`-o /dev/null` always fails: `guild`
+  renames a temp file into place.)

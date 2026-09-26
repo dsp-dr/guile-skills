@@ -1,0 +1,215 @@
+#+TITLE: Experiments: getting a logged Guile REPL surface to actually work
+#+DATE: 2026-09-26
+#+AUTHOR: dsp-dr
+
+Everything in ~bin/~ works. This file is how it got there, because the failures
+are more instructive than the result: four of the six were silent, and a silent
+failure in a debugging tool is worse than no tool.
+
+Run on *nexus*, FreeBSD 15.1-RELEASE, ~guile3~ 3.0.10, as ~dsp-dr~.
+
+* E1 -- Is there an agent-reachable REPL at all?
+
+*Question.* Clojure needed nREPL plus a bridge (~clj-nrepl-eval~, ~brepl~,
+~nreplctl~, ~clojure-mcp~). Does Guile need anything installed?
+
+*Result.* No. It is in the binary.
+
+#+begin_src sh
+guile3 --debug --listen=37496 -c '(sleep 30)' &
+printf '(+ 1 1)\n' | nc -N 127.0.0.1 37496
+#+end_src
+
+#+begin_example
+$1 = 2
+#+end_example
+
+Verified over the same socket: ~,trace~, ~,break~/~,bt~, ~,expand~, ~,optimize~,
+~,profile~, ~,time~. The expensive half of what Clojure built is already done.
+
+* E2 -- The transcript was one byte per line
+
+*Symptom.* The first working proxy produced this:
+
+#+begin_example
+-> 12:57:03.993 (
+-> 12:57:03.993 +
+-> 12:57:03.993
+-> 12:57:03.994 1
+#+end_example
+
+*Cause.* Guile socket ports from ~accept~ and ~connect~ arrive unbuffered, so
+~get-bytevector-some~ returned a single byte per call even though the whole line
+was available.
+
+*Fix.* ~(setvbuf port 'block 65536)~ on both ports before pumping.
+
+*Lesson.* ~get-bytevector-some~ means "some", and "some" can be one. It is not a
+line reader and it is not a chunk reader; the buffering decides.
+
+* E3 -- Replies were dropped entirely
+
+*Symptom.* Worse than E2 and hidden behind it. Connection 1 logged only ~->~
+lines, then =client closed the connection=. The client got *nothing back* --
+~$1 = 2~ never arrived.
+
+*Cause.* ~nc -N~ shuts down its *write* side as soon as stdin hits EOF. That
+surfaces in the proxy as EOF when reading the client, while the REPL has not yet
+sent its reply. The pump treated EOF on *either* side as "this connection is
+finished" and tore it down, discarding the answer.
+
+*Fix.* An EOF retires one *direction*, not the connection: pass it upstream with
+~(shutdown peer 1)~ so the REPL sees end-of-input and can finish, stop selecting
+on the closed side, and keep forwarding the other until it closes too.
+
+*Lesson.* Half-close is the normal case, not an edge case, because the obvious
+client does it on every invocation. A proxy that only handles full-close appears
+to work -- it forwards requests perfectly -- and silently loses every response.
+
+Related: ~--debug~ is not optional. Without it ~,trace~ emits *no lines and no
+error*. Tested directly: a REPL started without ~--debug~ answers ~,trace (fib 4)~
+with silence, which reads exactly like "this procedure makes no calls".
+
+* E4 -- The test that appeared to regress, and did not
+
+*Symptom.* After fixing E2 and E3, the end-to-end test produced an *empty*
+transcript and no client output. The fixes looked like they had broken it.
+
+*Cause.* The proxy from the *previous* test was still running and still bound to
+37497. ~SO_REUSEADDR~ does not let two processes listen on one port, so the new
+proxy's ~bind~ failed -- and because the failure was uncaught, it died quietly
+while the *old* proxy kept serving and kept writing to the *old* log file. I was
+reading a log nobody was writing to, while a stale process answered the tests.
+
+#+begin_example
+37511 guile3 ./bin/guile-repl-proxy.scm --listen 37497 --target 37496 --log /tmp/proxy-e2e.log
+dsp-dr  guile-3.0  37511  8 tcp4  127.0.0.1:37497
+#+end_example
+
+*Fix.* Three changes, because one was not enough:
+1. ~bind~ is wrapped in ~catch 'system-error~ and exits 1 with the errno and the
+   ~pgrep~ command to find the culprit.
+2. ~guile-repl-server.sh~ refuses to start when the port is already listening.
+3. ~guile-repl-server.sh --status~ and ~--stop~ exist, so the state is one
+   command away instead of a guess.
+
+*Lesson, and the reason this file exists.* An agent leaves background processes
+behind. They outlive the turn that started them, and a stale listener is
+indistinguishable from a broken new one unless something checks. Cost more time
+than E2 and E3 together.
+
+* E5 -- Rotation
+
+*Question.* Transcripts grow without bound; where does the cut happen?
+
+*Result.* 4 MiB threshold, five generations, rotated at startup and *between*
+connections so a session is never cut mid-transcript. Verified with a planted
+5 MiB log:
+
+#+begin_example
+before: 5242880 bytes  /tmp/rot-test.log
+after:        60 bytes  /tmp/rot-test.log
+        5242880 bytes  /tmp/rot-test.log.1
+#+end_example
+
+* E6 -- The case every earlier test had missed
+
+*Question.* Every test so far used ~nc -N~: connect, send, half-close, read,
+done. Emacs with Geiser does not do that. It holds *one* connection open across
+many round-trips. Does the proxy survive it?
+
+*Result.* Yes. Three exchanges on a single connection:
+
+#+begin_example
+-> 13:00:41.244 (+ 1 1)
+<- 13:00:41.301 $1 = 2
+<- 13:00:41.301 scheme@(guile-user)>
+-> 13:00:43.243 (define x 41)
+-> 13:00:43.243 (+ x 1)
+<- 13:00:43.258 $2
+-> 13:00:45.244 (* 6 7)
+<- 13:00:45.250 $3
+#+end_example
+
+The prompt comes back as an implicit end-of-response marker, which is what makes
+a persistent client work at all.
+
+*Lesson.* Testing only with the convenient client tests only the convenient
+shape. ~nc -N~ and Geiser exercise opposite halves of the connection lifecycle.
+
+* E7 -- ~guild3 compile -o /dev/null~ always fails
+
+Not a code problem. ~guild~ writes a temporary file and renames it into place,
+and it cannot rename onto ~/dev/null~. Compile to a real path when all you want
+is the warnings. (~guile-sicp~'s Makefile already carries this note; it cost
+time again here.)
+
+* E8 -- ~~3,'0d~ is not in the core ~format~
+
+~(format #f "~a.~3,'0d" ...)~ for millisecond padding compiles with a warning and
+misbehaves unless ~(ice-9 format)~ is imported. The core ~simple-format~ silently
+accepts a narrower directive set. Caught by ~guild3 compile -W 3~, which is worth
+running even though it is not a linter.
+
+* E9 -- Two agents, two versions, both correct
+
+A second agent working from *hydra* reported ~(version)~ as ~"3.0.11"~. On nexus
+it is ~"3.0.10"~. Neither is wrong: hydra is FreeBSD 14.4, nexus is 15.1.
+
+This is the Clojure census's "wrong namespace/runtime, or a stale port file"
+anti-pattern occurring live, and it is *worse* for Guile than for Clojure, which
+is what that census predicted. On this box alone:
+
+| binary      | version |
+|-------------+---------|
+| ~guile~     | *2.2.7* |
+| ~guile3~    | 3.0.10  |
+| ~guile-3.0~ | 3.0.10  |
+
+A skill that shells out to ~guile~ gets a 2019 interpreter and no useful error.
+Hence ~guile-repl-paths.sh~ prefers ~guile3~ and prints which binary it chose.
+
+* E10 -- The profiler's false negative
+
+From the companion work in ~guile-sicp~: ~,profile (fib 22)~ prints
+=No samples recorded.= because 3.5 ms is too short for a sampling profiler to
+sample. It looks like a broken profiler. ~,profile (fib 30)~ gives 3 samples.
+Any liveness check for a profiler must use a workload large enough to sample.
+
+* Deviations
+
+- *The proxy is written in Guile, not shell or socat.* A ~socat~ tee would have
+  been shorter, but this repository is about Guile tooling and the log needs
+  rendering, not just splitting: direction markers, millisecond timestamps, and
+  non-UTF-8 chunks reported rather than corrupting the file.
+- *Byte-forwarding plus a tee, with no protocol parsing.* Chosen on the strength
+  of a second agent's measurement that Guile's ~--listen~ wire protocol is the
+  plain REPL -- banner on connect, ~$N = value~, prompt as implicit
+  end-of-response -- and not a framed protocol. nREPL would have needed bencode
+  decoding; this needs none. If that measurement is wrong the design is wrong,
+  so it is recorded as load-bearing.
+- *Ports are derived from the working directory, then actually reserved.* The
+  derivation (~37000 + cksum(slug) mod 900~) started as a convention with a
+  comment admitting it was not a reservation. It is now registered in *portclaim*
+  (~http://192.168.86.29:4700~) as ~nexus-guile-skills-repl~ and
+  ~nexus-guile-skills-repl-proxy~. The whole 37000-37999 range was unclaimed,
+  which is why the base is there.
+- *Logs live outside the repository*, under
+  ~~/.guile-skill/projects/<slug>/~, mirroring ~~/.claude/projects/~ exactly
+  (every ~/~ and ~.~ becomes ~-~). A REPL transcript contains whatever was
+  evaluated; it must not be commit-adjacent.
+- *No style guide.* Deliberate, following experiment 007's finding that Clojure
+  skills police tooling and process failures rather than idioms -- Java-style
+  loops drew zero warnings across 75 skills. The skills here are about not lying
+  to yourself about what you ran.
+
+* Still open
+
+- ~,locals~ reports "No local variables" at a breakpoint where an argument is
+  plainly in scope. Unexplained; carried over from ~guile-sicp~'s ~surfaces.org~.
+- No linter. ~guild3 compile -W 3~ gives warnings and ~guix style~ formats Guix
+  package definitions only. A skill must not say "run the linter" when there is
+  none, and none of these do.
+- The proxy handles one connection at a time, serially. Geiser plus an agent at
+  once needs either two proxies or an accept-per-thread rewrite. Not needed yet;
+  it would be the first thing to hit with two clients.
