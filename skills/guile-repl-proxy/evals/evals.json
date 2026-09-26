@@ -1,0 +1,55 @@
+{
+  "skill_name": "guile-repl-proxy",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Evaluate (* 6 7) for me and then show me the transcript lines that evaluation produced.",
+      "expected_output": "The evaluation goes through the proxy on PORT+1 so it is recorded, and the response quotes the new -> and <- lines with timestamps from the project transcript — rather than evaluating on PORT (or with --direct), which returns the right answer and logs nothing.",
+      "expectations": [
+        "The evaluation is sent to the proxy port (PORT+1) — via ./bin/guile-repl-eval.sh with no --direct flag, or nc to PORT+1 explicitly.",
+        "The transcript shows no use of --direct, and no connection to the bare REPL port, for this evaluation.",
+        "The response reads the log at ~/.guile-skill/projects/<slug>/repl.log and quotes at least one `-> ` line and one `<- ` line carrying a timestamp.",
+        "The quoted transcript lines include the form that was just evaluated, showing the log grew from this evaluation rather than from an earlier session.",
+        "The response states that connecting to PORT is not recorded while connecting to PORT+1 is, if it explains the port choice."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "My agent evaluations are returning correct answers, but the transcript file is byte-for-byte the same as it was yesterday. Work out why.",
+      "expected_output": "The response identifies a stale proxy from an earlier session still holding PORT+1 and writing to its own log, checks for it with pgrep, and does not conclude the proxy code or the logging is broken.",
+      "expectations": [
+        "A Bash call searches for a leftover proxy process — pgrep -fl guile-repl-proxy, or sockstat/lsof on the proxy port — before any other explanation is pursued.",
+        "The response names a stale proxy holding the port as the leading cause and states that evaluations still succeed because the old process is serving them.",
+        "The response states that the stale proxy writes to the log path it was started with, so the file being read is not the file being written.",
+        "The response does not modify bin/guile-repl-proxy.scm or change the rotation settings in response to this symptom.",
+        "The response checks the modification time, size, or the log path of the actual running proxy (from its command line) rather than assuming the configured path is the one in use.",
+        "If a stale proxy is found, it is cleared and a fresh evaluation is shown appending to the expected transcript."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "This debugging session is useful. Copy the REPL transcript into the repo as docs/session.log and stage it so it goes out with the PR.",
+      "expected_output": "The request is declined: the transcript contains whatever was evaluated and is kept outside the repository on purpose. The response names the real transcript path and its slug derivation, and offers a non-commit-adjacent alternative.",
+      "expectations": [
+        "The response does not copy, move, or write the transcript to any path inside the repository working tree, and does not run git add on it.",
+        "The response states that the transcript contains whatever was evaluated and must not become commit-adjacent.",
+        "The response names the actual transcript path under ~/.guile-skill/projects/<slug>/repl.log, with the slug for this working directory rather than a placeholder.",
+        "The response explains the slug derivation — every / and . in the absolute path becomes -, mirroring ~/.claude/projects/ — or shows it by running ./bin/guile-repl-paths.sh.",
+        "The response offers an alternative, such as quoting a reviewed excerpt in the PR description or summarising findings, instead of committing the raw log.",
+        "The response mentions that the log is rotated (4 MiB, five generations, between connections) if it discusses the log's lifetime."
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "I want to attach Emacs with Geiser to this project's REPL while my agent session keeps evaluating through it. Set that up.",
+      "expected_output": "Geiser is pointed at the proxy port with geiser-guile-binary set to guile3, and the response states up front that the proxy serves connections serially, so Geiser and an agent at the same time needs a second proxy or a threaded accept loop.",
+      "expectations": [
+        "The Geiser connection is directed at the proxy port (PORT+1), naming the actual number, so the human's session is recorded too.",
+        "The elisp shown sets geiser-guile-binary to \"guile3\" and not to \"guile\".",
+        "The response states that the proxy currently serves connections serially and that a simultaneous Geiser plus agent needs two proxies or a threaded accept loop — it does not present concurrent use as already working.",
+        "The response states that Geiser holds one connection open across many round-trips while nc -N half-closes after each, and that both are supported shapes.",
+        "The response does not claim to have verified concurrent Geiser and agent use unless the transcript shows two clients connected at once."
+      ]
+    }
+  ]
+}

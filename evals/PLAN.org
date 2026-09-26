@@ -1,0 +1,176 @@
+#+TITLE: Experiment: generating evals, and evaluating the evals
+#+DATE: 2026-09-26
+#+AUTHOR: dsp-dr
+
+* The question
+
+Two questions, and the second is the interesting one.
+
+1. Can evals for these skills be *generated* rather than hand-written, and by
+   what -- Opus, a Claude session in a tmux window, or a local Ollama model?
+2. *How do you know an eval is any good?* An eval suite is itself an artifact
+   that can be wrong, and this repository's whole thesis is that unverified
+   artifacts are the failure mode. A suite nobody has scored is exactly the
+   thing it argues against.
+
+* The metric that matters: discrimination
+
+An eval that a model passes *with and without* the skill measures nothing. It is
+not a weak eval, it is a *zero-information* eval, and a suite full of them
+reports a high pass rate while telling you nothing.
+
+So the quality of an eval is:
+
+#+begin_example
+discrimination = pass_rate(with skill) - pass_rate(without skill)
+#+end_example
+
+which is exactly what ~claude plugin eval --ablation with-without~ reports. Four
+regions, and three of them mean the eval is broken:
+
+| pass_with | pass_without | reading                                                        |
+|-----------+--------------+----------------------------------------------------------------|
+| high      | low          | *the eval works.* The skill is doing something                  |
+| high      | high         | zero information: the base model already knew. Delete or harden |
+| low       | low          | impossible, or the graders are wrong. Fix before believing it   |
+| low       | high         | the skill is actively harmful. Rare and worth investigating      |
+
+A suite's value is not its mean pass rate. It is the number of cases with
+discrimination above some floor -- and a case scoring 1.0 in both arms should be
+*deleted*, which is the opposite of what a pass-rate view suggests.
+
+* Calibration by planted fault
+
+Same rule as ~guile-sicp/scripts/surface-liveness.sh~ and the ~gmake test~ suite
+here: *a check that cannot fail is decoration.* For each eval, break the thing it
+tests on purpose and confirm the eval notices.
+
+| Eval                   | Planted fault                                              |
+|------------------------+------------------------------------------------------------|
+| ~recursion-shape~      | start the REPL without ~--debug~; ~,trace~ goes silent      |
+| ~right-guile-binary~   | put a ~guile~ shim earlier on PATH that reports 3.0.10      |
+| ~stale-listener~       | leave a proxy bound and point the reader at a fresh log     |
+| ~no-linter-claim~      | add a fake ~guile-lint~ to PATH and see if it gets used     |
+| ~evaluate-dont-assert~ | stop the REPL, so the only honest answer is "cannot verify" |
+
+An eval that still passes under its planted fault is measuring something other
+than what its name claims.
+
+* Three generator arms
+
+Same prompt, same schema, three generators. The *generated evals* are the
+artifact under test; discrimination and calibration are the scores.
+
+| Arm | Generator                                | Cost      | Status                    |
+|-----+------------------------------------------+-----------+---------------------------|
+| A   | hand-written (Opus, in-session)          | high      | done: 5 cases in ~evals/~  |
+| B   | a Claude session in a tmux window        | medium    | run 2026-09-26; see below |
+| C   | a local Ollama model, driven by DSPy     | ~zero     | designed, not run         |
+
+Arm B ran as a ~tmux~ session (~guile-evals~) with ~claude --permission-mode
+acceptEdits~ and a brief carrying the schema, pointed at ~skills/*/SKILL.md~ and
+~EXPERIMENTS.org~, writing ~skills/<skill>/evals/evals.json~ per the skill-creator
+schema. Two frictions worth recording: the session blocked on a first-run
+*folder-trust prompt* that needed a keystroke before any work began, and the
+schema had to be pasted into the brief because guessing it was the larger risk.
+
+** Why a local model is worth an arm at all
+
+Not to beat Opus. To answer a cheaper question: *does eval generation need a
+frontier model, or is it schema-filling?* If a 26B local model produces evals
+with comparable discrimination, then generating them is mechanical and should be
+run on every skill change for free. If it does not, that is a real finding about
+where the difficulty lives.
+
+* The local setup
+
+Ollama is on *192.168.86.22:11434*. The hostnames do not resolve -- ~mini~,
+~mini.local~ and ~mini.lan~ all fail -- so the IP is the address. Models with a
+~tools~ capability, which is what an agentic arm needs:
+
+| Model                             | Params | Context | Capabilities                          |
+|-----------------------------------+--------+---------+---------------------------------------|
+| ~gemma4:26b~                      | 25.2B  | 262144  | completion, vision, *tools*, thinking |
+| ~qwen2.5-coder:7b-instruct-q4_K_M~ | 7.6B   | 32768   | completion, *tools*, insert           |
+| ~mistral:latest~                  | 7.2B   | 32768   | completion, *tools*                   |
+| ~llama3.2:latest~                 | 3.2B   | 131072  | completion, *tools*                   |
+| ~qwen3:0.6b~                      | 0.75B  | 40960   | completion, *tools*, thinking         |
+| ~deepseek-coder-v2:latest~        | 15.7B  | 163840  | completion, insert -- *no tools*       |
+| ~nomic-embed-text:v1.5~           | 137M   | 2048    | embedding                             |
+
+~gemma4:26b~ is the arm-C default: largest, has tools, and the 262k context holds
+all three ~SKILL.md~ files plus ~EXPERIMENTS.org~ at once.
+
+** Two different integrations, do not conflate them
+
+- *DSPy -> Ollama directly.* For generating and scoring evals as a program. DSPy
+  3.4.0 uses LiteLLM underneath, so an Ollama model is an ~dspy.LM~ with a
+  provider prefix and an ~api_base~. Verified setup in [[file:dspy/]].
+- *Claude Code -> a local model.* A different problem: Claude Code speaks the
+  Anthropic API, so it needs an Anthropic-shaped endpoint, not Ollama's
+  ~/api/chat~. The *LiteLLM proxy already running on 192.168.86.22:4000* is the
+  right front end -- it exposes ~/v1/messages~ -- but it returns *401
+  Authentication Error, No api key passed in*. So this needs the proxy's key,
+  which is operator-held and deliberately not hunted for here. With it:
+  ~ANTHROPIC_BASE_URL=http://192.168.86.22:4000~ plus the key.
+
+  Expect tool-calling fidelity, not language quality, to be the limit. Claude
+  Code drives a large tool surface, and a 26B model's tool-call accuracy is the
+  thing likeliest to break.
+
+* DSPy shape
+
+DSPy 3.4.0, ~pip install -U dspy~, Python >= 3.10. Two signatures and a metric,
+which maps onto this problem almost too neatly:
+
+#+begin_src python
+class GenerateEval(dspy.Signature):
+    """Write one eval case for a skill, targeting a known silent failure."""
+    skill_md: str = dspy.InputField()
+    known_failures: str = dspy.InputField()
+    prompt: str = dspy.OutputField()
+    expected_output: str = dspy.OutputField()
+    expectations: list[str] = dspy.OutputField()
+
+class JudgeDiscrimination(dspy.Signature):
+    """Would a model without this skill fail this eval?"""
+    eval_case: str = dspy.InputField()
+    base_model_answer: str = dspy.InputField()
+    would_fail_without_skill: bool = dspy.OutputField()
+    reason: str = dspy.OutputField()
+#+end_src
+
+The metric is *not* "is this eval well written". It is predicted discrimination,
+checked against measured discrimination once ~claude plugin eval~ can run. That
+gives a labelled trainset for an optimizer -- ~dspy.GEPA(metric=..., auto="medium")~
+is the current one, with MIPROv2 and BootstrapFewShot as alternatives -- so the
+*eval generator itself* gets optimized against whether its output discriminates.
+
+That is the whole idea: optimize the generator on measured discrimination, not on
+a judge's opinion of prose.
+
+* Predictions, committed before any arm-C run
+
+| #  | Prediction                                                                                              |
+|----+---------------------------------------------------------------------------------------------------------|
+| P1 | At least one hand-written case (arm A) scores high/high -- zero information -- and should be deleted      |
+| P2 | ~no-linter-claim~ has the highest discrimination of the five: the base model will invent a Guile linter   |
+| P3 | ~gemma4:26b~ produces schema-valid JSON but evals with *lower* discrimination, because it writes generic happy-path cases rather than silent-failure cases |
+| P4 | Arm C needs the failure list handed to it explicitly; it will not derive silent failures from ~SKILL.md~ alone |
+| P5 | Claude Code against the LiteLLM proxy fails on tool-calling fidelity before it fails on language quality |
+| P6 | Predicted discrimination (the DSPy judge) correlates with measured discrimination at rho > 0.5 -- enough to pre-filter generated evals, not enough to replace a run |
+
+* Gates
+
+1. No eval enters the suite without a planted-fault calibration.
+2. No pass rate is quoted without naming its arm and its run count.
+3. A case scoring the same in both ablation arms is deleted, not celebrated.
+4. Generated evals are marked with their generator. An eval's provenance is part
+   of its meaning.
+
+* Blocked on
+
+- ~claude plugin eval~ is in early access and not enabled on this account, so
+  *measured* discrimination is unavailable. Everything above is designed against
+  it; P1, P2 and P6 cannot be settled until it runs.
+- The LiteLLM proxy key, for the Claude-Code-on-Ollama arm.

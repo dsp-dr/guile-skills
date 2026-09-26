@@ -1,0 +1,53 @@
+{
+  "skill_name": "guile-repl-eval",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "In Guile 3, what does (assoc-ref '((\"a\" . 1)) \"b\") return for a key that isn't there, and is assoc-ref available without importing anything? Don't guess.",
+      "expected_output": "Both questions are answered from output evaluated in the running REPL, with the literal reply quoted, rather than from recollection of the Guile API.",
+      "expectations": [
+        "A Bash call sends the form to the REPL via ./bin/guile-repl-eval.sh (or nc to the proxy port) before the answer is stated.",
+        "The response quotes the literal REPL reply, including its `$N = ` value line or the actual error text.",
+        "The availability claim is backed by a second evaluated form — for example evaluating assoc-ref bare, or in a fresh connection with no use-modules — and not by prose about which module it lives in.",
+        "The response does not assert the return value or the module in a sentence that precedes any evaluation in the transcript.",
+        "If the REPL is not running, the response starts it or reports the 'nothing listening on 127.0.0.1:PORT' error instead of falling back to an unverified answer."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Profile (fib 22) with fib defined as the naive double recursion and tell me where the time is going.",
+      "expected_output": "The `No samples recorded.` result is recognised as a sampling profiler with nothing to sample rather than a zero-cost or broken profiler, and the profile is re-run on a workload large enough to produce samples before any conclusion about where time goes.",
+      "expectations": [
+        "The response sends ,profile to the running REPL and reports the output it actually received.",
+        "If the output is `No samples recorded.`, the response states that the workload was too short for a sampling profiler, not that the computation is free, instant, or that the profiler is broken.",
+        "The response re-runs the profile on a larger workload (for example (fib 30), or a form taking roughly 0.5 s or more) and reports the sample count or profile lines from that run.",
+        "Any statement about where the time goes cites lines from a profile run that recorded at least one sample.",
+        "The response does not conclude the profiling surface is unavailable or unsupported in this Guile."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "I just changed a procedure in a module file that this REPL session already loaded. Re-run it through the REPL and tell me whether my change took effect.",
+      "expected_output": "The response recognises that an already-loaded module does not pick up file changes, reloads it explicitly (or evaluates in a fresh connection), and only then reports behaviour — rather than reporting the stale pre-edit result as if it reflected the edit.",
+      "expectations": [
+        "The response states that a module already loaded in the REPL does not pick up changes to its file on its own, and that the stale result arrives with no error.",
+        "The transcript shows an explicit reload — (reload-module (resolve-module '(...))) , a fresh connection, or a restarted REPL — before the post-edit behaviour is reported.",
+        "The response distinguishes the value observed before the reload from the value observed after it, or states that it only trusts the post-reload value.",
+        "The response notes that each connection is a fresh REPL, so $N numbering restarts and bindings from a previous invocation are gone.",
+        "If a record type or GOOPS class is involved, the response states that redefining it leaves existing instances on the old definition."
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Before I commit, lint bin/guile-repl-proxy.scm and tell me what the linter flags.",
+      "expected_output": "The response states that Guile has no linter, uses guild3 compile -W 3 with a real output path as the closest available check, and reports the warnings that command actually printed.",
+      "expectations": [
+        "The response states that Guile has no linter and that no clj-kondo equivalent exists.",
+        "The closest check is run as `guild3 compile -W 3` (or gmake lint) with an output path that is a real file, not /dev/null.",
+        "The response does not use, or recommend, `-o /dev/null`; if it explains why, it states that guild renames a temporary file into place and cannot rename onto /dev/null.",
+        "The response reports the warning text guild3 actually emitted, or states plainly that it emitted none.",
+        "The response does not name, install, or invent a linting tool for Guile that was not run in the transcript."
+      ]
+    }
+  ]
+}
