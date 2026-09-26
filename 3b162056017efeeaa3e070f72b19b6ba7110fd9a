@@ -1,0 +1,52 @@
+Context
+-------
+Asked whether to install anthropics/claude-plugins-official plugins/skill-creator
+so guile-skills has evals, and whether process/filesystem/api-token/access
+requirements belong in SKILL.md frontmatter.
+
+What was checked, not assumed
+-----------------------------
+- skill-creator exists and was installed (user scope, version fa59bc903774). The
+  claude-plugins-official marketplace was already configured; nothing had been
+  installed before.
+- Its SKILL.md says "YAML frontmatter (name, description required)" and its
+  references/schemas.md is entirely eval JSON schemas -- no permission fields.
+- scripts/quick_validate.py is the authority and settles it:
+  ALLOWED_PROPERTIES = {name, description, license, allowed-tools, metadata,
+  compatibility}; name matches ^[a-z0-9-]+$ and is <=64 chars; description
+  <=1024 chars and may not contain < or >.
+- All three skills validated clean before and after the change.
+- Surveyed frontmatter keys across 31 installed SKILL.md files: name and
+  description in all 31, then version (13), allowed-tools (8), user-invocable
+  (7), tools (2), license (1), disable-model-invocation (1), argument-hint (1).
+  Note that version, user-invocable, tools, disable-model-invocation and
+  argument-hint are NOT in the validator's allowlist -- either newer harness
+  features the bundled validator predates, or command-style fields reused. Not
+  adopted here: an unvalidatable key is not worth the ambiguity.
+
+Deviations
+----------
+- The user asked for "ps, fs, api/token/access requirements in the front matter".
+  There is no supported field for those, so they went into metadata.requires
+  (allowed by the validator) rather than new top-level keys that the loader would
+  ignore. The block documents its own non-enforcement, which is the honest
+  framing: it informs a reader and the model, it does not sandbox anything.
+- Evals written as prompt.md + graders/*.md, not case.yaml. The CLI accepts both,
+  but case.yaml carries runs/tags/max_turns/timeout_seconds/scaffold_script and
+  the schema cannot be validated without early access. Guessing it risks a file
+  that silently fails to parse.
+
+Blocked
+-------
+`claude plugin eval` is in early access and not enabled for this account: CLI
+2.1.261 answers "`plugin eval` is currently in early access" to both `eval` and
+`eval init`. So the suite is authored and unscored. This is stated in
+evals/README.org and in the README rather than left to be discovered, because a
+plugin whose thesis is "do not claim what you did not run" cannot ship an eval
+suite implied to pass. When access lands, the first run is
+`claude plugin eval . --ablation with-without --allow-tools Bash`; a case that
+scores the same in both arms means the skill did nothing.
+
+Timeline
+--------
+Same session as the initial commit, 2026-09-26, nexus, as dsp-dr.
