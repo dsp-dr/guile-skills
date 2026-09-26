@@ -1,0 +1,45 @@
+#+TITLE: Evals
+#+DATE: 2026-09-26
+
+Five cases, each targeting one anti-pattern this plugin exists to prevent. Run
+them with:
+
+#+begin_src sh
+claude plugin eval . --ablation with-without --allow-tools Bash
+#+end_src
+
+* Status: authored, *not yet run*
+
+~claude plugin eval~ is in early access and is not enabled on this account
+(CLI 2.1.261 answers ~`plugin eval` is currently in early access~). So these
+cases are written but *unscored*: no pass rate here has been observed. Treat any
+claim about them as untested until a run exists under ~evals/results/~.
+
+That matters more here than usual, since this plugin's whole argument is that
+unverified claims are the failure mode. An eval suite nobody has run is exactly
+that failure in miniature, so it is labelled rather than implied.
+
+* Form
+
+Each case is a directory holding ~prompt.md~ and ~graders/*.md~. The CLI also
+accepts a ~case.yaml~ per case, which carries ~runs~, ~tags~, ~max_turns~,
+~timeout_seconds~ and ~scaffold_script~. None is written: without early access
+the schema cannot be validated, and a guessed schema that silently fails to
+parse is worse than none.
+
+* Why the ablation matters
+
+~--ablation with-without~ runs each case twice, with the plugin and without, and
+reports the delta. A skill that scores well in both arms did nothing. Graders
+marked ~with-only~ (including ~tool_used: Skill~) are plugin-fired indicators
+rather than part of the score.
+
+* The cases
+
+| Case                    | Anti-pattern it targets                                              |
+|-------------------------+----------------------------------------------------------------------|
+| ~evaluate-dont-assert~  | claiming an API exists without running anything (~19 of 75 skills)   |
+| ~right-guile-binary~    | wrong runtime -- bare ~guile~ is 2.2.7 here (6 of 75)                 |
+| ~recursion-shape~       | answering a process-shape question from prose instead of a trace      |
+| ~stale-listener~        | the silent failure that cost the most time building this (E4)         |
+| ~no-linter-claim~       | instructing someone to run a linter that does not exist              |

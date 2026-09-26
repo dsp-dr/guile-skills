@@ -1,6 +1,27 @@
 ---
 name: guile-repl-eval
 description: Evaluate Scheme in a running Guile REPL over its socket, and use tracing, breakpoints, macro expansion and profiling from it. Use whenever a claim about Guile code should be checked by running it - before asserting an API exists, after editing a module, or when asked what shape a recursion has.
+allowed-tools: Bash, Read
+metadata:
+  requires:
+    binaries: [nc]
+    binaries-fallback: [guile3]
+    optional-binaries: []
+    process: none; talks to an already-running REPL
+    ports: connects to 127.0.0.1:PORT+1 (proxy) or PORT (direct)
+    filesystem:
+      - <project>/  (r; whatever the evaluated code reads)
+    network:
+      - 127.0.0.1 only
+    credentials: none
+    danger: >-
+      a Guile socket REPL is unauthenticated arbitrary code execution;
+      bind 127.0.0.1 only, never 0.0.0.0 and never through a tunnel
+  verified-on: FreeBSD 15.1-RELEASE, guile3 3.0.10, 2026-09-26
+  enforcement: >-
+      the requires block is documentation, not a sandbox: nothing in the harness
+      reads it. Real gating is allowed-tools above, settings.json permissions,
+      and `claude plugin eval --allow-tools` at eval time
 ---
 
 # Evaluate before you assert

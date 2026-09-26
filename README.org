@@ -54,6 +54,34 @@ The expensive half is already done. What was missing is a convention.
 | [[file:EXPERIMENTS.org]]          | *the interesting part*: six failures, four of them silent      |
 | ~tests/test-proxy.sh~             | one regression test per failure                                |
 
+* As a plugin
+
+The repository is also a Claude Code plugin (~.claude-plugin/plugin.json~), so
+the three skills load together and the eval suite is targetable:
+
+#+begin_src sh
+claude plugin eval . --ablation with-without --allow-tools Bash
+#+end_src
+
+Frontmatter carries the access requirements, using only keys the official
+validator accepts --- ~name~, ~description~, ~license~, ~allowed-tools~,
+~metadata~, ~compatibility~:
+
+- ~allowed-tools~ is *enforced*: it bounds what the skill may call.
+- ~metadata.requires~ is *documentation*. Nothing in the harness reads it. It
+  records binaries and their fallbacks, process and port use, filesystem paths
+  with r/rw, network reach, and ~credentials: none~ --- so a reader knows the
+  blast radius without reading the scripts. Real gating is ~allowed-tools~,
+  ~settings.json~ permissions, and ~claude plugin eval --allow-tools~.
+
+Every skill here declares ~danger: a Guile socket REPL is unauthenticated
+arbitrary code execution~, because it is.
+
+*The eval suite is authored but unrun*: ~claude plugin eval~ is in early access
+and not enabled on this account. See [[file:evals/README.org]]. A suite nobody
+has run is precisely the unverified-claim failure this plugin argues against, so
+it is labelled, not implied.
+
 * Quick start
 
 #+begin_src sh
