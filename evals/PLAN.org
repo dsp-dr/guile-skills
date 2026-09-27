@@ -171,6 +171,62 @@ The obvious host is *mini* (192.168.86.22): the macOS ~orjson~ wheel exists, and
 Ollama is already local to it, which removes the network hop from every call.
 That is also where this repo will be read from macOS as ~jwalsh~.
 
+*** It is a chain, not one package (2026-09-27)
+
+Pinning around it was tried and does not work. Fixing one Rust dependency only
+reveals the next:
+
+| package            | FreeBSD wheel | outcome on nexus                                   |
+|--------------------+---------------+----------------------------------------------------|
+| ~orjson~ 3.12.0    | none          | cargo build fails                                  |
+| ~orjson~ 3.11.9    | none on PyPI  | cargo build fails *too* -- pinning does not help     |
+| ~litellm~ 1.102.1  | none          | fails; ships a Rust bridge (~litellm-rust~)         |
+| ~litellm~ <= 1.90.0 | ~py3-none-any~ | *pure Python* -- this one is dodgeable                |
+| ~maturin~ 1.15.0   | none          | *compiled from source first, every time*            |
+
+~maturin~ is the sting. It is the build backend for the others, has no FreeBSD
+wheel of its own, and so uv compiles it -- cbindgen, toml, cc, syn -- before it can
+even attempt orjson. That is where the wall-clock goes, and it happens on every
+uncached attempt.
+
+~litellm~ went from pure Python to a Rust extension between 1.90.0 and 1.99.0,
+and ~dspy~ only requires ~litellm>=1.65.8~, so ~litellm==1.90.0~ satisfies it
+without a build. ~orjson~ has no such escape: every version needs the extension.
+
+*** The one unexhausted route
+
+FreeBSD *ports* ships a working prebuilt: ~py312-orjson-3.11.9_2~, whose wheel
+tag is ~cp312-cp312-freebsd_15_0_release_p13_amd64~ -- a real FreeBSD wheel, built
+by maturin on FreeBSD. Extracted into a venv it imports fine, and ~uv pip list~
+*does* report ~orjson 3.11.9~ installed.
+
+uv nevertheless re-resolves and rebuilds it, because that platform tag is not in
+its compatibility set. So the dependency is satisfiable on FreeBSD; the obstacle
+is the installer, not the platform. ~pip~ checks satisfaction by version rather
+than by wheel tag and should accept it -- untested, because the machine was busy
+compiling maturin and the attempt was killed rather than left to grind.
+
+Note the Python version constraint: ports packages ~py312-orjson~ only, no py311.
+
+*** hydra was not testable
+
+hydra (192.168.86.29, ~hydra.lan~) is reachable -- ssh/22 open, portclaim
+answering on 4700, six services claimed from ~aygp-dr/hydra-setup~ -- but there is
+no SSH credential for it on nexus: only ~id_ed25519_github.pub~ exists and no
+agent is running. Both ~dsp-dr@~ and ~jwalsh@~ are refused with
+~Permission denied (publickey,keyboard-interactive)~.
+
+One thing worth writing down, since it will recur: ~ssh hydra~ and
+~ssh 192.168.86.29~ fail *host key verification* while
+~ssh hydra.lan~ does not. This is *not* a key mismatch -- the fingerprint offered
+and the fingerprint stored are both
+~SHA256:SpuXbnVeVovNv1vtnp5mGSh3DnlvPD9VbcdqV2JgzNc~. ~known_hosts~ simply holds
+the entry under ~hydra.lan~ alone, so the short name and the IP match no pattern.
+Use the FQDN; do not accept a new key.
+
+Testing hydra would in any case confirm a predictable failure: it is FreeBSD 14.4,
+the same platform class, with the same missing wheels.
+
 Two signatures and a metric, which map onto this problem almost too neatly:
 
 #+begin_src python
