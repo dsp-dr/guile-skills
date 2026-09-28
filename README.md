@@ -4,68 +4,43 @@
 
 [![](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![](https://img.shields.io/badge/guile-3.0-orange.svg)](https://www.gnu.org/software/guile/) [![](https://img.shields.io/badge/claude--code-plugin-5A67D8.svg)](https://github.com/dsp-dr/guile-skills/blob/main/.claude-plugin/plugin.json) [![](https://img.shields.io/badge/verified-FreeBSD%2015.1-red.svg)](EXPERIMENTS.org)
 
-Agent skills and tooling for working on Guile Scheme projects, built around one observation:
+Three Claude Code skills that give an agent a real Guile REPL to work against instead of guessing. They start `guile3 --debug --listen` on a per-project port, record every evaluation through a logging proxy, and expose Guile's own debugger — tracing, breakpoints, macro expansion, profiling — over that same socket.
 
-> The agent's hardest problem is **mechanical** (delimiters) and **epistemic** (stale state, unverified claims), not stylistic.
+Everything stays on `127.0.0.1`. Nothing is sent anywhere.
 
-That is experiment 007's one-line finding from close-reading 75 Clojure agent skills, and it decides what is in this repository and what is not. There is **no style guide here**. Across those 75 skills, Java-style loops drew **zero** warnings: skills police tooling and process failures, not idioms. So this is a "how not to lie to yourself about what you ran" repository.
+## The three skills
 
-## Why this exists
-
-A census of Guile agent skills on GitHub (`aygp-dr/github-skills-search`, experiment 011) found **14** repositories with path-named Guile skills against Clojure's **194**, and roughly **one** about writing Guile at all. No Guile-ecosystem upstream ships a `SKILL.md`. The niche is open.
-
-Guile also starts ahead of where Clojure started. Clojure needed nREPL **plus** a bridge, and every ecosystem then shipped its own eval CLI — `clj-nrepl-eval`, `brepl`, `nreplctl`, Penpot's `nrepl-eval.mjs`, Metabase's `./bin/mage`. That fragmentation was the cost of everyone solving it locally. Guile ships the server in the binary:
-
-```bash
-guile3 --debug --listen=37496 -c '(sleep 30)' &
-printf '(+ 1 1)\n' | nc -N 127.0.0.1 37496
-```
-
-    $1 = 2
-
-The expensive half is already done. What was missing is a convention.
-
-## What is here
-
-| Path | What it is |
+| Skill | Use it when |
 |----|----|
-| `skills/guile-repl-server/` | stand up a project with a socket REPL an agent can drive |
-| `skills/guile-repl-eval/` | evaluate before you assert; the meta-commands and their traps |
-| `skills/guile-repl-proxy/` | record the session; Emacs + Geiser through the same proxy |
-| `scripts/lib/guile-repl-paths.sh` | per-project slug, ports and log directory |
-| `skills/guile-repl-server/scripts/guile-repl-server.sh` | start, stop and status for the REPL and its proxy |
-| `skills/guile-repl-eval/scripts/guile-repl-eval.sh` | send forms, get the value back without the banner |
-| `scripts/lib/guile-repl-proxy.scm` | the logging tee, in Guile |
-| [file:EXPERIMENTS.org](EXPERIMENTS.org) | **the interesting part**: six failures, four of them silent |
-| `tests/test-proxy.sh` | one regression test per failure |
+| `guile-repl-server` | starting or resuming a Guile project: brings up the REPL and its logging proxy |
+| `guile-repl-eval` | a claim about Guile code should be checked by running it, not recalled |
+| `guile-repl-proxy` | you need a reviewable transcript of what was evaluated, or Emacs and an agent sharing one session |
 
-## As a plugin
+## Requirements
 
-The repository is also a Claude Code plugin (`.claude-plugin/plugin.json`), so the three skills load together and the eval suite is targetable:
+Guile 3.x. The binary is `guile3` on FreeBSD, `guile-3.0` on Debian and Ubuntu, `guile` under Homebrew; everything here probes all three and prints which it chose. Bare `guile` is **2.2.7** on some systems and will not work.
+
+`nc` for the eval bridge. That is the whole list — no bridge process, no daemon, no account. `guile3 --listen` is the server.
+
+## Install
 
 ```bash
-claude plugin eval . --ablation with-without --allow-tools Bash
+# as skills, pinned
+gh skill install dsp-dr/guile-skills --pin v0.1.2
+
+# or as a plugin, for one session
+claude --plugin-dir /path/to/guile-skills
 ```
 
-Frontmatter carries the access requirements, using only keys the official validator accepts — `name`, `description`, `license`, `allowed-tools`, `metadata`, `compatibility`:
+Then ask for what you want — "start a REPL for this project and trace `(fib 4)`" — and the matching skill loads on its own.
 
-- `allowed-tools` is **enforced**: it bounds what the skill may call.
-- `metadata.requires` is **documentation**. Nothing in the harness reads it. It records binaries and their fallbacks, process and port use, filesystem paths with r/rw, network reach, and `credentials: none` — so a reader knows the blast radius without reading the scripts. Real gating is `allowed-tools`, `settings.json` permissions, and `claude plugin eval --allow-tools`.
-
-Every skill here declares `danger: a Guile socket REPL is unauthenticated arbitrary code execution`, because it is.
-
-`claude plugin eval` itself is in early access and not enabled on this account, so the hand-written suite in [file:evals/README.org](evals/README.org) hasn't been run through it. It has been run a different way: `skill-creator`'s benchmark mode, comparing an agent with each skill against one without across four real prompts per skill, with the port/log overrides that made 24 isolated runs safe to execute in parallel in this same repository. Results, per-expectation grading, and timing live under `skills/<name>-workspace/iteration-1/`.
-
-See [file:RELEASING.md](RELEASING.md) for what counts as a patch/minor/major bump and how to cut one.
-
-## Quick start
+## Quick start from a checkout
 
 ```bash
-gmake paths      # slug, ports, log directory, which guile
+gmake paths      # slug, ports, data directory, which guile
 gmake start      # REPL on PORT, logging proxy on PORT+1
 gmake status
 gmake eval F='(+ 1 1)'
-gmake test       # 7 regression tests
 gmake stop
 ```
 
@@ -76,113 +51,26 @@ gmake stop
                                      │
                                      └──▶ ${CLAUDE_PLUGIN_DATA}/projects/<slug>/repl.log
 
-The slug follows `~/.claude/projects/` exactly — every `/` and `.` in the absolute path becomes `-`:
+The port pair is derived from the working directory, so a project — and each worktree of it — always gets its own. The transcript is keyed the same way, under the plugin's data directory rather than inside your repository, because it contains whatever you evaluated. Rotated at 4 MiB, five generations.
 
-    /home/dsp-dr/ghq/github.com/dsp-dr/guile-skills
-      -> ${CLAUDE_PLUGIN_DATA}/projects/-home-dsp-dr-ghq-github-com-dsp-dr-guile-skills/
-
-Rotated at 4 MiB, five generations. Outside the repository on purpose.
-
-## Control flow for a sample project
-
-A real session on a project with a bug in `src/math.scm`. The point of drawing it is that each skill hands off to the next, and the debugger is reached *through* the same socket as ordinary evaluation – there is no second channel.
-
-```mermaid
-sequenceDiagram
-    actor Agent
-    participant Server as guile-repl-server
-    participant Proxy as proxy :PORT+1
-    participant REPL as guile3 --debug :PORT
-    participant Log as repl.log
-    actor Human as Human + Geiser
-
-    Note over Agent,Server: 1. stand up the surface, once per project
-    Agent->>Server: ${CLAUDE_SKILL_DIR}/scripts/guile-repl-server.sh
-    Server->>Server: paths.sh: probe guile3/guile-3.0, derive PORT
-    Server->>Server: refuse if PORT already listening
-    Server->>REPL: spawn --debug --listen=PORT
-    Server->>Proxy: spawn --listen PORT+1 --target PORT
-
-    Note over Agent,Log: 2. evaluate, and every byte is recorded
-    Agent->>Proxy: (use-modules (math)) (fib 10)
-    Proxy->>REPL: forward verbatim
-    REPL-->>Proxy: $1 = 55
-    Proxy->>Log: -> and <- with timestamps
-    Proxy-->>Agent: $1 = 55
-
-    Note over Agent,REPL: 3. the debugger, same socket
-    Agent->>Proxy: ,trace (fib 4)
-    Proxy->>REPL: forward
-    REPL-->>Agent: indented call tree
-    Agent->>Proxy: ,break fib
-    Agent->>Proxy: (fib 4) then ,bt
-    REPL-->>Agent: frames at the breakpoint
-    Agent->>Proxy: ,profile (fib 30)
-    REPL-->>Agent: flat profile, 3 samples
-
-    Note over Agent,REPL: 4. fix, then force the reload
-    Agent->>Agent: edit src/math.scm
-    Agent->>Proxy: (reload-module (resolve-module '(math)))
-    Agent->>Proxy: (fib 10)
-    REPL-->>Agent: $2 = 55
-
-    Note over Human,Log: 5. the human shares the transcript
-    Human->>Proxy: M-x geiser-connect 127.0.0.1 PORT+1
-    Proxy->>Log: the human's forms land in the same file
-    Agent->>Log: read it back to see what they tried
-```
-
-Where it goes quiet rather than wrong, by step:
-
-| Step | If you skip it | What you see |
-|----|----|----|
-| 1, `--debug` | tracing and breakpoints do nothing | `,trace` prints **no lines and no error**, reading as "makes no calls" |
-| 1, port check | a stale listener keeps serving | the new process dies, the old one answers, and your log never grows |
-| 2, `PORT+1` | connect to `PORT` instead | the right answer, and nothing recorded |
-| 3, `,profile` too small | nothing to sample | `No samples recorded.`, which reads as a broken profiler |
-| 4, reload | the module is already loaded | the **pre-edit** answer, with no error |
-
-Only step 5 is optional. The proxy serves connections serially, so an agent and Geiser at once needs two proxies or a threaded accept loop.
+[Control flow for a sample project](docs/control-flow.org) walks one session end to end.
 
 ## Three things that will bite you
 
-1.  **Bare `guile` may be 2.2.7.** On this FreeBSD box `guile` is 2.2.7 while `guile3` and `guile-3.0` are 3.0.10. Anything shelling out to `guile` fails in ways that look like your code is wrong. Everything here prefers `guile3` and prints which binary it chose.
-2.  **`--debug` or the debug surfaces silently do nothing.** Without it, `,trace (fib 4)` emits no lines **and no error**.
-3.  **There is no linter.** `guild3 compile -W 3` gives warnings; `guix style` formats Guix package definitions, not general Scheme. No clj-kondo equivalent exists, so no skill here says "run the linter". If you want a high-value tool target after the eval bridge, this is it.
+1.  **Bare `guile` may be 2.2.7.** Anything shelling out to `guile` then fails in ways that look like your code is wrong.
+2.  **Without `--debug`, the debug surfaces silently do nothing.** `,trace (fib 4)` emits no lines **and no error**, which reads as "this procedure makes no calls". Every start path here passes `--debug`.
+3.  **There is no Guile linter.** `guild3 compile -W 3` gives warnings and that is the whole story — no clj-kondo equivalent exists, so nothing here tells you to "run the linter".
 
-## Anti-patterns worth encoding
+[EXPERIMENTS.org](EXPERIMENTS.org) has the rest, including the four failures that produced no error at all.
 
-Ranked by how many of 75 close-read Clojure skills police each. They transfer to Guile essentially unchanged — they are Lisp problems, not Clojure problems.
+## Security
 
-| Anti-pattern | Clojure skills | Guile form |
-|----|----|----|
-| hand-editing parens instead of structural tools | 22 | identical, plus `#;` datum comments and `#\|...\|#` blocks that naive matchers break on |
-| hallucinated APIs; success claimed without running | `19 | identical; ~--listen` is what makes "verified" checkable |  |
-| stale code: testing without reload | 14 | `(reload-module (resolve-module '(a b)))`; redefining a record or GOOPS class leaves instances on the old definition |
-| global mutable state | 8 | identical |
-| define-after-use instead of reordering | 8 | identical |
-| wrong runtime or a stale port file | 6 | **bigger here**: `guile` 2.2 vs `guile3` vs `guix repl` vs Hoot/WASM |
-| module ↔ file-path mapping | 3 | `(define-module (foo bar))` ↔ `foo/bar.scm` plus `%load-path` |
+A Guile socket REPL is unauthenticated arbitrary code execution. That is why everything here binds `127.0.0.1` only, and why the skills decline to bind `0.0.0.0` or forward the port off-host.
 
-Delimiters are the most-policed problem **and** the one visibly migrating out of prompts into tooling (Parinfer, `clj-paren-repair`). One Clojure review skill now tells reviewers to ignore parens entirely because the linter handles them. The skill text is dialect-independent and free to transfer: delegate structural edits to the tool, never hand-fix delimiters.
+## More
 
-## Delivery
-
-Guile skills do not distribute through registries. Experiment 011 found the real ones — `guix`, `guix-packaging`, `guix-package-update`, `pack-guix` — living in personal **Guix Home and dotfiles trees**, where the config manages the agent's instructions alongside the editor and the shell. So the natural vehicle here is a Guix home service or package, not a marketplace plugin, and the `${CLAUDE_PLUGIN_DATA}/projects/` layout mirrors `~/.claude/projects/`. Not built yet.
-
-## Provenance
-
-Claims in this repository are either measured here or inherited, and the difference is marked:
-
-- **Measured on nexus** (FreeBSD 15.1-RELEASE, `guile3` 3.0.10, 2026-09-26): everything in [file:EXPERIMENTS.org](EXPERIMENTS.org), every number in `tests/test-proxy.sh`.
-- **Measured on hydra** (FreeBSD 14.4, `guile3` 3.0.11) by a second agent: that `--listen` binds loopback only and is unreachable from the LAN address, and that the wire protocol is the plain REPL — banner, `$N = value`, prompt as implicit end-of-response — not a framed protocol. The proxy's byte-forwarding-plus-tee design rests on that second finding, so it is load-bearing: if it is wrong, the design is wrong.
-- **Inherited, Clojure-side**: the 75-skill and 194-repo counts, the anti-pattern rankings, the 007 thesis, and the Guix-Home delivery finding. From `jwalsh/37d0ef2d6837e9234a878991d3c01c78` (§3.1 Surfaces) and `aygp-dr/58f58a9ca6a44cc0570106999a96a9b1`.
-- **Not established**: why `,locals` reports no variables at a frame where an argument is in scope; Guile module-reload semantics under GOOPS redefinition; `guile-lsp-server` maturity. Flagged so they get checked before being encoded as instructions.
-
-Note the two Guile versions above. Two agents measured the "same" binary and got 3.0.10 and 3.0.11, and both were right, because they were on different machines. That is the "wrong runtime" anti-pattern happening to the people writing the anti-pattern table.
-
-## Related
-
-- `dsp-dr/guile-sicp` — `surfaces.org`, the same model applied to reading SICP
-- `dsp-dr/guile-git-scratch` — `research/scheme-tooling/`, Guile vs Chez vs MIT vs Racket
-- `dsp-dr/guile-cps-debugger` — a GUI-first Guile debugger; useful to a person, unreachable for an agent, which is the distinction this repository turns on
+- [Why this exists](docs/rationale.org) — the argument, the numbers, and which claims are inherited
+- [Control flow](docs/control-flow.org) — one session end to end, and where each step fails quietly
+- [EXPERIMENTS.org](EXPERIMENTS.org) — six real failures, four of them silent
+- [CONTRIBUTING.org](CONTRIBUTING.org) — tooling versions, the four testing layers, conventions
+- [RELEASING.md](RELEASING.md) — what counts as patch, minor, major, and how to cut one

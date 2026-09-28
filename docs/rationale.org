@@ -1,0 +1,111 @@
+#+TITLE: Why this exists, and what it inherits
+#+DATE: 2026-09-26
+#+AUTHOR: dsp-dr
+
+The reasoning behind [[file:../README.org][guile-skills]]: what the repository is
+arguing, where the numbers come from, and which claims are measured here versus
+inherited. Moved out of the README so that file can be what a new user needs.
+
+* The thesis
+
+Agent skills and tooling for working on Guile Scheme projects, built around one
+observation:
+
+#+begin_quote
+The agent's hardest problem is *mechanical* (delimiters) and *epistemic* (stale
+state, unverified claims), not stylistic.
+#+end_quote
+
+That is experiment 007's one-line finding from close-reading 75 Clojure agent
+skills, and it decides what is in this repository and what is not. There is *no
+style guide here*. Across those 75 skills, Java-style loops drew *zero*
+warnings: skills police tooling and process failures, not idioms. So this is a
+"how not to lie to yourself about what you ran" repository.
+
+* Why this exists
+
+A census of Guile agent skills on GitHub (~aygp-dr/github-skills-search~,
+experiment 011) found *14* repositories with path-named Guile skills against
+Clojure's *194*, and roughly *one* about writing Guile at all. No
+Guile-ecosystem upstream ships a ~SKILL.md~. The niche is open.
+
+Guile also starts ahead of where Clojure started. Clojure needed nREPL *plus* a
+bridge, and every ecosystem then shipped its own eval CLI --- ~clj-nrepl-eval~,
+~brepl~, ~nreplctl~, Penpot's ~nrepl-eval.mjs~, Metabase's ~./bin/mage~. That
+fragmentation was the cost of everyone solving it locally. Guile ships the server
+in the binary:
+
+#+begin_src sh
+guile3 --debug --listen=37496 -c '(sleep 30)' &
+printf '(+ 1 1)\n' | nc -N 127.0.0.1 37496
+#+end_src
+
+#+begin_example
+$1 = 2
+#+end_example
+
+The expensive half is already done. What was missing is a convention.
+
+* Anti-patterns worth encoding
+
+Ranked by how many of 75 close-read Clojure skills police each. They transfer to
+Guile essentially unchanged --- they are Lisp problems, not Clojure problems.
+
+| Anti-pattern                                       | Clojure skills | Guile form                                                          |
+|----------------------------------------------------+----------------+---------------------------------------------------------------------|
+| hand-editing parens instead of structural tools    |             22 | identical, plus ~#;~ datum comments and ~#\|...\|#~ blocks that naive matchers break on |
+| hallucinated APIs; success claimed without running  |            ~19 | identical; ~--listen~ is what makes "verified" checkable             |
+| stale code: testing without reload                 |             14 | ~(reload-module (resolve-module '(a b)))~; redefining a record or GOOPS class leaves instances on the old definition |
+| global mutable state                               |              8 | identical                                                           |
+| define-after-use instead of reordering             |              8 | identical                                                           |
+| wrong runtime or a stale port file                 |              6 | *bigger here*: ~guile~ 2.2 vs ~guile3~ vs ~guix repl~ vs Hoot/WASM    |
+| module ↔ file-path mapping                         |              3 | ~(define-module (foo bar))~ ↔ ~foo/bar.scm~ plus ~%load-path~        |
+
+Delimiters are the most-policed problem *and* the one visibly migrating out of
+prompts into tooling (Parinfer, ~clj-paren-repair~). One Clojure review skill now
+tells reviewers to ignore parens entirely because the linter handles them. The
+skill text is dialect-independent and free to transfer: delegate structural edits
+to the tool, never hand-fix delimiters.
+
+* Delivery
+
+Guile skills do not distribute through registries. Experiment 011 found the real
+ones --- ~guix~, ~guix-packaging~, ~guix-package-update~, ~pack-guix~ --- living
+in personal *Guix Home and dotfiles trees*, where the config manages the agent's
+instructions alongside the editor and the shell. So the natural vehicle here is a
+Guix home service or package, not a marketplace plugin, and the
+~${CLAUDE_PLUGIN_DATA}/projects/~ layout mirrors ~~/.claude/projects/~. Not built yet.
+
+* Provenance
+
+Claims in this repository are either measured here or inherited, and the
+difference is marked:
+
+- *Measured on nexus* (FreeBSD 15.1-RELEASE, ~guile3~ 3.0.10, 2026-09-26):
+  everything in [[file:../EXPERIMENTS.org]], every number in ~tests/test-proxy.sh~.
+- *Measured on hydra* (FreeBSD 14.4, ~guile3~ 3.0.11) by a second agent: that
+  ~--listen~ binds loopback only and is unreachable from the LAN address, and
+  that the wire protocol is the plain REPL --- banner, ~$N = value~, prompt as
+  implicit end-of-response --- not a framed protocol. The proxy's
+  byte-forwarding-plus-tee design rests on that second finding, so it is
+  load-bearing: if it is wrong, the design is wrong.
+- *Inherited, Clojure-side*: the 75-skill and 194-repo counts, the anti-pattern
+  rankings, the 007 thesis, and the Guix-Home delivery finding. From
+  ~jwalsh/37d0ef2d6837e9234a878991d3c01c78~ (§3.1 Surfaces) and
+  ~aygp-dr/58f58a9ca6a44cc0570106999a96a9b1~.
+- *Not established*: why ~,locals~ reports no variables at a frame where an
+  argument is in scope; Guile module-reload semantics under GOOPS redefinition;
+  ~guile-lsp-server~ maturity. Flagged so they get checked before being encoded
+  as instructions.
+
+Note the two Guile versions above. Two agents measured the "same" binary and got
+3.0.10 and 3.0.11, and both were right, because they were on different machines.
+That is the "wrong runtime" anti-pattern happening to the people writing the
+anti-pattern table.
+
+* Related
+
+- ~dsp-dr/guile-sicp~ --- ~surfaces.org~, the same model applied to reading SICP
+- ~dsp-dr/guile-git-scratch~ --- ~research/scheme-tooling/~, Guile vs Chez vs MIT vs Racket
+- ~dsp-dr/guile-cps-debugger~ --- a GUI-first Guile debugger; useful to a person,
+  unreachable for an agent, which is the distinction this repository turns on
