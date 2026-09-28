@@ -6,7 +6,7 @@
 *.swp
 .#*
 
-# Transcripts and server output live in ~/.guile-skill/projects/<slug>/, never
+# Transcripts and server output live in ${CLAUDE_PLUGIN_DATA}/projects/<slug>/, never
 # here -- a REPL transcript contains whatever was evaluated. Belt and braces in
 # case someone points --log at the working directory.
 *.log

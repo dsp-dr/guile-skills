@@ -74,12 +74,12 @@ gmake stop
     agent / Emacs+Geiser ──▶ 127.0.0.1:PORT+1 ──▶ 127.0.0.1:PORT
                                   (proxy)          (guile3 --debug --listen)
                                      │
-                                     └──▶ ~/.guile-skill/projects/<slug>/repl.log
+                                     └──▶ ${CLAUDE_PLUGIN_DATA}/projects/<slug>/repl.log
 
 The slug follows `~/.claude/projects/` exactly — every `/` and `.` in the absolute path becomes `-`:
 
     /home/dsp-dr/ghq/github.com/dsp-dr/guile-skills
-      -> ~/.guile-skill/projects/-home-dsp-dr-ghq-github-com-dsp-dr-guile-skills/
+      -> ${CLAUDE_PLUGIN_DATA}/projects/-home-dsp-dr-ghq-github-com-dsp-dr-guile-skills/
 
 Rotated at 4 MiB, five generations. Outside the repository on purpose.
 
@@ -168,7 +168,7 @@ Delimiters are the most-policed problem **and** the one visibly migrating out of
 
 ## Delivery
 
-Guile skills do not distribute through registries. Experiment 011 found the real ones — `guix`, `guix-packaging`, `guix-package-update`, `pack-guix` — living in personal **Guix Home and dotfiles trees**, where the config manages the agent's instructions alongside the editor and the shell. So the natural vehicle here is a Guix home service or package, not a marketplace plugin, and the `~/.guile-skill/projects/` layout is deliberately dotfile-shaped. Not built yet.
+Guile skills do not distribute through registries. Experiment 011 found the real ones — `guix`, `guix-packaging`, `guix-package-update`, `pack-guix` — living in personal **Guix Home and dotfiles trees**, where the config manages the agent's instructions alongside the editor and the shell. So the natural vehicle here is a Guix home service or package, not a marketplace plugin, and the `${CLAUDE_PLUGIN_DATA}/projects/` layout mirrors `~/.claude/projects/`. Not built yet.
 
 ## Provenance
 

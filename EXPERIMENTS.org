@@ -197,6 +197,8 @@ Any liveness check for a profiler must use a workload large enough to sample.
   which is why the base is there.
 - *Logs live outside the repository*, under
   ~~/.guile-skill/projects/<slug>/~, mirroring ~~/.claude/projects/~ exactly
+  (/superseded 2026-09-28/: ~${CLAUDE_PLUGIN_DATA}~ is the sanctioned per-plugin
+  data directory and is now used; ~~/.guile-skill/~ remains only as a fallback)
   (every ~/~ and ~.~ becomes ~-~). A REPL transcript contains whatever was
   evaluated; it must not be commit-adjacent.
 - *No style guide.* Deliberate, following experiment 007's finding that Clojure

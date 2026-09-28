@@ -13,7 +13,7 @@ metadata:
       one, which is the failure it most often diagnoses
     ports: binds 127.0.0.1:PORT+1, connects to 127.0.0.1:PORT
     filesystem:
-      - ~/.guile-skill/projects/<slug>/repl.log  (rw; rotated at 4 MiB, 5 generations)
+      - ${CLAUDE_PLUGIN_DATA}/projects/<slug>/repl.log  (rw; rotated at 4 MiB, 5 generations)
     network:
       - 127.0.0.1 only
     credentials: none
@@ -41,17 +41,21 @@ and it is not.
 ```
 agent / Emacs ──▶ 127.0.0.1:PORT+1 (proxy) ──▶ 127.0.0.1:PORT (guile3 --debug --listen)
                           │
-                          └──▶ ~/.guile-skill/projects/<slug>/repl.log
+                          └──▶ ${CLAUDE_PLUGIN_DATA}/projects/<slug>/repl.log
 ```
 
 ## Where transcripts go
 
-Keyed on the working directory exactly as `~/.claude/projects/` is — every `/`
-and `.` becomes `-`:
+Under `${CLAUDE_PLUGIN_DATA}` — the per-plugin persistent directory, kept across
+updates — keyed on the working directory exactly as `~/.claude/projects/` is:
+every `/` and `.` becomes `-`. The variable is substituted into this file when
+the skill loads and is not in the Bash tool's environment, so it is passed to the
+scripts explicitly as `GUILE_SKILL_DATA="${CLAUDE_PLUGIN_DATA}"`. The old
+`~/.guile-skill/` is deprecated and remains only as a fallback:
 
 ```
 /home/dsp-dr/ghq/github.com/dsp-dr/guile-skills
-  -> ~/.guile-skill/projects/-home-dsp-dr-ghq-github-com-dsp-dr-guile-skills/repl.log
+  -> ${CLAUDE_PLUGIN_DATA}/projects/-home-dsp-dr-ghq-github-com-dsp-dr-guile-skills/repl.log
 ```
 
 Rotated at 4 MiB, five generations, rotated between connections so no session is

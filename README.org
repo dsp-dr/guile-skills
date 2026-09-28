@@ -110,7 +110,7 @@ gmake stop
 agent / Emacs+Geiser ──▶ 127.0.0.1:PORT+1 ──▶ 127.0.0.1:PORT
                               (proxy)          (guile3 --debug --listen)
                                  │
-                                 └──▶ ~/.guile-skill/projects/<slug>/repl.log
+                                 └──▶ ${CLAUDE_PLUGIN_DATA}/projects/<slug>/repl.log
 #+end_example
 
 The slug follows ~~/.claude/projects/~ exactly --- every ~/~ and ~.~ in the
@@ -118,7 +118,7 @@ absolute path becomes ~-~:
 
 #+begin_example
 /home/dsp-dr/ghq/github.com/dsp-dr/guile-skills
-  -> ~/.guile-skill/projects/-home-dsp-dr-ghq-github-com-dsp-dr-guile-skills/
+  -> ${CLAUDE_PLUGIN_DATA}/projects/-home-dsp-dr-ghq-github-com-dsp-dr-guile-skills/
 #+end_example
 
 Rotated at 4 MiB, five generations. Outside the repository on purpose.
@@ -228,7 +228,7 @@ ones --- ~guix~, ~guix-packaging~, ~guix-package-update~, ~pack-guix~ --- living
 in personal *Guix Home and dotfiles trees*, where the config manages the agent's
 instructions alongside the editor and the shell. So the natural vehicle here is a
 Guix home service or package, not a marketplace plugin, and the
-~~/.guile-skill/projects/~ layout is deliberately dotfile-shaped. Not built yet.
+~${CLAUDE_PLUGIN_DATA}/projects/~ layout mirrors ~~/.claude/projects/~. Not built yet.
 
 * Provenance
 

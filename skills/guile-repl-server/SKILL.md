@@ -13,7 +13,7 @@ metadata:
       pkill to stop them); starts long-lived background processes
     ports: one TCP pair on 127.0.0.1, derived per project as 37000 + cksum(slug) mod 900
     filesystem:
-      - ~/.guile-skill/projects/<slug>/  (rw; transcripts and stderr, outside the repo)
+      - ${CLAUDE_PLUGIN_DATA}/projects/<slug>/  (rw; transcripts and stderr, outside the repo)
       - <project>/src  (r; Guile load path)
     network:
       - 127.0.0.1 only
@@ -58,10 +58,18 @@ its choice.
 ## Start it
 
 ```sh
-./bin/guile-repl-server.sh          # REPL on PORT, logging proxy on PORT+1
-./bin/guile-repl-server.sh --status # what is actually listening
+GUILE_SKILL_DATA="${CLAUDE_PLUGIN_DATA}" ./bin/guile-repl-server.sh   # REPL on PORT, proxy on PORT+1
+./bin/guile-repl-server.sh --status  # what is actually listening
 ./bin/guile-repl-server.sh --stop
 ```
+
+State — transcripts and stderr — goes under `${CLAUDE_PLUGIN_DATA}/projects/<slug>/`,
+the per-plugin directory Claude Code creates on first reference and keeps across
+plugin updates. That variable is substituted into this file when the skill loads;
+it is **not** in the Bash tool's environment, which is why it is passed in
+explicitly above. Without it the scripts fall back to `~/.guile-skill/`, which is
+**deprecated**. Never write state next to the plugin itself: `${CLAUDE_PLUGIN_ROOT}`
+moves on every update.
 
 The port is derived from the working directory, so a project always gets the
 same one: `37000 + cksum(slug) mod 900`, where the slug is the absolute path with
