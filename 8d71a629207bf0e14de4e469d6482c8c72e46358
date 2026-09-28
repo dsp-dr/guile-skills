@@ -1,0 +1,27 @@
+Context
+  Decision was that skill scripts belong under the skill and meta scripts under
+  scripts/. That matches the documentation and the corpus: 0 of 39 official
+  plugins have a top-level bin/, 3 use plugin-level scripts/, 6 use skill-level
+  scripts/.
+
+Considerations
+  - Duplication was chosen deliberately over a shared directory. guile-repl-
+    paths.sh is carried by all three skills and guile-repl-proxy.scm by two,
+    because gh skill install copies one skill's subtree and a skill that reaches
+    outside it works from a checkout and breaks for every installed user. The
+    drift check is what makes duplication safe.
+  - ${CLAUDE_SKILL_DIR} was chosen over ${CLAUDE_PLUGIN_ROOT} even though the
+    corpus prefers the latter 40 references to 6. CLAUDE_PLUGIN_ROOT resolves
+    only when the whole plugin is installed; this repo also distributes through
+    gh skill install, where it does not.
+  - The executable-bit strip was found by measurement, not by reading: ship-check
+    reported "executables shipped: NO" after the scripts were already in place,
+    which is what prompted comparing source and installed permissions.
+
+Deviations
+  - ship-check's verdict changed shape. "Is anything executable" was the wrong
+    question once the answer is always no; it now checks that each named script
+    ships and is invoked through an interpreter, which is what actually breaks.
+  - The proxy skill ships guile-repl-proxy.scm although its SKILL.md never
+    invokes it. The skill documents the proxy, so a reader installing it alone
+    can inspect the implementation the document describes.
