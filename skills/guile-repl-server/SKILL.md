@@ -2,7 +2,7 @@
 name: guile-repl-server
 description: Stand up a Guile project with a socket REPL an agent can drive - guile3 --debug --listen on a per-project port, with a logging proxy on PORT+1. Use when starting or resuming work on a Guile/Scheme project, when you need to evaluate code rather than only read it, or when a claim about Guile behaviour needs checking against a running interpreter.
 license: MIT
-allowed-tools: Bash, Read
+allowed-tools: Read
 metadata:
   requires:
     binaries: [guile3]
@@ -25,7 +25,11 @@ metadata:
   verified-on: FreeBSD 15.1-RELEASE, guile3 3.0.10, 2026-09-26
   enforcement: >-
       the requires block is documentation, not a sandbox: nothing in the harness
-      reads it. Real gating is allowed-tools above, settings.json permissions,
+      reads it. This skill's Bash calls are diagnostic and process-management
+      commands (sockstat, lsof, pgrep, pkill, guile3, curl) too varied to
+      pre-approve narrowly without either breaking legitimate use or granting
+      a de-facto blanket Bash grant, so allowed-tools deliberately omits Bash:
+      the user approves each call. Real gating is settings.json permissions
       and `claude plugin eval --allow-tools` at eval time
 ---
 

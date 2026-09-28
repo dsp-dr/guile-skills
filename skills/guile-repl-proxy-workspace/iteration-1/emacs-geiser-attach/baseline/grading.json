@@ -1,0 +1,35 @@
+{
+  "expectations": [
+    {
+      "text": "The Geiser connection is directed at the proxy port (PORT+1), naming the actual number.",
+      "passed": false,
+      "evidence": "Deliberately directs Geiser at the bare REPL port (42281) instead, to avoid the proxy's serial accept loop."
+    },
+    {
+      "text": "The elisp shown sets geiser-guile-binary to \"guile3\" and not to \"guile\".",
+      "passed": false,
+      "evidence": "No geiser-guile-binary setting shown at all \u2014 'Scheme implementation: guile' is ambiguous with the system's plain guile (2.2.7)."
+    },
+    {
+      "text": "States the proxy serves connections serially and simultaneous Geiser+agent needs two proxies or a threaded accept loop \u2014 does not present concurrent use as already working.",
+      "passed": true,
+      "evidence": "Explicit and accurate: Geiser on the proxy port would hang the agent's evals until Geiser disconnects; recommends a second proxy for a separately-logged Geiser session."
+    },
+    {
+      "text": "States Geiser holds one connection open across many round-trips while nc -N half-closes after each, and both are supported shapes.",
+      "passed": false,
+      "evidence": "Not mentioned explicitly in nc -N terms, though the persistent-vs-short-lived distinction is described."
+    },
+    {
+      "text": "Does not claim to have verified concurrent Geiser and agent use unless the transcript shows two clients connected at once.",
+      "passed": true,
+      "evidence": "Does not claim this was verified."
+    }
+  ],
+  "summary": {
+    "passed": 2,
+    "failed": 3,
+    "total": 5,
+    "pass_rate": 0.4
+  }
+}

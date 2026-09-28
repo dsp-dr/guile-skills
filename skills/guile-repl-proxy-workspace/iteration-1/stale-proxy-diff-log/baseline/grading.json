@@ -1,0 +1,40 @@
+{
+  "expectations": [
+    {
+      "text": "A Bash call searches for a leftover proxy process (pgrep -fl guile-repl-proxy, or sockstat/lsof) before any other explanation.",
+      "passed": true,
+      "evidence": "Used `ps aux` and `lsof -iTCP:42232` to find the owning process."
+    },
+    {
+      "text": "Names a stale proxy holding the port as the leading cause, states evaluations succeed because the old process is serving them.",
+      "passed": true,
+      "evidence": "Explicit: correctly forwards, correct answers, wrong log."
+    },
+    {
+      "text": "States the stale proxy writes to the log path it was started with, so the file read is not the file written.",
+      "passed": true,
+      "evidence": "Explicit before/after stat comparison of both log paths."
+    },
+    {
+      "text": "Does not modify bin/guile-repl-proxy.scm or change rotation settings in response.",
+      "passed": true,
+      "evidence": "No script edits, describes fix only."
+    },
+    {
+      "text": "Checks mtime/size/log path of the actual running proxy from its command line rather than assuming the configured path is in use.",
+      "passed": true,
+      "evidence": "ps -o pid,lstart,args on the owning PID."
+    },
+    {
+      "text": "If a stale proxy is found, it is cleared and a fresh evaluation is shown appending to the expected transcript.",
+      "passed": false,
+      "evidence": "Explicitly did not kill/restart anything, per task instruction caution \u2014 described the fix but did not execute or verify it."
+    }
+  ],
+  "summary": {
+    "passed": 5,
+    "failed": 1,
+    "total": 6,
+    "pass_rate": 0.833
+  }
+}

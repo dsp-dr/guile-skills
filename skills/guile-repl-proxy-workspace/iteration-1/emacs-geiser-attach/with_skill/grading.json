@@ -1,0 +1,35 @@
+{
+  "expectations": [
+    {
+      "text": "The Geiser connection is directed at the proxy port (PORT+1), naming the actual number.",
+      "passed": true,
+      "evidence": "Directs to 42272, the actual proxy port for this session."
+    },
+    {
+      "text": "The elisp shown sets geiser-guile-binary to \"guile3\" and not to \"guile\".",
+      "passed": true,
+      "evidence": "(setq geiser-guile-binary \"guile3\")."
+    },
+    {
+      "text": "States the proxy serves connections serially and simultaneous Geiser+agent needs two proxies or a threaded accept loop \u2014 does not present concurrent use as already working.",
+      "passed": false,
+      "evidence": "Downplays the risk ('will block briefly... not a hang, clears on its own'), which understates that Geiser holding a persistent connection would block the agent indefinitely, not briefly."
+    },
+    {
+      "text": "States Geiser holds one connection open across many round-trips while nc -N half-closes after each, and both are supported shapes.",
+      "passed": false,
+      "evidence": "Not mentioned."
+    },
+    {
+      "text": "Does not claim to have verified concurrent Geiser and agent use unless the transcript shows two clients connected at once.",
+      "passed": true,
+      "evidence": "Does not claim this was verified."
+    }
+  ],
+  "summary": {
+    "passed": 3,
+    "failed": 2,
+    "total": 5,
+    "pass_rate": 0.6
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "expectations": [
+    {
+      "text": "The command used to start the REPL includes the --debug flag (directly, or via ./bin/guile-repl-server.sh / gmake start).",
+      "passed": true,
+      "evidence": "./bin/guile-repl-server.sh, which passes --debug."
+    },
+    {
+      "text": "States that without --debug, ,trace prints no lines and raises no error.",
+      "passed": true,
+      "evidence": "Explicit."
+    },
+    {
+      "text": "The trace is requested with a ,trace meta-command sent to the running REPL, not simulated or reasoned about in prose.",
+      "passed": true,
+      "evidence": "Sent ',trace (fib 4)' via guile-repl-eval.sh."
+    },
+    {
+      "text": "If the transcript shows ,trace returning no trace: lines, diagnoses missing --debug rather than fib making no calls.",
+      "passed": true,
+      "evidence": "N/A \u2014 trace worked first try, vacuously satisfied."
+    },
+    {
+      "text": "Reports the indented call tree it actually received, including at least one nested (fib ...) line, rather than a hand-written expansion.",
+      "passed": true,
+      "evidence": "Full literal trace output quoted, matching the proxy's own transcript."
+    }
+  ],
+  "summary": {
+    "passed": 5,
+    "failed": 0,
+    "total": 5,
+    "pass_rate": 1.0
+  }
+}

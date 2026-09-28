@@ -2,7 +2,7 @@
 name: guile-repl-proxy
 description: Record everything that passes through a Guile socket REPL by routing it via a logging proxy on PORT+1, with per-project rotated transcripts, and connect Emacs with Geiser through the same proxy. Use when you need a reviewable history of what was evaluated, when debugging why a REPL session behaved oddly, or when a human and an agent should share one traced session.
 license: MIT
-allowed-tools: Bash, Read
+allowed-tools: Read
 metadata:
   requires:
     binaries: [guile3, nc]
@@ -23,8 +23,12 @@ metadata:
   verified-on: FreeBSD 15.1-RELEASE, guile3 3.0.10, 2026-09-26
   enforcement: >-
       the requires block is documentation, not a sandbox: nothing in the harness
-      reads it. Real gating is allowed-tools above, settings.json permissions,
-      and `claude plugin eval --allow-tools` at eval time
+      reads it. This skill's Bash calls are diagnostic commands (pgrep, pkill,
+      sockstat, lsof, nc, guile3) too varied to pre-approve narrowly without
+      either breaking legitimate use or granting a de-facto blanket Bash grant,
+      so allowed-tools deliberately omits Bash: the user approves each call.
+      Real gating is settings.json permissions and
+      `claude plugin eval --allow-tools` at eval time
 ---
 
 # A transcript of what was actually evaluated

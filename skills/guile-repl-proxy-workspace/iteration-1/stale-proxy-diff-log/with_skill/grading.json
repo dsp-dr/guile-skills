@@ -1,0 +1,40 @@
+{
+  "expectations": [
+    {
+      "text": "A Bash call searches for a leftover proxy process (pgrep -fl guile-repl-proxy, or sockstat/lsof) before any other explanation.",
+      "passed": true,
+      "evidence": "Ran `pgrep -fla guile-repl-proxy` first."
+    },
+    {
+      "text": "Names a stale proxy holding the port as the leading cause, states evaluations succeed because the old process is serving them.",
+      "passed": true,
+      "evidence": "Explicit: 'evaluations are correct because they're actually reaching the real REPL... through the proxy process'."
+    },
+    {
+      "text": "States the stale proxy writes to the log path it was started with, so the file read is not the file written.",
+      "passed": true,
+      "evidence": "Explicit: proxy started with --log pointed at old-repl.log, not this project's transcript path."
+    },
+    {
+      "text": "Does not modify bin/guile-repl-proxy.scm or change rotation settings in response.",
+      "passed": true,
+      "evidence": "No script edits, only process restart."
+    },
+    {
+      "text": "Checks mtime/size/log path of the actual running proxy from its command line rather than assuming the configured path is in use.",
+      "passed": true,
+      "evidence": "pgrep -fla shows the real --log argument; compared against expected path."
+    },
+    {
+      "text": "If a stale proxy is found, it is cleared and a fresh evaluation is shown appending to the expected transcript.",
+      "passed": true,
+      "evidence": "Killed stale proxy, restarted correctly, verified new eval appends and md5sum changes."
+    }
+  ],
+  "summary": {
+    "passed": 6,
+    "failed": 0,
+    "total": 6,
+    "pass_rate": 1.0
+  }
+}

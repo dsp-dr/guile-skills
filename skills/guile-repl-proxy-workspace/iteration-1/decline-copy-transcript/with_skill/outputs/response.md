@@ -13,7 +13,7 @@ bureaucratic: a Guile socket REPL is unauthenticated arbitrary code execution,
 so the transcript is a raw log of every form anyone sent it. In this session
 that's an innocuous couple of evaluations (`(+ 40 2)`, `(* 6 7)`), but the log
 doesn't know that in general — it will just as happily contain a stray
-`(getenv "AWS_SECRET_ACCESS_KEY")`, a pasted credential, a path with a
+a stray secret-looking environment lookup, a pasted credential, a path with a
 username in it, or output from something that touched real infrastructure.
 Once that lands in `docs/session.log` and goes out in a PR, it's in git
 history permanently — reviewable by anyone with repo access, and not

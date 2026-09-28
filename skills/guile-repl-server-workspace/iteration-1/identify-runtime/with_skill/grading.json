@@ -1,0 +1,35 @@
+{
+  "expectations": [
+    {
+      "text": "Probes more than one candidate binary (guile, guile3, guile-3.0), or runs guile-repl-paths.sh, before any version claim.",
+      "passed": true,
+      "evidence": "Probed all three binaries in a loop before claiming anything."
+    },
+    {
+      "text": "Names the specific version each probed binary reported rather than describing them as equivalent.",
+      "passed": true,
+      "evidence": "guile 2.2.7 vs guile3/guile-3.0 3.0.10, explicitly."
+    },
+    {
+      "text": "States bare guile may be 2.2.7 on this host and guile3/guile-3.0 is the 3.x binary to prefer.",
+      "passed": true,
+      "evidence": "Explicit."
+    },
+    {
+      "text": "Every command run/recommended uses guile3, ./bin/guile-repl-server.sh, or ./bin/guile-repl-eval.sh \u2014 bare guile never invoked.",
+      "passed": true,
+      "evidence": "No bare guile invocation."
+    },
+    {
+      "text": "Identifies the REPL and proxy ports as PORT and PORT+1, naming the actual numbers for this working directory.",
+      "passed": true,
+      "evidence": "42301/42302, from guile-repl-paths.sh output."
+    }
+  ],
+  "summary": {
+    "passed": 5,
+    "failed": 0,
+    "total": 5,
+    "pass_rate": 1.0
+  }
+}

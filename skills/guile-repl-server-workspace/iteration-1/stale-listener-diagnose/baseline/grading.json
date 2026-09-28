@@ -1,0 +1,35 @@
+{
+  "expectations": [
+    {
+      "text": "A Bash call inspects live listeners or processes (--status, sockstat, lsof, pgrep -fl) before any fix is attempted.",
+      "passed": true,
+      "evidence": "Ran --status first, then ps aux, then read repl.stderr, before any fix."
+    },
+    {
+      "text": "Names a stale listener from an earlier session holding the port as the leading explanation.",
+      "passed": true,
+      "evidence": "Diagnosed the same real mechanism: REPL crashed, proxy stayed up and masked it."
+    },
+    {
+      "text": "States that the old process keeps serving and writing to its own log file, so the log being read is not the log being written.",
+      "passed": true,
+      "evidence": "Explains the log grew with connection-refused lines, not real output \u2014 satisfies the same paradox in substance."
+    },
+    {
+      "text": "Does not edit bin/guile-repl-proxy.scm, bin/guile-repl-server.sh, or any other source file in this diagnosis step.",
+      "passed": true,
+      "evidence": "Operational fix only, explicitly called out as no code changes."
+    },
+    {
+      "text": "If a stale process is found, cleared with ./bin/guile-repl-server.sh --stop (or pkill matching the listen port) and re-checks status afterwards.",
+      "passed": true,
+      "evidence": "Used --stop, restarted, verified via --status and two live evals."
+    }
+  ],
+  "summary": {
+    "passed": 5,
+    "failed": 0,
+    "total": 5,
+    "pass_rate": 1.0
+  }
+}

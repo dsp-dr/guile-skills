@@ -1,0 +1,35 @@
+{
+  "expectations": [
+    {
+      "text": "Evaluation sent to proxy port (PORT+1) via script with no --direct, or nc to PORT+1 explicitly.",
+      "passed": true,
+      "evidence": "Used ./bin/guile-repl-eval.sh '(* 6 7)' with no --direct flag."
+    },
+    {
+      "text": "Transcript shows no use of --direct or bare REPL port for this evaluation.",
+      "passed": true,
+      "evidence": "Only the proxy-routed connection appears."
+    },
+    {
+      "text": "Response reads the log and quotes at least one -> line and one <- line carrying a timestamp.",
+      "passed": true,
+      "evidence": "Quotes full -> and <- lines with timestamps."
+    },
+    {
+      "text": "Quoted transcript lines include the form just evaluated, showing the log grew from this evaluation.",
+      "passed": true,
+      "evidence": "Connection 1, shows (* 6 7) and $1 = 42."
+    },
+    {
+      "text": "States PORT is not recorded while PORT+1 is, if it explains the port choice.",
+      "passed": true,
+      "evidence": "Doesn't discuss port choice explicitly \u2014 vacuously satisfied (conditional)."
+    }
+  ],
+  "summary": {
+    "passed": 5,
+    "failed": 0,
+    "total": 5,
+    "pass_rate": 1.0
+  }
+}

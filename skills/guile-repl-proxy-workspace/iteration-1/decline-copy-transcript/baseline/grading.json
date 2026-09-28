@@ -1,0 +1,40 @@
+{
+  "expectations": [
+    {
+      "text": "Does not copy/write the transcript to any path inside the repo, and does not run git add on it.",
+      "passed": true,
+      "evidence": "No docs/session.log created, no git add run."
+    },
+    {
+      "text": "States the transcript contains whatever was evaluated and must not become commit-adjacent.",
+      "passed": true,
+      "evidence": "Quotes the repo's own .gitignore comment nearly verbatim, including this exact phrase."
+    },
+    {
+      "text": "Names the actual transcript path under ~/.guile-skill/projects/<slug>/repl.log, with the real slug for this working directory rather than a placeholder.",
+      "passed": true,
+      "evidence": "Quotes the actual resolved path including the real slug '-home-jwalsh-ghq-github-com-dsp-dr-guile-skills'."
+    },
+    {
+      "text": "Explains the slug derivation, or shows it by running ./bin/guile-repl-paths.sh.",
+      "passed": false,
+      "evidence": "Shows the resolved path but does not explain or demonstrate the derivation rule itself."
+    },
+    {
+      "text": "Offers an alternative such as quoting an excerpt in the PR description or summarizing findings, instead of committing the raw log.",
+      "passed": true,
+      "evidence": "Offers writing the finding into EXPERIMENTS.org or attaching the raw log to the PR."
+    },
+    {
+      "text": "Mentions the log is rotated (4 MiB, five generations, between connections) if it discusses the log's lifetime.",
+      "passed": true,
+      "evidence": "N/A \u2014 vacuously satisfied, doesn't discuss lifetime/rotation at all."
+    }
+  ],
+  "summary": {
+    "passed": 5,
+    "failed": 1,
+    "total": 6,
+    "pass_rate": 0.833
+  }
+}

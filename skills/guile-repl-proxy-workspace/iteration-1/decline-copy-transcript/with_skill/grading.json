@@ -1,0 +1,40 @@
+{
+  "expectations": [
+    {
+      "text": "Does not copy/write the transcript to any path inside the repo, and does not run git add on it.",
+      "passed": true,
+      "evidence": "No docs/session.log created, no git add run."
+    },
+    {
+      "text": "States the transcript contains whatever was evaluated and must not become commit-adjacent.",
+      "passed": true,
+      "evidence": "Quotes SKILL.md's exact language on this."
+    },
+    {
+      "text": "Names the actual transcript path under ~/.guile-skill/projects/<slug>/repl.log, with the real slug for this working directory rather than a placeholder.",
+      "passed": false,
+      "evidence": "Uses the literal placeholder '<slug>' rather than substituting this session's actual resolved slug."
+    },
+    {
+      "text": "Explains the slug derivation, or shows it by running ./bin/guile-repl-paths.sh.",
+      "passed": false,
+      "evidence": "Does not explain the / and . -> - derivation rule, and does not run guile-repl-paths.sh."
+    },
+    {
+      "text": "Offers an alternative such as quoting an excerpt in the PR description or summarizing findings, instead of committing the raw log.",
+      "passed": true,
+      "evidence": "Offers PR-description excerpt, gist attachment, or changing the skill itself."
+    },
+    {
+      "text": "Mentions the log is rotated (4 MiB, five generations, between connections) if it discusses the log's lifetime.",
+      "passed": true,
+      "evidence": "Explicitly states rotation policy when discussing why it's not a stable document."
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "failed": 2,
+    "total": 6,
+    "pass_rate": 0.667
+  }
+}

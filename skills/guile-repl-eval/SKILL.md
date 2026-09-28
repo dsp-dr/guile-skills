@@ -2,7 +2,7 @@
 name: guile-repl-eval
 description: Evaluate Scheme in a running Guile REPL over its socket, and use tracing, breakpoints, macro expansion and profiling from it. Use whenever a claim about Guile code should be checked by running it - before asserting an API exists, after editing a module, or when asked what shape a recursion has.
 license: MIT
-allowed-tools: Bash, Read
+allowed-tools: Read
 metadata:
   requires:
     binaries: [nc]
@@ -21,8 +21,12 @@ metadata:
   verified-on: FreeBSD 15.1-RELEASE, guile3 3.0.10, 2026-09-26
   enforcement: >-
       the requires block is documentation, not a sandbox: nothing in the harness
-      reads it. Real gating is allowed-tools above, settings.json permissions,
-      and `claude plugin eval --allow-tools` at eval time
+      reads it. This skill's Bash calls are diagnostic commands (nc, pkill, ps,
+      lsof, sockstat, guild3, curl) too varied to pre-approve narrowly without
+      either breaking legitimate use or granting a de-facto blanket Bash grant,
+      so allowed-tools deliberately omits Bash: the user approves each call.
+      Real gating is settings.json permissions and
+      `claude plugin eval --allow-tools` at eval time
 ---
 
 # Evaluate before you assert

@@ -1,0 +1,444 @@
+{
+  "metadata": {
+    "skill_name": "guile-repl-proxy",
+    "skill_path": "skills/guile-repl-proxy",
+    "executor_model": "claude-sonnet-5",
+    "analyzer_model": "claude-sonnet-5",
+    "timestamp": "2026-09-28T04:09:38.851743+00:00",
+    "evals_run": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "runs_per_configuration": 1
+  },
+  "runs": [
+    {
+      "eval_id": 1,
+      "eval_name": "transcript-of-eval",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 58.5,
+        "tokens": 65943,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Evaluation sent to proxy port (PORT+1) via script with no --direct, or nc to PORT+1 explicitly.",
+          "passed": true,
+          "evidence": "Used ./bin/guile-repl-eval.sh '(* 6 7)' with no --direct flag."
+        },
+        {
+          "text": "Transcript shows no use of --direct or bare REPL port for this evaluation.",
+          "passed": true,
+          "evidence": "Only the proxy-routed connection appears."
+        },
+        {
+          "text": "Response reads the log and quotes at least one -> line and one <- line carrying a timestamp.",
+          "passed": true,
+          "evidence": "Quotes full -> 23:34:38.801 and multiple <- lines."
+        },
+        {
+          "text": "Quoted transcript lines include the form just evaluated, showing the log grew from this evaluation.",
+          "passed": true,
+          "evidence": "Connection 1, shows (* 6 7) and $1 = 42."
+        },
+        {
+          "text": "States PORT is not recorded while PORT+1 is, if it explains the port choice.",
+          "passed": true,
+          "evidence": "Doesn't discuss port choice explicitly \u2014 vacuously satisfied (conditional)."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 1,
+      "eval_name": "transcript-of-eval",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 441.6,
+        "tokens": 69495,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Evaluation sent to proxy port (PORT+1) via script with no --direct, or nc to PORT+1 explicitly.",
+          "passed": true,
+          "evidence": "Used ./bin/guile-repl-eval.sh '(* 6 7)' with no --direct flag."
+        },
+        {
+          "text": "Transcript shows no use of --direct or bare REPL port for this evaluation.",
+          "passed": true,
+          "evidence": "Only the proxy-routed connection appears."
+        },
+        {
+          "text": "Response reads the log and quotes at least one -> line and one <- line carrying a timestamp.",
+          "passed": true,
+          "evidence": "Quotes full -> and <- lines with timestamps."
+        },
+        {
+          "text": "Quoted transcript lines include the form just evaluated, showing the log grew from this evaluation.",
+          "passed": true,
+          "evidence": "Connection 1, shows (* 6 7) and $1 = 42."
+        },
+        {
+          "text": "States PORT is not recorded while PORT+1 is, if it explains the port choice.",
+          "passed": true,
+          "evidence": "Doesn't discuss port choice explicitly \u2014 vacuously satisfied (conditional)."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "eval_name": "stale-proxy-diff-log",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 6,
+        "failed": 0,
+        "total": 6,
+        "time_seconds": 160.1,
+        "tokens": 82481,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "A Bash call searches for a leftover proxy process (pgrep -fl guile-repl-proxy, or sockstat/lsof) before any other explanation.",
+          "passed": true,
+          "evidence": "Ran `pgrep -fla guile-repl-proxy` first."
+        },
+        {
+          "text": "Names a stale proxy holding the port as the leading cause, states evaluations succeed because the old process is serving them.",
+          "passed": true,
+          "evidence": "Explicit: 'evaluations are correct because they're actually reaching the real REPL... through the proxy process'."
+        },
+        {
+          "text": "States the stale proxy writes to the log path it was started with, so the file read is not the file written.",
+          "passed": true,
+          "evidence": "Explicit: proxy started with --log pointed at old-repl.log, not this project's transcript path."
+        },
+        {
+          "text": "Does not modify bin/guile-repl-proxy.scm or change rotation settings in response.",
+          "passed": true,
+          "evidence": "No script edits, only process restart."
+        },
+        {
+          "text": "Checks mtime/size/log path of the actual running proxy from its command line rather than assuming the configured path is in use.",
+          "passed": true,
+          "evidence": "pgrep -fla shows the real --log argument; compared against expected path."
+        },
+        {
+          "text": "If a stale proxy is found, it is cleared and a fresh evaluation is shown appending to the expected transcript.",
+          "passed": true,
+          "evidence": "Killed stale proxy, restarted correctly, verified new eval appends and md5sum changes."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "eval_name": "stale-proxy-diff-log",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.833,
+        "passed": 5,
+        "failed": 1,
+        "total": 6,
+        "time_seconds": 336.0,
+        "tokens": 80961,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "A Bash call searches for a leftover proxy process (pgrep -fl guile-repl-proxy, or sockstat/lsof) before any other explanation.",
+          "passed": true,
+          "evidence": "Used `ps aux` and `lsof -iTCP:42232` to find the owning process."
+        },
+        {
+          "text": "Names a stale proxy holding the port as the leading cause, states evaluations succeed because the old process is serving them.",
+          "passed": true,
+          "evidence": "Explicit: correctly forwards, correct answers, wrong log."
+        },
+        {
+          "text": "States the stale proxy writes to the log path it was started with, so the file read is not the file written.",
+          "passed": true,
+          "evidence": "Explicit before/after stat comparison of both log paths."
+        },
+        {
+          "text": "Does not modify bin/guile-repl-proxy.scm or change rotation settings in response.",
+          "passed": true,
+          "evidence": "No script edits, describes fix only."
+        },
+        {
+          "text": "Checks mtime/size/log path of the actual running proxy from its command line rather than assuming the configured path is in use.",
+          "passed": true,
+          "evidence": "ps -o pid,lstart,args on the owning PID."
+        },
+        {
+          "text": "If a stale proxy is found, it is cleared and a fresh evaluation is shown appending to the expected transcript.",
+          "passed": false,
+          "evidence": "Explicitly did not kill/restart anything, per task instruction caution \u2014 described the fix but did not execute or verify it."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 3,
+      "eval_name": "decline-copy-transcript",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.667,
+        "passed": 4,
+        "failed": 2,
+        "total": 6,
+        "time_seconds": 50.8,
+        "tokens": 57520,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Does not copy/write the transcript to any path inside the repo, and does not run git add on it.",
+          "passed": true,
+          "evidence": "No docs/session.log created, no git add run."
+        },
+        {
+          "text": "States the transcript contains whatever was evaluated and must not become commit-adjacent.",
+          "passed": true,
+          "evidence": "Quotes SKILL.md's exact language on this."
+        },
+        {
+          "text": "Names the actual transcript path under ~/.guile-skill/projects/<slug>/repl.log, with the real slug for this working directory rather than a placeholder.",
+          "passed": false,
+          "evidence": "Uses the literal placeholder '<slug>' rather than substituting this session's actual resolved slug."
+        },
+        {
+          "text": "Explains the slug derivation, or shows it by running ./bin/guile-repl-paths.sh.",
+          "passed": false,
+          "evidence": "Does not explain the / and . -> - derivation rule, and does not run guile-repl-paths.sh."
+        },
+        {
+          "text": "Offers an alternative such as quoting an excerpt in the PR description or summarizing findings, instead of committing the raw log.",
+          "passed": true,
+          "evidence": "Offers PR-description excerpt, gist attachment, or changing the skill itself."
+        },
+        {
+          "text": "Mentions the log is rotated (4 MiB, five generations, between connections) if it discusses the log's lifetime.",
+          "passed": true,
+          "evidence": "Explicitly states rotation policy when discussing why it's not a stable document."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 3,
+      "eval_name": "decline-copy-transcript",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.833,
+        "passed": 5,
+        "failed": 1,
+        "total": 6,
+        "time_seconds": 85.2,
+        "tokens": 67456,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Does not copy/write the transcript to any path inside the repo, and does not run git add on it.",
+          "passed": true,
+          "evidence": "No docs/session.log created, no git add run."
+        },
+        {
+          "text": "States the transcript contains whatever was evaluated and must not become commit-adjacent.",
+          "passed": true,
+          "evidence": "Quotes the repo's own .gitignore comment nearly verbatim, including this exact phrase."
+        },
+        {
+          "text": "Names the actual transcript path under ~/.guile-skill/projects/<slug>/repl.log, with the real slug for this working directory rather than a placeholder.",
+          "passed": true,
+          "evidence": "Quotes the actual resolved path including the real slug '-home-jwalsh-ghq-github-com-dsp-dr-guile-skills'."
+        },
+        {
+          "text": "Explains the slug derivation, or shows it by running ./bin/guile-repl-paths.sh.",
+          "passed": false,
+          "evidence": "Shows the resolved path but does not explain or demonstrate the derivation rule itself."
+        },
+        {
+          "text": "Offers an alternative such as quoting an excerpt in the PR description or summarizing findings, instead of committing the raw log.",
+          "passed": true,
+          "evidence": "Offers writing the finding into EXPERIMENTS.org or attaching the raw log to the PR."
+        },
+        {
+          "text": "Mentions the log is rotated (4 MiB, five generations, between connections) if it discusses the log's lifetime.",
+          "passed": true,
+          "evidence": "N/A \u2014 vacuously satisfied, doesn't discuss lifetime/rotation at all."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 4,
+      "eval_name": "emacs-geiser-attach",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.6,
+        "passed": 3,
+        "failed": 2,
+        "total": 5,
+        "time_seconds": 180.1,
+        "tokens": 58311,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The Geiser connection is directed at the proxy port (PORT+1), naming the actual number.",
+          "passed": true,
+          "evidence": "Directs to 42272, the actual proxy port for this session."
+        },
+        {
+          "text": "The elisp shown sets geiser-guile-binary to \"guile3\" and not to \"guile\".",
+          "passed": true,
+          "evidence": "(setq geiser-guile-binary \"guile3\")."
+        },
+        {
+          "text": "States the proxy serves connections serially and simultaneous Geiser+agent needs two proxies or a threaded accept loop \u2014 does not present concurrent use as already working.",
+          "passed": false,
+          "evidence": "Downplays the risk ('will block briefly... not a hang, clears on its own'), which understates that Geiser holding a persistent connection would block the agent indefinitely, not briefly."
+        },
+        {
+          "text": "States Geiser holds one connection open across many round-trips while nc -N half-closes after each, and both are supported shapes.",
+          "passed": false,
+          "evidence": "Not mentioned."
+        },
+        {
+          "text": "Does not claim to have verified concurrent Geiser and agent use unless the transcript shows two clients connected at once.",
+          "passed": true,
+          "evidence": "Does not claim this was verified."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 4,
+      "eval_name": "emacs-geiser-attach",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.4,
+        "passed": 2,
+        "failed": 3,
+        "total": 5,
+        "time_seconds": 115.5,
+        "tokens": 74726,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The Geiser connection is directed at the proxy port (PORT+1), naming the actual number.",
+          "passed": false,
+          "evidence": "Deliberately directs Geiser at the bare REPL port (42281) instead, to avoid the proxy's serial accept loop."
+        },
+        {
+          "text": "The elisp shown sets geiser-guile-binary to \"guile3\" and not to \"guile\".",
+          "passed": false,
+          "evidence": "No geiser-guile-binary setting shown at all \u2014 'Scheme implementation: guile' is ambiguous with the system's plain guile (2.2.7)."
+        },
+        {
+          "text": "States the proxy serves connections serially and simultaneous Geiser+agent needs two proxies or a threaded accept loop \u2014 does not present concurrent use as already working.",
+          "passed": true,
+          "evidence": "Explicit and accurate: Geiser on the proxy port would hang the agent's evals until Geiser disconnects; recommends a second proxy for a separately-logged Geiser session."
+        },
+        {
+          "text": "States Geiser holds one connection open across many round-trips while nc -N half-closes after each, and both are supported shapes.",
+          "passed": false,
+          "evidence": "Not mentioned explicitly in nc -N terms, though the persistent-vs-short-lived distinction is described."
+        },
+        {
+          "text": "Does not claim to have verified concurrent Geiser and agent use unless the transcript shows two clients connected at once.",
+          "passed": true,
+          "evidence": "Does not claim this was verified."
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": {
+        "mean": 0.8167,
+        "stddev": 0.1848,
+        "min": 0.6,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 112.375,
+        "stddev": 58.2202,
+        "min": 50.8,
+        "max": 180.1
+      },
+      "tokens": {
+        "mean": 66063.75,
+        "stddev": 10032.9641,
+        "min": 57520,
+        "max": 82481
+      }
+    },
+    "without_skill": {
+      "pass_rate": {
+        "mean": 0.7665,
+        "stddev": 0.2223,
+        "min": 0.4,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 244.575,
+        "stddev": 149.3638,
+        "min": 85.2,
+        "max": 441.6
+      },
+      "tokens": {
+        "mean": 73159.5,
+        "stddev": 5226.7532,
+        "min": 67456,
+        "max": 80961
+      }
+    },
+    "delta": {
+      "pass_rate": "+0.05",
+      "time_seconds": "-132.2",
+      "tokens": "-7096"
+    }
+  },
+  "notes": [
+    "transcript-of-eval: TIE, 5/5 both arms \u2014 zero discrimination. Reading a proxy log after a normal eval is baseline-obvious.",
+    "stale-proxy-diff-log: with_skill 6/6 vs baseline 5/6 \u2014 baseline correctly diagnosed the stale-proxy/wrong-log-path fault (matching the skill's documented failure mode almost exactly) but, per its task's caution, described the fix without executing or verifying it; with_skill executed and verified the fix.",
+    "decline-copy-transcript: with_skill 4/6 vs baseline 5/6 \u2014 baseline actually edges out with_skill here. with_skill correctly declined and cited SKILL.md, but quoted the transcript path using the literal '<slug>' placeholder instead of this session's real resolved slug; baseline (with no skill access) quoted the real resolved path from its own GUILE_REPL_ROOT and independently found the repo's own .gitignore comment carrying the same 'must not become commit-adjacent' policy. A real negative-discrimination result worth investigating \u2014 not a fluke of grading strictness alone.",
+    "emacs-geiser-attach: with_skill 3/5 vs baseline 2/5 by the letter of the assertions, but the more important finding is qualitative: with_skill pointed Geiser at the shared proxy port and downplayed the serial-accept-loop blocking risk ('will block briefly... clears on its own'), which understates a real risk \u2014 Geiser holds its connection indefinitely, so a shared-proxy agent eval would hang, not briefly stall. baseline independently avoided the proxy for Geiser and explained the two-proxies-for-concurrency need more accurately, but never set geiser-guile-binary to guile3, missing this repo's other classic trap. Neither response is fully correct; this eval is a good candidate to revisit both the skill's phrasing on proxy sharing and the eval's assertion set.",
+    "Overall: guile-repl-proxy's clearest, most reliable with-skill advantage is procedural thoroughness under the stale-proxy fault (pgrep before assuming, executing and verifying a fix) \u2014 not raw diagnostic insight, which a capable baseline reaches on its own for this fault class."
+  ]
+}
