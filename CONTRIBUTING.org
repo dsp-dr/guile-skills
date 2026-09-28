@@ -96,8 +96,30 @@ pgrep -fl guile-repl-proxy
 
 *** 1. Deterministic checks
 #+begin_src sh
-gmake checks        # lint + check-evals + test; exactly what CI runs
+gmake checks        # everything below, in the order that fails cheapest first
 #+end_src
+
+Individually, when you want to know which one is complaining:
+
+| Target | What it catches |
+|--------+-----------------|
+| ~gmake lint~ | shell syntax across =scripts/=, =scripts/lib/= and =skills/*/scripts/=, plus Scheme warnings when =guild= is present |
+| ~gmake lint-org~ | =org-lint= over every tracked =.org=; fails only on a =high= trust finding |
+| ~gmake lint-claude~ | =claude plugin validate .= |
+| ~gmake check-scripts~ | the copies under =skills/*/scripts/= have not drifted from =scripts/lib/= |
+| ~gmake check-version~ | a change to a shipped path raised =version= in =plugin.json= |
+| ~gmake check-evals~ | every =skills/*/evals/evals.json= against the skill-creator schema |
+| ~gmake test~ | the seven proxy regressions, one per failure in [[file:EXPERIMENTS.org][EXPERIMENTS.org]] |
+
+Two of those exist because duplication and versioning go wrong silently.
+=scripts/lib/= is the canonical copy of the scripts more than one skill needs,
+and each skill carries its own copy because =gh skill install= copies one
+skill's subtree and nothing else --- so =check-scripts= is what makes that
+duplication safe. =check-version= exists because shipping a skill edit without
+raising =version= leaves every existing install on the old copy, with =claude
+plugin update= reporting "already at the latest version" rather than an error.
+
+Run ~gmake sync-scripts~ after editing anything in =scripts/lib/=.
 
 *** 2. Load the plugin from the working tree
 #+begin_src sh
