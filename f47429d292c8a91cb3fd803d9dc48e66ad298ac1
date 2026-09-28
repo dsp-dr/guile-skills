@@ -1,0 +1,24 @@
+Context
+  Question was whether the repo has contributor notes about gh and its version.
+  It had none -- no CONTRIBUTING.md at all, and the only gh-version material was
+  inside gate.yml. Answering it turned up a mistake of mine from earlier in the
+  same session.
+
+Considerations
+  - The version was pinned by bisecting cli/cli tags through the contents API
+    rather than by reading release notes: pkg/cmd/skills is absent at v2.89.0 and
+    present at v2.90.0. The changelog search that first misled me matched "Add
+    VHS demo skill", an unrelated internal skill.
+  - CONTRIBUTING.md tells the reader to verify with `gh skill --help` rather than
+    by comparing version numbers. That is what bin/release.sh does, and it is
+    robust to the command moving or being renamed while in preview.
+  - The go-installed gh is deliberately left at ~/go/bin/gh instead of shadowing
+    the packaged one, so an everyday `gh` stays the distribution's.
+
+Deviations
+  - The v0.1.1 release notes were edited after publication. The correction is
+    marked in the text as a correction rather than silently applied, since the
+    release is a published artifact people may have already read.
+  - Three repo-settings warnings from `gh skill publish --dry-run` were reported
+    but not acted on: enabling secret scanning, push protection and tag
+    protection changes repository configuration, which is the owner's call.
