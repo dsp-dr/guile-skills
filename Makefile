@@ -8,7 +8,7 @@
 GUILE ?= $(shell command -v guile3 2>/dev/null || command -v guile-3.0 2>/dev/null || echo guile)
 GUILD ?= $(shell command -v guild3 2>/dev/null || command -v guild-3.0 2>/dev/null || echo guild)
 
-.PHONY: help start stop status eval lint test check-evals checks try try-in ship-check readme paths clean release-staging release-production
+.PHONY: help start stop status eval lint lint-org lint-claude test check-evals checks try try-in ship-check readme paths clean release-staging release-production
 
 help:
 	@echo "guile-skills"
@@ -20,6 +20,8 @@ help:
 	@echo "  gmake paths    show this project's slug, ports and log directory"
 	@echo "  gmake lint     compile every script with warnings"
 	@echo "  gmake test     end-to-end proxy tests"
+	@echo "  gmake lint-org     org-lint every tracked .org file"
+	@echo "  gmake lint-claude  claude plugin validate ."
 	@echo "  gmake check-evals  validate every skills/*/evals/evals.json"
 	@echo "  gmake checks   everything CI runs: lint + check-evals + test"
 	@echo "  gmake try      open Claude Code with this plugin loaded from the working tree"
@@ -64,13 +66,24 @@ lint:
 test:
 	@./tests/test-proxy.sh
 
+# Tracked .org files only, so a stray scratch file in the tree is not linted.
+ORG_FILES := $(shell git ls-files '*.org' 2>/dev/null)
+
+lint-org:
+	@command -v emacs >/dev/null 2>&1 || { echo "lint-org: emacs is not on PATH; skipping"; exit 0; }
+	@emacs -Q --batch -l tests/org-lint.el $(ORG_FILES)
+
+lint-claude:
+	@command -v claude >/dev/null 2>&1 || { echo "lint-claude: the Claude Code CLI is not on PATH; skipping"; exit 0; }
+	@claude plugin validate .
+
 check-evals:
 	@python3 ./tests/validate-evals.py
 
 # What CI runs, in the order that fails cheapest first. `claude plugin validate'
 # is deliberately not here: it needs the Claude Code CLI, which CI installs and
 # a developer already has running.
-checks: lint check-evals test
+checks: lint lint-org lint-claude check-evals test
 
 # Manual testing. `checks' proves the code is sound; these prove the *plugin*
 # works, which is a different question -- the skills reference scripts by path,
