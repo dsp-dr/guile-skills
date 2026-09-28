@@ -1,0 +1,50 @@
+Context
+  Started as "check the webhook config", which turned out to be "there is no
+  webhook config": gh api .../hooks returned [] on HTTP 200 with a repo-scoped
+  admin token, so the empty list was authoritative rather than a visibility
+  artifact. The secret had been saved to pass; the GitHub half had never been
+  done.
+
+Timeline (2026-09-28, nexus, FreeBSD 15.1, as dsp-dr)
+  - Verified no hook existed, and that the pass secret entry did.
+  - Two failed manual creates, both shell faults rather than API faults:
+    an indented heredoc terminator (invisible in a terminal; the terminator
+    line lands inside the body, GitHub answers "Problems parsing JSON"), then
+    the same again from a temp script.
+  - Wrote the installer so the JSON body contains no shell expansion at all.
+  - Hook created and verified: ping delivery status_code 200. The directory
+    portal independently reports "Webhook connected".
+
+Considerations
+  - gh advised `needs the "admin:repo_hook" scope`. That advice was wrong: the
+    create endpoint's X-Accepted-Oauth-Scopes includes repo, and a
+    `printf '{}' | gh api -X POST .../hooks --input - -i` probe returned 422,
+    not 403. Following it would have broadened the token for nothing. The
+    probe is recorded in docs/secrets.md because the advice is misleading and
+    will be believed next time otherwise.
+  - The payload URL is a pass entry, not committed config. It is not a
+    credential -- a request to it still fails signature verification -- but it
+    embeds a portal-issued UUID and this repo is public. Two handling rules
+    for two halves of one webhook is how the wrong half gets pasted somewhere
+    public.
+  - The webhook secret is deliberately NOT synced into Actions secrets:
+    GitHub already holds its own copy in the webhook config, no workflow
+    consumes it, and a third copy is somewhere a workflow could print.
+
+Deviations
+  - Reversed an earlier decision in this same session that webhook creation
+    should stay manual and unscripted. Creating it by hand failed twice on
+    quoting, which is the argument for a file. Rotation stays manual: the
+    secret is portal-issued and shown once, so it cannot begin anywhere but a
+    browser, and a script could only forward the value while removing no
+    judgement.
+  - RELEASING.md's release flow could not be exercised: `gh skill` does not
+    exist on this host as a builtin or an extension, and ~/go/bin/gh is
+    absent, so bin/release.sh exits 2 before its gate runs. The two available
+    gate steps were run directly instead -- gmake test 7/7, claude plugin
+    validate passing with one benign `icon` field warning.
+
+Clarifications
+  - The directory listing is held for Anthropic content-policy review and
+    auto-publish does not apply, so this version bump does not ship anything.
+    It updates the source a reviewer sees.
