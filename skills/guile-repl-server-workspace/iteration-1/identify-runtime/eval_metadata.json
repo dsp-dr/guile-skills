@@ -1,0 +1,12 @@
+{
+  "eval_id": 1,
+  "eval_name": "identify-runtime",
+  "prompt": "I'm starting work on this Guile project. Which Guile is actually going to run my code on this machine, and what exactly does the REPL surface get started with?",
+  "assertions": [
+    "A Bash call probes more than one candidate binary (at least two of guile, guile3, guile-3.0) for its version, or runs ./bin/guile-repl-paths.sh, before any claim about the version is made.",
+    "The response names the specific version each probed binary reported rather than describing them as equivalent.",
+    "The response states that bare guile may be 2.2.7 on this host and that guile3 (or guile-3.0) is the 3.x binary to prefer.",
+    "Every command the response runs or recommends for starting or evaluating uses guile3, ./bin/guile-repl-server.sh, or ./bin/guile-repl-eval.sh \u2014 bare `guile` never appears as the invoked binary.",
+    "The response identifies the REPL port and the proxy port as PORT and PORT+1, naming the actual numbers for this working directory rather than a placeholder."
+  ]
+}

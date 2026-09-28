@@ -1,6 +1,7 @@
 ---
 name: guile-repl-server
 description: Stand up a Guile project with a socket REPL an agent can drive - guile3 --debug --listen on a per-project port, with a logging proxy on PORT+1. Use when starting or resuming work on a Guile/Scheme project, when you need to evaluate code rather than only read it, or when a claim about Guile behaviour needs checking against a running interpreter.
+license: MIT
 allowed-tools: Bash, Read
 metadata:
   requires:

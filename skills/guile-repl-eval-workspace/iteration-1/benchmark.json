@@ -1,0 +1,424 @@
+{
+  "metadata": {
+    "skill_name": "guile-repl-eval",
+    "skill_path": "skills/guile-repl-eval",
+    "executor_model": "claude-sonnet-5",
+    "analyzer_model": "claude-sonnet-5",
+    "timestamp": "2026-09-27T21:24:35.035466+00:00",
+    "evals_run": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "runs_per_configuration": 1
+  },
+  "runs": [
+    {
+      "eval_id": 1,
+      "eval_name": "assoc-ref-missing-key",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 114.7,
+        "tokens": 63929,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "A Bash call sends the form to the REPL via ./bin/guile-repl-eval.sh (or nc to the proxy port) before the answer is stated.",
+          "passed": true,
+          "evidence": "Used ./bin/guile-repl-eval.sh throughout before stating conclusions."
+        },
+        {
+          "text": "The response quotes the literal REPL reply, including its `$N = ` value line or the actual error text.",
+          "passed": true,
+          "evidence": "Quotes `$1 = #f` and further `$N=` lines."
+        },
+        {
+          "text": "The availability claim is backed by a second evaluated form.",
+          "passed": true,
+          "evidence": "Evaluated module-name, variable-bound?, and an eq? check against (guile)."
+        },
+        {
+          "text": "The response does not assert the return value or the module in a sentence that precedes any evaluation in the transcript.",
+          "passed": true,
+          "evidence": "Section header states the question, then 'I checked this by...' leads into the quoted transcript before any conclusion sentence."
+        },
+        {
+          "text": "If the REPL is not running, the response starts it or reports the error instead of an unverified answer.",
+          "passed": true,
+          "evidence": "Started the REPL itself via guile-repl-server.sh."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 1,
+      "eval_name": "assoc-ref-missing-key",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.8,
+        "passed": 4,
+        "failed": 1,
+        "total": 5,
+        "time_seconds": 69.9,
+        "tokens": 61331,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "A Bash call sends the form to the REPL via ./bin/guile-repl-eval.sh (or nc to the proxy port) before the answer is stated.",
+          "passed": true,
+          "evidence": "Used a live REPL session (scheme@(guile-user)> prompts visible), evaluated before answering."
+        },
+        {
+          "text": "The response quotes the literal REPL reply, including its `$N = ` value line or the actual error text.",
+          "passed": true,
+          "evidence": "Quotes `$1 = #f`, `$4`, `$5` value lines."
+        },
+        {
+          "text": "The availability claim is backed by a second evaluated form.",
+          "passed": true,
+          "evidence": "Evaluated module-name and an eq? check against (guile)."
+        },
+        {
+          "text": "The response does not assert the return value or the module in a sentence that precedes any evaluation in the transcript.",
+          "passed": false,
+          "evidence": "First sentence states 'returns #f... available with no use-modules' before the quoted transcript appears."
+        },
+        {
+          "text": "If the REPL is not running, the response starts it or reports the error instead of an unverified answer.",
+          "passed": true,
+          "evidence": "Started the REPL itself."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "eval_name": "profile-fib22",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 173.5,
+        "tokens": 71065,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response sends ,profile to the running REPL and reports the output it actually received.",
+          "passed": true,
+          "evidence": "Used the ,profile meta-command directly, quoted its output verbatim."
+        },
+        {
+          "text": "If output is `No samples recorded.`, states workload too short, not broken/free.",
+          "passed": true,
+          "evidence": "Explicitly named this as the documented sampling-profiler trap."
+        },
+        {
+          "text": "Re-runs the profile on a larger workload and reports sample count/lines.",
+          "passed": true,
+          "evidence": "Re-ran on a 1000-iteration loop, reported Sample count: 61."
+        },
+        {
+          "text": "Any statement about where the time goes cites lines from a profile run that recorded samples.",
+          "passed": true,
+          "evidence": "Cites the 61-sample run's 100% self-time line."
+        },
+        {
+          "text": "Does not conclude the profiling surface is unavailable/unsupported.",
+          "passed": true,
+          "evidence": "Never claims this; works around it correctly."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 2,
+      "eval_name": "profile-fib22",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.8,
+        "passed": 4,
+        "failed": 1,
+        "total": 5,
+        "time_seconds": 181.5,
+        "tokens": 71390,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response sends ,profile to the running REPL and reports the output it actually received.",
+          "passed": false,
+          "evidence": "Used the programmatic (statprof ...) procedure call instead of the REPL's ,profile meta-command."
+        },
+        {
+          "text": "If output is `No samples recorded.`, states workload too short, not broken/free.",
+          "passed": true,
+          "evidence": "N/A / vacuously true \u2014 first statprof call already returned samples (count 3), never hit the zero-sample case."
+        },
+        {
+          "text": "Re-runs the profile on a larger workload and reports sample count/lines.",
+          "passed": true,
+          "evidence": "Re-ran with #:loop 20 #:hz 1000, reporting sample count 721."
+        },
+        {
+          "text": "Any statement about where the time goes cites lines from a profile run that recorded samples.",
+          "passed": true,
+          "evidence": "Cites the 721-sample run's 100% self-time line."
+        },
+        {
+          "text": "Does not conclude the profiling surface is unavailable/unsupported.",
+          "passed": true,
+          "evidence": "Never claims this."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 3,
+      "eval_name": "reload-after-edit",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.8,
+        "passed": 4,
+        "failed": 1,
+        "total": 5,
+        "time_seconds": 55.3,
+        "tokens": 57157,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "States that an already-loaded module does not pick up file changes, with no error.",
+          "passed": true,
+          "evidence": "Explicitly states this before reporting behaviour."
+        },
+        {
+          "text": "Transcript shows an explicit reload before post-edit behaviour is reported.",
+          "passed": true,
+          "evidence": "Used (reload-module (resolve-module '(mymod))) before re-checking."
+        },
+        {
+          "text": "Distinguishes the pre-reload value from the post-reload value.",
+          "passed": true,
+          "evidence": "Quotes $4 (stale) vs $6 (post-reload) explicitly."
+        },
+        {
+          "text": "Notes that each connection is a fresh REPL, so $N numbering restarts.",
+          "passed": false,
+          "evidence": "Not mentioned anywhere in the response."
+        },
+        {
+          "text": "If a record type/GOOPS class is involved, notes old instances keep the old definition.",
+          "passed": true,
+          "evidence": "N/A \u2014 no record/class in this scenario, vacuously satisfied."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 3,
+      "eval_name": "reload-after-edit",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.8,
+        "passed": 4,
+        "failed": 1,
+        "total": 5,
+        "time_seconds": 54.2,
+        "tokens": 59751,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "States that an already-loaded module does not pick up file changes, with no error.",
+          "passed": true,
+          "evidence": "Explicitly states this up front."
+        },
+        {
+          "text": "Transcript shows an explicit reload before post-edit behaviour is reported.",
+          "passed": true,
+          "evidence": "Used (reload-module (resolve-module '(mymod))) before re-checking."
+        },
+        {
+          "text": "Distinguishes the pre-reload value from the post-reload value.",
+          "passed": true,
+          "evidence": "Quotes $4 (stale) vs $6 (post-reload) explicitly."
+        },
+        {
+          "text": "Notes that each connection is a fresh REPL, so $N numbering restarts.",
+          "passed": false,
+          "evidence": "Not mentioned anywhere in the response."
+        },
+        {
+          "text": "If a record type/GOOPS class is involved, notes old instances keep the old definition.",
+          "passed": true,
+          "evidence": "N/A \u2014 vacuously satisfied."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 4,
+      "eval_name": "lint-proxy-script",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 60.9,
+        "tokens": 56341,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "States that Guile has no linter and no clj-kondo equivalent exists.",
+          "passed": true,
+          "evidence": "Explicitly: 'there is no standalone Guile linter (no clj-kondo equivalent)'."
+        },
+        {
+          "text": "Closest check run as guild3 compile -W 3 (or gmake lint) with a real output path.",
+          "passed": true,
+          "evidence": "Used -o pointing at a real scratch .go path."
+        },
+        {
+          "text": "Does not use/recommend -o /dev/null.",
+          "passed": true,
+          "evidence": "Used a real path and explained why /dev/null fails (rename semantics)."
+        },
+        {
+          "text": "Reports the warning text guild3 actually emitted, or states plainly it emitted none.",
+          "passed": true,
+          "evidence": "States nothing was emitted, exit 0."
+        },
+        {
+          "text": "Does not name/invent a linting tool that was not actually run.",
+          "passed": true,
+          "evidence": "Only guild3 compile was run."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 4,
+      "eval_name": "lint-proxy-script",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 5,
+        "failed": 0,
+        "total": 5,
+        "time_seconds": 120.8,
+        "tokens": 68969,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "States that Guile has no linter and no clj-kondo equivalent exists.",
+          "passed": true,
+          "evidence": "Conveys the same substance: the repo's own Makefile target IS guild compile -W3, no separate linter tool used or implied."
+        },
+        {
+          "text": "Closest check run as guild3 compile -W 3 (or gmake lint) with a real output path.",
+          "passed": true,
+          "evidence": "Ran gmake lint, which invokes guild3 compile -W 3 -o .logs/lint.go."
+        },
+        {
+          "text": "Does not use/recommend -o /dev/null.",
+          "passed": true,
+          "evidence": "Used .logs/lint.go, a real path."
+        },
+        {
+          "text": "Reports the warning text guild3 actually emitted, or states plainly it emitted none.",
+          "passed": true,
+          "evidence": "States clean output twice (with cache wiped to double-check)."
+        },
+        {
+          "text": "Does not name/invent a linting tool that was not actually run.",
+          "passed": true,
+          "evidence": "Only ran what the Makefile's lint target runs."
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": {
+        "mean": 0.95,
+        "stddev": 0.0866,
+        "min": 0.8,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 101.1,
+        "stddev": 47.8027,
+        "min": 55.3,
+        "max": 173.5
+      },
+      "tokens": {
+        "mean": 62123,
+        "stddev": 5943.7715,
+        "min": 56341,
+        "max": 71065
+      }
+    },
+    "without_skill": {
+      "pass_rate": {
+        "mean": 0.85,
+        "stddev": 0.0866,
+        "min": 0.8,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 106.6,
+        "stddev": 49.7602,
+        "min": 54.2,
+        "max": 181.5
+      },
+      "tokens": {
+        "mean": 65360.25,
+        "stddev": 4926.4466,
+        "min": 59751,
+        "max": 71390
+      }
+    },
+    "delta": {
+      "pass_rate": "+0.10",
+      "time_seconds": "-5.5",
+      "tokens": "-3237"
+    }
+  },
+  "notes": [
+    "assoc-ref-missing-key: with_skill 5/5 vs baseline 4/5 \u2014 baseline's only miss was asserting the answer in its opening sentence before quoting the transcript; both arms independently verified via a real REPL.",
+    "profile-fib22: with_skill 5/5 vs baseline 4/5 \u2014 baseline used the programmatic (statprof ...) call instead of the REPL's ,profile meta-command the skill documents; both correctly worked around a too-short workload and landed on the same conclusion.",
+    "reload-after-edit: TIE, 4/5 both arms \u2014 zero discrimination. A capable baseline agent independently checked the pre-edit value, recognised staleness, and reloaded explicitly without being told to. Both missed the same expectation (noting that $N numbering restarts per connection) \u2014 that expectation may be miscalibrated/irrelevant to this prompt and is a candidate for revision.",
+    "lint-proxy-script: TIE, 5/5 both arms \u2014 zero discrimination. This repo's own Makefile 'lint' target already encodes 'there is no linter, use guild3 compile -W3', so a baseline agent that reads the Makefile gets the same answer as one that reads the skill.",
+    "Overall for this iteration: guile-repl-eval's measurable value (given a Sonnet-5-class baseline) is concentrated in write-up discipline (evidence before claims) and knowing the ,profile meta-command surface \u2014 not in the reload or lint scenarios, where a capable baseline already lands on the right behavior from the repo's own artifacts."
+  ]
+}

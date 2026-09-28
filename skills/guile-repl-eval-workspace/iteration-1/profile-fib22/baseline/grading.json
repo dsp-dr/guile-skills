@@ -1,0 +1,35 @@
+{
+  "expectations": [
+    {
+      "text": "The response sends ,profile to the running REPL and reports the output it actually received.",
+      "passed": false,
+      "evidence": "Used the programmatic (statprof ...) procedure call instead of the REPL's ,profile meta-command."
+    },
+    {
+      "text": "If output is `No samples recorded.`, states workload too short, not broken/free.",
+      "passed": true,
+      "evidence": "N/A / vacuously true \u2014 first statprof call already returned samples (count 3), never hit the zero-sample case."
+    },
+    {
+      "text": "Re-runs the profile on a larger workload and reports sample count/lines.",
+      "passed": true,
+      "evidence": "Re-ran with #:loop 20 #:hz 1000, reporting sample count 721."
+    },
+    {
+      "text": "Any statement about where the time goes cites lines from a profile run that recorded samples.",
+      "passed": true,
+      "evidence": "Cites the 721-sample run's 100% self-time line."
+    },
+    {
+      "text": "Does not conclude the profiling surface is unavailable/unsupported.",
+      "passed": true,
+      "evidence": "Never claims this."
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "failed": 1,
+    "total": 5,
+    "pass_rate": 0.8
+  }
+}

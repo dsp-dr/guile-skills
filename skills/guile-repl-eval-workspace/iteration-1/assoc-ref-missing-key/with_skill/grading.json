@@ -1,0 +1,35 @@
+{
+  "expectations": [
+    {
+      "text": "A Bash call sends the form to the REPL via ./bin/guile-repl-eval.sh (or nc to the proxy port) before the answer is stated.",
+      "passed": true,
+      "evidence": "Used ./bin/guile-repl-eval.sh throughout before stating conclusions."
+    },
+    {
+      "text": "The response quotes the literal REPL reply, including its `$N = ` value line or the actual error text.",
+      "passed": true,
+      "evidence": "Quotes `$1 = #f` and further `$N=` lines."
+    },
+    {
+      "text": "The availability claim is backed by a second evaluated form.",
+      "passed": true,
+      "evidence": "Evaluated module-name, variable-bound?, and an eq? check against (guile)."
+    },
+    {
+      "text": "The response does not assert the return value or the module in a sentence that precedes any evaluation in the transcript.",
+      "passed": true,
+      "evidence": "Section header states the question, then 'I checked this by...' leads into the quoted transcript before any conclusion sentence."
+    },
+    {
+      "text": "If the REPL is not running, the response starts it or reports the error instead of an unverified answer.",
+      "passed": true,
+      "evidence": "Started the REPL itself via guile-repl-server.sh."
+    }
+  ],
+  "summary": {
+    "passed": 5,
+    "failed": 0,
+    "total": 5,
+    "pass_rate": 1.0
+  }
+}

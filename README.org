@@ -2,6 +2,11 @@
 #+DATE: 2026-09-26
 #+AUTHOR: dsp-dr
 
+[[file:LICENSE][https://img.shields.io/badge/license-MIT-blue.svg]]
+[[https://www.gnu.org/software/guile/][https://img.shields.io/badge/guile-3.0-orange.svg]]
+[[https://github.com/dsp-dr/guile-skills/blob/main/.claude-plugin/plugin.json][https://img.shields.io/badge/claude--code-plugin-5A67D8.svg]]
+[[file:EXPERIMENTS.org][https://img.shields.io/badge/verified-FreeBSD%2015.1-red.svg]]
+
 Agent skills and tooling for working on Guile Scheme projects, built around one
 observation:
 

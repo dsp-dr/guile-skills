@@ -1,0 +1,12 @@
+{
+  "eval_id": 2,
+  "eval_name": "start-and-trace-fib",
+  "prompt": "Start this project's REPL for me, then show me the call tree of (define (fib n) (if (< n 2) n (+ (fib (- n 1)) (fib (- n 2))))) evaluated at (fib 4).",
+  "assertions": [
+    "The command used to start the REPL includes the --debug flag (directly, or via ./bin/guile-repl-server.sh / gmake start).",
+    "The response states that without --debug, ,trace prints no lines and raises no error.",
+    "The trace is requested with a ,trace meta-command sent to the running REPL, not simulated or reasoned about in prose.",
+    "If the transcript shows ,trace returning no trace: lines, the response diagnoses a missing --debug (or a stale REPL started without it) and does not report that fib makes no recursive calls.",
+    "The response reports the indented call tree it actually received, including at least one nested (fib ...) line, rather than a hand-written expansion."
+  ]
+}

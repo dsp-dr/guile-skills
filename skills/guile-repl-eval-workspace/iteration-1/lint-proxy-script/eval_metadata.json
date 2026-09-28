@@ -1,0 +1,12 @@
+{
+  "eval_id": 4,
+  "eval_name": "lint-proxy-script",
+  "prompt": "Before I commit, lint bin/guile-repl-proxy.scm and tell me what the linter flags.",
+  "assertions": [
+    "The response states that Guile has no linter and that no clj-kondo equivalent exists.",
+    "The closest check is run as `guild3 compile -W 3` (or gmake lint) with an output path that is a real file, not /dev/null.",
+    "The response does not use, or recommend, `-o /dev/null`; if it explains why, it states that guild renames a temporary file into place and cannot rename onto /dev/null.",
+    "The response reports the warning text guild3 actually emitted, or states plainly that it emitted none.",
+    "The response does not name, install, or invent a linting tool for Guile that was not run in the transcript."
+  ]
+}

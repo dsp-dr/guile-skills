@@ -5,7 +5,7 @@
 GUILE ?= guile3
 GUILD ?= guild3
 
-.PHONY: help start stop status eval lint test paths clean
+.PHONY: help start stop status eval lint test paths clean release-staging release-production
 
 help:
 	@echo "guile-skills"
@@ -18,6 +18,8 @@ help:
 	@echo "  gmake lint     compile every script with warnings"
 	@echo "  gmake test     end-to-end proxy tests"
 	@echo "  gmake clean    remove compiled files"
+	@echo "  gmake release-staging              regression tests + validation, no publish"
+	@echo "  gmake release-production TAG=vX.Y.Z   same gate, then gh skill publish --tag"
 
 start:
 	@./bin/guile-repl-server.sh
@@ -54,3 +56,12 @@ clean:
 	@find . -name '*.go' -not -path './.git/*' -delete
 	@find . -name '*~' -not -path './.git/*' -delete
 	@echo "Cleaned."
+
+release-staging:
+	@./bin/release.sh staging
+
+release-production:
+ifndef TAG
+	$(error TAG is required. Usage: gmake release-production TAG=v0.1.0)
+endif
+	@./bin/release.sh production $(TAG)

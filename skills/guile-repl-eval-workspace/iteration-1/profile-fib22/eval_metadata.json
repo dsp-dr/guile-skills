@@ -1,0 +1,12 @@
+{
+  "eval_id": 2,
+  "eval_name": "profile-fib22",
+  "prompt": "Profile (fib 22) with fib defined as the naive double recursion and tell me where the time is going.",
+  "assertions": [
+    "The response sends ,profile to the running REPL and reports the output it actually received.",
+    "If the output is `No samples recorded.`, the response states that the workload was too short for a sampling profiler, not that the computation is free, instant, or that the profiler is broken.",
+    "The response re-runs the profile on a larger workload (for example (fib 30), or a form taking roughly 0.5 s or more) and reports the sample count or profile lines from that run.",
+    "Any statement about where the time goes cites lines from a profile run that recorded at least one sample.",
+    "The response does not conclude the profiling surface is unavailable or unsupported in this Guile."
+  ]
+}

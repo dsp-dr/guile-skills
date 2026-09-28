@@ -1,0 +1,35 @@
+{
+  "expectations": [
+    {
+      "text": "States that an already-loaded module does not pick up file changes, with no error.",
+      "passed": true,
+      "evidence": "Explicitly states this before reporting behaviour."
+    },
+    {
+      "text": "Transcript shows an explicit reload before post-edit behaviour is reported.",
+      "passed": true,
+      "evidence": "Used (reload-module (resolve-module '(mymod))) before re-checking."
+    },
+    {
+      "text": "Distinguishes the pre-reload value from the post-reload value.",
+      "passed": true,
+      "evidence": "Quotes $4 (stale) vs $6 (post-reload) explicitly."
+    },
+    {
+      "text": "Notes that each connection is a fresh REPL, so $N numbering restarts.",
+      "passed": false,
+      "evidence": "Not mentioned anywhere in the response."
+    },
+    {
+      "text": "If a record type/GOOPS class is involved, notes old instances keep the old definition.",
+      "passed": true,
+      "evidence": "N/A \u2014 no record/class in this scenario, vacuously satisfied."
+    }
+  ],
+  "summary": {
+    "passed": 4,
+    "failed": 1,
+    "total": 5,
+    "pass_rate": 0.8
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "eval_id": 4,
+  "eval_name": "emacs-geiser-attach",
+  "prompt": "I want to attach Emacs with Geiser to this project's REPL while my agent session keeps evaluating through it. Set that up.",
+  "assertions": [
+    "The Geiser connection is directed at the proxy port (PORT+1), naming the actual number, so the human's session is recorded too.",
+    "The elisp shown sets geiser-guile-binary to \"guile3\" and not to \"guile\".",
+    "The response states that the proxy currently serves connections serially and that a simultaneous Geiser plus agent needs two proxies or a threaded accept loop \u2014 it does not present concurrent use as already working.",
+    "The response states that Geiser holds one connection open across many round-trips while nc -N half-closes after each, and that both are supported shapes.",
+    "The response does not claim to have verified concurrent Geiser and agent use unless the transcript shows two clients connected at once."
+  ]
+}

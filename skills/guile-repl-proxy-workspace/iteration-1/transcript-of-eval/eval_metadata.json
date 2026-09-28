@@ -1,0 +1,12 @@
+{
+  "eval_id": 1,
+  "eval_name": "transcript-of-eval",
+  "prompt": "Evaluate (* 6 7) for me and then show me the transcript lines that evaluation produced.",
+  "assertions": [
+    "The evaluation is sent to the proxy port (PORT+1) \u2014 via ./bin/guile-repl-eval.sh with no --direct flag, or nc to PORT+1 explicitly.",
+    "The transcript shows no use of --direct, and no connection to the bare REPL port, for this evaluation.",
+    "The response reads the log at ~/.guile-skill/projects/<slug>/repl.log and quotes at least one `-> ` line and one `<- ` line carrying a timestamp.",
+    "The quoted transcript lines include the form that was just evaluated, showing the log grew from this evaluation rather than from an earlier session.",
+    "The response states that connecting to PORT is not recorded while connecting to PORT+1 is, if it explains the port choice."
+  ]
+}

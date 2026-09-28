@@ -1,6 +1,7 @@
 ---
 name: guile-repl-proxy
 description: Record everything that passes through a Guile socket REPL by routing it via a logging proxy on PORT+1, with per-project rotated transcripts, and connect Emacs with Geiser through the same proxy. Use when you need a reviewable history of what was evaluated, when debugging why a REPL session behaved oddly, or when a human and an agent should share one traced session.
+license: MIT
 allowed-tools: Bash, Read
 metadata:
   requires:

@@ -1,0 +1,12 @@
+{
+  "eval_id": 3,
+  "eval_name": "reload-after-edit",
+  "prompt": "I just changed a procedure in a module file that this REPL session already loaded. Re-run it through the REPL and tell me whether my change took effect.",
+  "assertions": [
+    "The response states that a module already loaded in the REPL does not pick up changes to its file on its own, and that the stale result arrives with no error.",
+    "The transcript shows an explicit reload \u2014 (reload-module (resolve-module '(...))) , a fresh connection, or a restarted REPL \u2014 before the post-edit behaviour is reported.",
+    "The response distinguishes the value observed before the reload from the value observed after it, or states that it only trusts the post-reload value.",
+    "The response notes that each connection is a fresh REPL, so $N numbering restarts and bindings from a previous invocation are gone.",
+    "If a record type or GOOPS class is involved, the response states that redefining it leaves existing instances on the old definition."
+  ]
+}

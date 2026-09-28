@@ -1,0 +1,1 @@
+{"tool_calls": {"Bash": 5, "Read": 3, "Write": 2}, "total_tool_calls": 10, "total_steps": 6, "files_created": [], "errors_encountered": 1}

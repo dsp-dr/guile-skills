@@ -1,0 +1,35 @@
+{
+  "expectations": [
+    {
+      "text": "States that Guile has no linter and no clj-kondo equivalent exists.",
+      "passed": true,
+      "evidence": "Conveys the same substance: the repo's own Makefile target IS guild compile -W3, no separate linter tool used or implied."
+    },
+    {
+      "text": "Closest check run as guild3 compile -W 3 (or gmake lint) with a real output path.",
+      "passed": true,
+      "evidence": "Ran gmake lint, which invokes guild3 compile -W 3 -o .logs/lint.go."
+    },
+    {
+      "text": "Does not use/recommend -o /dev/null.",
+      "passed": true,
+      "evidence": "Used .logs/lint.go, a real path."
+    },
+    {
+      "text": "Reports the warning text guild3 actually emitted, or states plainly it emitted none.",
+      "passed": true,
+      "evidence": "States clean output twice (with cache wiped to double-check)."
+    },
+    {
+      "text": "Does not name/invent a linting tool that was not actually run.",
+      "passed": true,
+      "evidence": "Only ran what the Makefile's lint target runs."
+    }
+  ],
+  "summary": {
+    "passed": 5,
+    "failed": 0,
+    "total": 5,
+    "pass_rate": 1.0
+  }
+}

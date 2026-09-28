@@ -1,0 +1,35 @@
+{
+  "expectations": [
+    {
+      "text": "The response sends ,profile to the running REPL and reports the output it actually received.",
+      "passed": true,
+      "evidence": "Used the ,profile meta-command directly, quoted its output verbatim."
+    },
+    {
+      "text": "If output is `No samples recorded.`, states workload too short, not broken/free.",
+      "passed": true,
+      "evidence": "Explicitly named this as the documented sampling-profiler trap."
+    },
+    {
+      "text": "Re-runs the profile on a larger workload and reports sample count/lines.",
+      "passed": true,
+      "evidence": "Re-ran on a 1000-iteration loop, reported Sample count: 61."
+    },
+    {
+      "text": "Any statement about where the time goes cites lines from a profile run that recorded samples.",
+      "passed": true,
+      "evidence": "Cites the 61-sample run's 100% self-time line."
+    },
+    {
+      "text": "Does not conclude the profiling surface is unavailable/unsupported.",
+      "passed": true,
+      "evidence": "Never claims this; works around it correctly."
+    }
+  ],
+  "summary": {
+    "passed": 5,
+    "failed": 0,
+    "total": 5,
+    "pass_rate": 1.0
+  }
+}

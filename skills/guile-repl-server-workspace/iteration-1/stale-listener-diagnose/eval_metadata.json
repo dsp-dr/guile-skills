@@ -1,0 +1,12 @@
+{
+  "eval_id": 3,
+  "eval_name": "stale-listener-diagnose",
+  "prompt": "Something is off. I started the server a minute ago and it said it was up, but ./bin/guile-repl-eval.sh '(+ 1 1)' gives me nothing back and the transcript at the path the skill names hasn't grown at all. Figure out what's wrong before changing any code.",
+  "assertions": [
+    "A Bash call inspects live listeners or processes \u2014 ./bin/guile-repl-server.sh --status, sockstat, lsof, or pgrep -fl on the proxy or listen=PORT \u2014 before any fix is attempted.",
+    "The response names a stale listener from an earlier session holding the port as the leading explanation.",
+    "The response states that the old process keeps serving and keeps writing to its own log file, so the log being read is not the log being written.",
+    "The response does not edit bin/guile-repl-proxy.scm, bin/guile-repl-server.sh, or any other source file in this diagnosis step.",
+    "If a stale process is found, it is cleared with ./bin/guile-repl-server.sh --stop (or a pkill matching the listen port) and the response re-checks status afterwards."
+  ]
+}
