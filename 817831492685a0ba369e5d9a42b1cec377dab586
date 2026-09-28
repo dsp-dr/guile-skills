@@ -1,0 +1,26 @@
+Context
+  Found by CI, not locally. The first run on ubuntu-latest reported 1 passed,
+  6 failed with "grep: repl.log: No such file or directory", and the harness's
+  own banner line said "test-proxy: guile" -- two clues to one cause: the
+  interpreter is named guile3 only on FreeBSD.
+
+Considerations
+  - The proxy failed to start on every invocation and the symptom was an empty
+    transcript, because tests/test-proxy.sh redirects its stderr. That is E4's
+    failure mode reached by a different route: a missing transcript reads as a
+    logging bug rather than as a process that never ran.
+  - Three names had to be covered, not two: guile3 (FreeBSD ports), guile-3.0
+    (Debian/Ubuntu), guile (Homebrew). bin/guile-repl-paths.sh, the Makefile and
+    tests/test-proxy.sh now all probe the same order.
+
+Deviations
+  - A shell trampoline replaces the shebang rather than pinning an interpreter.
+    It keeps the file executable as ./bin/guile-repl-proxy.scm on all three
+    platforms, which the SKILL.md documentation depends on.
+
+Clarifications
+  - The first trampoline attempt broke the local tests, 7/7 to 1/6. Its comment
+    explained the block comment by naming the closing delimiter, and writing
+    those two characters inside the block terminates it early; Guile then failed
+    on the following line with `Unknown # object: "# "'. The comment now says not
+    to name it, and says why.
