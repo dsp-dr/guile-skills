@@ -25,7 +25,28 @@ gmake release-production TAG=v0.2.0      # same gate, then the real `gh skill pu
 
 =gh skill publish= handles the GitHub side: it tags the release, adds the =agent-skills= topic if the token has admin on the repo, and prints the =gh skill install= / =--pin= commands for that version.
 
-** Cutting one by hand
+** Publishing from a merged PR
+
+The path labeler applies *deployable* to any PR touching =skills/=,
+=.claude-plugin/= or =scripts/lib/= --- the paths that decide what an installed
+user receives. Merging a PR that carries that label publishes a release
+(=.github/workflows/publish.yml=).
+
+Those are the same paths =scripts/check-version-bump.sh= guards, so a deployable
+PR is by construction one that had to raise =version= in =plugin.json= to pass
+checks. The workflow publishes whatever version =plugin.json= names on =main=
+after the merge, tagged =v<version>=.
+
+- *To merge a deployable change without publishing*, remove the =deployable=
+  label before merging.
+- *If the tag already exists* the job stops rather than moving it. Tags are
+  protected by the "Immutable release tags" ruleset, and a version that was
+  already published is a bump that did not happen.
+- The workflow runs the same gate a human runs locally --- =scripts/release.sh
+  production=, which is tests, manifest validation, eval suites and
+  =gh skill publish --dry-run= before the real publish.
+
+* Cutting one by hand
 =gh skill= is a preview command that landed in *gh v2.90.0*. FreeBSD's ports tree lagged well behind it --- =pkg= offered 2.83.2 on 2026-09-28, which has no =gh skill= at all --- so v0.1.1 was cut by hand before the newer =gh= was built from source. [[file:CONTRIBUTING.org][CONTRIBUTING.org]] has the upgrade; once =gh skill --help= answers, =gmake release-production TAG=vX.Y.Z= is the supported path and this section is the fallback.
 
 The manual sequence, which is the whole of it:

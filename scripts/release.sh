@@ -41,13 +41,19 @@ if [ -z "$GH" ]; then
     GH=gh
 fi
 
+# GNU make is `gmake' on FreeBSD and `make' on Linux, where `make' IS GNU make.
+# CI runs on ubuntu, so probing matters: without it the gate dies at the first
+# step with "gmake: not found" and the publish never happens.
+MAKE=${MAKE:-$(command -v gmake || command -v make)}
+[ -n "$MAKE" ] || { echo "release.sh: no make on PATH" >&2; exit 2; }
+
 gate() {
-    echo "== regression tests: gmake test =="
-    gmake test
+    echo "== regression tests: $MAKE test =="
+    "$MAKE" test
     echo "== plugin manifest: claude plugin validate . =="
     claude plugin validate .
-    echo "== eval suites: gmake check-evals =="
-    gmake check-evals
+    echo "== eval suites: $MAKE check-evals =="
+    "$MAKE" check-evals
     if [ "$SKILL_CMD" -eq 1 ]; then
         echo "== skill validation: $GH skill publish --dry-run =="
         "$GH" skill publish --dry-run

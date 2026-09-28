@@ -1,0 +1,88 @@
+name: Publish on merge
+
+# A merged PR carrying `deployable' publishes a release.
+#
+# `deployable' is applied by the path labeler (.github/labeler.yml) when a diff
+# touches skills/, .claude-plugin/ or scripts/lib/ -- the paths that decide what
+# an installed user receives. Those are the same paths
+# scripts/check-version-bump.sh guards, so a deployable PR is by construction a
+# PR that had to raise `version' in plugin.json to pass checks.
+#
+# The version published is whatever plugin.json names on main after the merge.
+# The tag is v<version>. If that tag already exists the job stops rather than
+# trying to move it -- tags are protected by the "Immutable release tags"
+# ruleset, and a version that was already published is a bump that did not
+# happen.
+#
+# To merge a deployable change WITHOUT publishing, remove the label before
+# merging.
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    if: >-
+      github.event.pull_request.merged == true &&
+      contains(github.event.pull_request.labels.*.name, 'deployable')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Read the version to publish
+        id: v
+        run: |
+          version=$(python3 -c "import json;print(json.load(open('.claude-plugin/plugin.json'))['version'])")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version"    >> "$GITHUB_OUTPUT"
+          echo "publishing v$version"
+
+      - name: Stop if that tag already exists
+        run: |
+          if git rev-parse --verify --quiet "refs/tags/${{ steps.v.outputs.tag }}" >/dev/null; then
+            echo "::error::${{ steps.v.outputs.tag }} already exists. Raise version in plugin.json."
+            exit 1
+          fi
+
+      - name: Install Guile and netcat
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y guile-3.0 netcat-openbsd
+
+      - name: Install gh with `gh skill` (needs >= 2.90.0)
+        run: |
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null
+          sudo apt-get update
+          sudo apt-get install -y gh
+          gh --version
+          gh skill --help >/dev/null 2>&1 || {
+            echo "::error::this gh has no \`gh skill\`; cannot publish"; exit 1; }
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      # The same gate a human runs locally: tests, manifest validation, eval
+      # suites, and `gh skill publish --dry-run', then the real publish.
+      - name: Gate and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/release.sh production "${{ steps.v.outputs.tag }}"
+
+      - name: Summary
+        run: |
+          {
+            echo "### Published ${{ steps.v.outputs.tag }}"
+            echo
+            echo '```'
+            echo "gh skill install ${{ github.repository }} --pin ${{ steps.v.outputs.tag }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

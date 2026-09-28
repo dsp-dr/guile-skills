@@ -4,6 +4,19 @@
 # of the repo a diff touches, derived from paths rather than hand-applied.
 # A PR carrying `labeler:skip` is left alone -- its labels become
 # hand-maintained, same meaning as standard-change's own labeler:skip.
+#
+# `deployable` is the one label with teeth: it marks a diff that changes what an
+# installed user actually receives, and merging a PR that carries it publishes a
+# release (.github/workflows/publish.yml). The paths match
+# scripts/check-version-bump.sh, so a deployable PR is exactly a PR that must
+# raise `version` in plugin.json.
+
+deployable:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "skills/**"
+          - ".claude-plugin/**"
+          - "scripts/lib/**"
 
 plugin:
   - changed-files:
