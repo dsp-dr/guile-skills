@@ -1,38 +1,127 @@
+<!-- Generated from README.org by `gmake readme`. Edit the .org, not this file. -->
+
 # guile-skills
 
-Agent skills and tooling for working on Guile Scheme projects: stand up a
-Guile socket REPL an agent can drive, evaluate code against it instead of
-guessing, and record every evaluation through a logging proxy.
+[![](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![](https://img.shields.io/badge/guile-3.0-orange.svg)](https://www.gnu.org/software/guile/) [![](https://img.shields.io/badge/claude--code-plugin-5A67D8.svg)](https://github.com/dsp-dr/guile-skills/blob/main/.claude-plugin/plugin.json) [![](https://img.shields.io/badge/verified-FreeBSD%2015.1-red.svg)](EXPERIMENTS.org)
 
-## What it does
+Agent skills and tooling for working on Guile Scheme projects, built around one observation:
 
-This is a Claude Code plugin bundling three skills:
+> The agent's hardest problem is **mechanical** (delimiters) and **epistemic** (stale state, unverified claims), not stylistic.
 
-- **`guile-repl-server`** — starts a project's REPL (`guile3 --debug --listen`
-  on a per-project port) plus a logging proxy on `PORT+1`. Use it when
-  starting or resuming work on a Guile/Scheme project.
-- **`guile-repl-eval`** — evaluates Scheme in that running REPL over its
-  socket, with tracing, breakpoints, macro expansion, and profiling. Use it
-  whenever a claim about Guile code should be checked by running it, not
-  assumed.
-- **`guile-repl-proxy`** — records everything that passes through the REPL
-  via the logging proxy, with per-project rotated transcripts, and lets a
-  human (via Emacs + Geiser) and an agent share one traced session.
+That is experiment 007's one-line finding from close-reading 75 Clojure agent skills, and it decides what is in this repository and what is not. There is **no style guide here**. Across those 75 skills, Java-style loops drew **zero** warnings: skills police tooling and process failures, not idioms. So this is a "how not to lie to yourself about what you ran" repository.
 
-## How to use it
+## Why this exists
 
-Install the plugin, then in a Guile project's working directory ask Claude to
-start the project's REPL, evaluate something, or check what a REPL session
-actually returned — the matching skill loads automatically. The three skills
-can also be driven directly from a shell via `bin/guile-repl-server.sh`,
-`bin/guile-repl-eval.sh`, and `bin/guile-repl-proxy.scm`, or through the
-Makefile (`gmake start`, `gmake eval F='(+ 1 1)'`, `gmake stop`).
+A census of Guile agent skills on GitHub (`aygp-dr/github-skills-search`, experiment 011) found **14** repositories with path-named Guile skills against Clojure's **194**, and roughly **one** about writing Guile at all. No Guile-ecosystem upstream ships a `SKILL.md`. The niche is open.
 
-## Setup
+Guile also starts ahead of where Clojure started. Clojure needed nREPL **plus** a bridge, and every ecosystem then shipped its own eval CLI — `clj-nrepl-eval`, `brepl`, `nreplctl`, Penpot's `nrepl-eval.mjs`, Metabase's `./bin/mage`. That fragmentation was the cost of everyone solving it locally. Guile ships the server in the binary:
 
-Requires `guile3` (or `guile` 3.x) and `nc` on the machine the REPL runs on;
-`sockstat`/`lsof`/`pgrep` are used opportunistically for diagnostics if
-present. No credentials, no network beyond `127.0.0.1`. See
-[README.org](README.org) for the full design rationale, and
-[EXPERIMENTS.org](EXPERIMENTS.org) for the failure modes this plugin exists
-to catch. Data sent: none — everything stays on the machine running the REPL.
+``` bash
+guile3 --debug --listen=37496 -c '(sleep 30)' &
+printf '(+ 1 1)\n' | nc -N 127.0.0.1 37496
+```
+
+    $1 = 2
+
+The expensive half is already done. What was missing is a convention.
+
+## What is here
+
+| Path | What it is |
+|----|----|
+| `skills/guile-repl-server/` | stand up a project with a socket REPL an agent can drive |
+| `skills/guile-repl-eval/` | evaluate before you assert; the meta-commands and their traps |
+| `skills/guile-repl-proxy/` | record the session; Emacs + Geiser through the same proxy |
+| `bin/guile-repl-paths.sh` | per-project slug, ports and log directory |
+| `bin/guile-repl-server.sh` | start, stop and status for the REPL and its proxy |
+| `bin/guile-repl-eval.sh` | send forms, get the value back without the banner |
+| `bin/guile-repl-proxy.scm` | the logging tee, in Guile |
+| [file:EXPERIMENTS.org](EXPERIMENTS.org) | **the interesting part**: six failures, four of them silent |
+| `tests/test-proxy.sh` | one regression test per failure |
+
+## As a plugin
+
+The repository is also a Claude Code plugin (`.claude-plugin/plugin.json`), so the three skills load together and the eval suite is targetable:
+
+``` bash
+claude plugin eval . --ablation with-without --allow-tools Bash
+```
+
+Frontmatter carries the access requirements, using only keys the official validator accepts — `name`, `description`, `license`, `allowed-tools`, `metadata`, `compatibility`:
+
+- `allowed-tools` is **enforced**: it bounds what the skill may call.
+- `metadata.requires` is **documentation**. Nothing in the harness reads it. It records binaries and their fallbacks, process and port use, filesystem paths with r/rw, network reach, and `credentials: none` — so a reader knows the blast radius without reading the scripts. Real gating is `allowed-tools`, `settings.json` permissions, and `claude plugin eval --allow-tools`.
+
+Every skill here declares `danger: a Guile socket REPL is unauthenticated arbitrary code execution`, because it is.
+
+`claude plugin eval` itself is in early access and not enabled on this account, so the hand-written suite in [file:evals/README.org](evals/README.org) hasn't been run through it. It has been run a different way: `skill-creator`'s benchmark mode, comparing an agent with each skill against one without across four real prompts per skill, with the port/log overrides that made 24 isolated runs safe to execute in parallel in this same repository. Results, per-expectation grading, and timing live under `skills/<name>-workspace/iteration-1/`.
+
+See [file:RELEASING.md](RELEASING.md) for what counts as a patch/minor/major bump and how to cut one.
+
+## Quick start
+
+``` bash
+gmake paths      # slug, ports, log directory, which guile
+gmake start      # REPL on PORT, logging proxy on PORT+1
+gmake status
+gmake eval F='(+ 1 1)'
+gmake test       # 7 regression tests
+gmake stop
+```
+
+## The shape
+
+    agent / Emacs+Geiser ──▶ 127.0.0.1:PORT+1 ──▶ 127.0.0.1:PORT
+                                  (proxy)          (guile3 --debug --listen)
+                                     │
+                                     └──▶ ~/.guile-skill/projects/<slug>/repl.log
+
+The slug follows `~/.claude/projects/` exactly — every `/` and `.` in the absolute path becomes `-`:
+
+    /home/dsp-dr/ghq/github.com/dsp-dr/guile-skills
+      -> ~/.guile-skill/projects/-home-dsp-dr-ghq-github-com-dsp-dr-guile-skills/
+
+Rotated at 4 MiB, five generations. Outside the repository on purpose.
+
+## Three things that will bite you
+
+1.  **Bare `guile` may be 2.2.7.** On this FreeBSD box `guile` is 2.2.7 while `guile3` and `guile-3.0` are 3.0.10. Anything shelling out to `guile` fails in ways that look like your code is wrong. Everything here prefers `guile3` and prints which binary it chose.
+2.  **`--debug` or the debug surfaces silently do nothing.** Without it, `,trace (fib 4)` emits no lines **and no error**.
+3.  **There is no linter.** `guild3 compile -W 3` gives warnings; `guix style` formats Guix package definitions, not general Scheme. No clj-kondo equivalent exists, so no skill here says "run the linter". If you want a high-value tool target after the eval bridge, this is it.
+
+## Anti-patterns worth encoding
+
+Ranked by how many of 75 close-read Clojure skills police each. They transfer to Guile essentially unchanged — they are Lisp problems, not Clojure problems.
+
+| Anti-pattern | Clojure skills | Guile form |
+|----|----|----|
+| hand-editing parens instead of structural tools | 22 | identical, plus `#;` datum comments and `#\|...\|#` blocks that naive matchers break on |
+| hallucinated APIs; success claimed without running | `19 | identical; ~--listen` is what makes "verified" checkable |  |
+| stale code: testing without reload | 14 | `(reload-module (resolve-module '(a b)))`; redefining a record or GOOPS class leaves instances on the old definition |
+| global mutable state | 8 | identical |
+| define-after-use instead of reordering | 8 | identical |
+| wrong runtime or a stale port file | 6 | **bigger here**: `guile` 2.2 vs `guile3` vs `guix repl` vs Hoot/WASM |
+| module ↔ file-path mapping | 3 | `(define-module (foo bar))` ↔ `foo/bar.scm` plus `%load-path` |
+
+Delimiters are the most-policed problem **and** the one visibly migrating out of prompts into tooling (Parinfer, `clj-paren-repair`). One Clojure review skill now tells reviewers to ignore parens entirely because the linter handles them. The skill text is dialect-independent and free to transfer: delegate structural edits to the tool, never hand-fix delimiters.
+
+## Delivery
+
+Guile skills do not distribute through registries. Experiment 011 found the real ones — `guix`, `guix-packaging`, `guix-package-update`, `pack-guix` — living in personal **Guix Home and dotfiles trees**, where the config manages the agent's instructions alongside the editor and the shell. So the natural vehicle here is a Guix home service or package, not a marketplace plugin, and the `~/.guile-skill/projects/` layout is deliberately dotfile-shaped. Not built yet.
+
+## Provenance
+
+Claims in this repository are either measured here or inherited, and the difference is marked:
+
+- **Measured on nexus** (FreeBSD 15.1-RELEASE, `guile3` 3.0.10, 2026-09-26): everything in [file:EXPERIMENTS.org](EXPERIMENTS.org), every number in `tests/test-proxy.sh`.
+- **Measured on hydra** (FreeBSD 14.4, `guile3` 3.0.11) by a second agent: that `--listen` binds loopback only and is unreachable from the LAN address, and that the wire protocol is the plain REPL — banner, `$N = value`, prompt as implicit end-of-response — not a framed protocol. The proxy's byte-forwarding-plus-tee design rests on that second finding, so it is load-bearing: if it is wrong, the design is wrong.
+- **Inherited, Clojure-side**: the 75-skill and 194-repo counts, the anti-pattern rankings, the 007 thesis, and the Guix-Home delivery finding. From `jwalsh/37d0ef2d6837e9234a878991d3c01c78` (§3.1 Surfaces) and `aygp-dr/58f58a9ca6a44cc0570106999a96a9b1`.
+- **Not established**: why `,locals` reports no variables at a frame where an argument is in scope; Guile module-reload semantics under GOOPS redefinition; `guile-lsp-server` maturity. Flagged so they get checked before being encoded as instructions.
+
+Note the two Guile versions above. Two agents measured the "same" binary and got 3.0.10 and 3.0.11, and both were right, because they were on different machines. That is the "wrong runtime" anti-pattern happening to the people writing the anti-pattern table.
+
+## Related
+
+- `dsp-dr/guile-sicp` — `surfaces.org`, the same model applied to reading SICP
+- `dsp-dr/guile-git-scratch` — `research/scheme-tooling/`, Guile vs Chez vs MIT vs Racket
+- `dsp-dr/guile-cps-debugger` — a GUI-first Guile debugger; useful to a person, unreachable for an agent, which is the distinction this repository turns on

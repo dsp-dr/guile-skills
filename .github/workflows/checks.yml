@@ -15,8 +15,20 @@ name: Checks
 on:
   push:
     branches: [main]
+    paths-ignore:
+      # A README-only change spends no runner. This is the mechanism; [skip ci]
+      # in a commit message is the escape hatch for a mixed commit, since
+      # paths-ignore only skips when every changed path matches.
+      - 'README.org'
+      - 'README.md'
   pull_request:
     branches: [main]
+    paths-ignore:
+      # A README-only change spends no runner. This is the mechanism; [skip ci]
+      # in a commit message is the escape hatch for a mixed commit, since
+      # paths-ignore only skips when every changed path matches.
+      - 'README.org'
+      - 'README.md'
   workflow_dispatch:
 
 permissions:

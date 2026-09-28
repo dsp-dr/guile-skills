@@ -8,7 +8,7 @@
 GUILE ?= $(shell command -v guile3 2>/dev/null || command -v guile-3.0 2>/dev/null || echo guile)
 GUILD ?= $(shell command -v guild3 2>/dev/null || command -v guild-3.0 2>/dev/null || echo guild)
 
-.PHONY: help start stop status eval lint test check-evals checks paths clean release-staging release-production
+.PHONY: help start stop status eval lint test check-evals checks readme paths clean release-staging release-production
 
 help:
 	@echo "guile-skills"
@@ -22,6 +22,7 @@ help:
 	@echo "  gmake test     end-to-end proxy tests"
 	@echo "  gmake check-evals  validate every skills/*/evals/evals.json"
 	@echo "  gmake checks   everything CI runs: lint + check-evals + test"
+	@echo "  gmake readme   regenerate README.md from README.org"
 	@echo "  gmake clean    remove compiled files"
 	@echo "  gmake release-staging              regression tests + validation, no publish"
 	@echo "  gmake release-production TAG=vX.Y.Z   same gate, then gh skill publish --tag"
@@ -67,6 +68,28 @@ check-evals:
 # is deliberately not here: it needs the Claude Code CLI, which CI installs and
 # a developer already has running.
 checks: lint check-evals test
+
+# README.org is the source; README.md is generated for GitHub's front page.
+# Both are committed, because GitHub renders the .md and the directory listing
+# reads it. Edit the .org.
+#
+# CI ignores changes to either file (paths-ignore in .github/workflows/*.yml),
+# so a README-only commit does not spend a runner. For a mixed commit that
+# should still skip, put [skip ci] in the commit message -- GitHub Actions
+# honours that natively and paths-ignore will not, since paths-ignore only
+# skips when *every* changed path matches.
+readme: README.md
+
+README.md: README.org
+	@command -v pandoc >/dev/null 2>&1 || { \
+		echo "readme: pandoc is required (pkg install hs-pandoc, or brew install pandoc)" >&2; \
+		exit 1; \
+	}
+	@printf '<!-- Generated from README.org by `gmake readme`. Edit the .org, not this file. -->\n\n' > $@
+	@printf '# %s\n\n' "$$(sed -n 's/^\#+TITLE: *//p' README.org)" >> $@
+	@pandoc -f org -t gfm --wrap=none --shift-heading-level-by=1 README.org \
+		| sed -e 's|](file:|](|g' >> $@
+	@echo "wrote $@ from README.org ($$(wc -l < $@ | tr -d ' ') lines)"
 
 clean:
 	@rm -rf .logs

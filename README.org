@@ -17,15 +17,15 @@ state, unverified claims), not stylistic.
 
 That is experiment 007's one-line finding from close-reading 75 Clojure agent
 skills, and it decides what is in this repository and what is not. There is *no
-style guide here*. Across those 75 skills, Java-style loops drew **zero**
+style guide here*. Across those 75 skills, Java-style loops drew *zero*
 warnings: skills police tooling and process failures, not idioms. So this is a
 "how not to lie to yourself about what you ran" repository.
 
 * Why this exists
 
 A census of Guile agent skills on GitHub (~aygp-dr/github-skills-search~,
-experiment 011) found **14** repositories with path-named Guile skills against
-Clojure's **194**, and roughly **one** about writing Guile at all. No
+experiment 011) found *14* repositories with path-named Guile skills against
+Clojure's *194*, and roughly *one* about writing Guile at all. No
 Guile-ecosystem upstream ships a ~SKILL.md~. The niche is open.
 
 Guile also starts ahead of where Clojure started. Clojure needed nREPL *plus* a
