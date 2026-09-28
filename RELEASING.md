@@ -35,14 +35,16 @@ to a PR to bypass the gate (e.g. a docs-only change), the same escape hatch
 `agent-skills` topic if the token has admin on the repo, and prints the
 `gh skill install` / `--pin` commands for that version.
 
-## Cutting one by hand, while `gh skill` does not exist
+## Cutting one by hand
 
-As of 2026-09-28 `gh skill` is in no released `gh` — not as a builtin, not as an
-extension, and not at `~/go/bin/gh`. `gmake release-production` therefore cannot
-run to completion: `bin/release.sh` gates fine and then refuses at the publish
-step, on purpose, because there is nothing to publish with.
+`gh skill` is a preview command that landed in **gh v2.90.0**. FreeBSD's ports
+tree lagged well behind it — `pkg` offered 2.83.2 on 2026-09-28, which has no
+`gh skill` at all — so v0.1.1 was cut by hand before the newer `gh` was built
+from source. `CONTRIBUTING.md` has the upgrade; once `gh skill --help` answers,
+`gmake release-production TAG=vX.Y.Z` is the supported path and this section is
+the fallback.
 
-v0.1.1 was cut manually. The sequence, which is the whole of it:
+The manual sequence, which is the whole of it:
 
 ```sh
 ./bin/release.sh staging                 # gate: tests, validate, eval suites
@@ -66,8 +68,11 @@ Four things this does **not** do, each of which is easy to assume it did:
 - **It does not add the `agent-skills` topic.** `gh skill publish` would; check
   with `gh api repos/<owner>/<repo>/topics` and add it by hand if missing. It was
   already set here.
-- **It does not print `gh skill install --pin` lines**, since that command is the
-  thing that is missing.
+- **It does not print `gh skill install --pin` lines**, and it skips the
+  Agent Skills spec validation that `gh skill publish` performs — name rules,
+  `name` matching the directory, required frontmatter, `allowed-tools` being a
+  string rather than an array, and stripped install metadata. Run
+  `gh skill publish --dry-run` separately if you cut a release by hand.
 
 Two conventions worth keeping when doing it by hand: tag **annotated** (`-a`), so
 the tag carries who cut it and what the gate said — `v0.1.0` is lightweight,

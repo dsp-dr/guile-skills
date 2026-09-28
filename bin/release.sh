@@ -19,8 +19,10 @@ set -eu
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT"
 
-# `gh skill` is a preview command; pick whichever gh on PATH actually has it,
-# falling back to a go-installed one ahead of an older packaged gh.
+# `gh skill` is a preview command that landed in gh v2.90.0. Pick whichever gh
+# actually answers `gh skill --help' rather than trusting a version number:
+# the packaged gh may lag (FreeBSD ports had 2.83.2 well after v2.101.0 shipped),
+# so a go-installed ~/go/bin/gh is the usual second candidate. See CONTRIBUTING.md.
 GH=${GH:-}
 if [ -z "$GH" ]; then
     for candidate in gh "$HOME/go/bin/gh"; do
@@ -30,10 +32,9 @@ if [ -z "$GH" ]; then
         fi
     done
 fi
-# `gh skill` ships in no released gh as of 2026-09-28 -- not as a builtin and not
-# as an extension. Staging therefore runs the gate steps that exist and says
-# plainly which one it could not run; production still refuses, because there is
-# nothing to publish with.
+# If no candidate has it, staging runs the gate steps that exist and says plainly
+# which one it could not run; production still refuses, because there is nothing
+# to publish with. That is a tooling gap on this machine, not a failed gate.
 SKILL_CMD=1
 if [ -z "$GH" ]; then
     SKILL_CMD=0

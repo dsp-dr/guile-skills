@@ -52,7 +52,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y guile-3.0
 
-      - name: Install a gh with `gh skill` support
+      # The apt repository tracks latest, which is >= v2.90.0 where `gh skill`
+      # landed -- but assert it rather than assume, because the gate silently
+      # skips skill validation when the command is absent.
+      - name: Install gh (needs >= 2.90.0 for `gh skill`)
         if: steps.check-skip.outputs.skip != 'true'
         run: |
           curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
@@ -61,6 +64,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gh
           gh --version
+          gh skill --help >/dev/null 2>&1 \
+            || echo "::warning::this gh has no \`gh skill\`; the gate will skip skill validation"
 
       - name: Install Claude Code CLI
         if: steps.check-skip.outputs.skip != 'true'
