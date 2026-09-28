@@ -1,0 +1,32 @@
+# labeler.yml --- path-based PR labels for actions/labeler.
+#
+# Mirrors the app:* convention from aygp-dr/standard-change: a label per area
+# of the repo a diff touches, derived from paths rather than hand-applied.
+# A PR carrying `labeler:skip` is left alone -- its labels become
+# hand-maintained, same meaning as standard-change's own labeler:skip.
+
+plugin:
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".claude-plugin/**"
+          - "assets/**"
+
+bin:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "bin/**"
+
+skill:guile-repl-eval:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "skills/guile-repl-eval/**"
+
+skill:guile-repl-proxy:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "skills/guile-repl-proxy/**"
+
+skill:guile-repl-server:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "skills/guile-repl-server/**"

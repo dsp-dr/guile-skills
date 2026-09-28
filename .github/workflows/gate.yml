@@ -1,0 +1,81 @@
+name: Release gate
+
+# Runs this repo's own regression suite (gmake release-staging: `gmake test`,
+# `claude plugin validate`, `gh skill publish --dry-run`) on every PR, and
+# tracks the run with release:start/release:end labels so it's visible at a
+# glance which PRs have been gated. A PR carrying release:skip bypasses the
+# gate entirely -- same escape hatch as labeler:skip on the path labeler.
+#
+# Caveat: `claude plugin validate` and `guile3`/`guild3` binary names are
+# assumed available the way Debian/Ubuntu package them as of this writing.
+# If either assumption is wrong the first real run will say so.
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for release:skip
+        id: check-skip
+        run: |
+          has_skip=$(gh pr view "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" --json labels \
+            --jq '[.labels[].name] | any(. == "release:skip")')
+          echo "skip=$has_skip" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Mark release:start
+        if: steps.check-skip.outputs.skip != 'true'
+        run: gh pr edit "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}" --add-label release:start
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Install guile3
+        if: steps.check-skip.outputs.skip != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y guile-3.0
+
+      - name: Install a gh with `gh skill` support
+        if: steps.check-skip.outputs.skip != 'true'
+        run: |
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null
+          sudo apt-get update
+          sudo apt-get install -y gh
+          gh --version
+
+      - name: Install Claude Code CLI
+        if: steps.check-skip.outputs.skip != 'true'
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: gmake release-staging
+        if: steps.check-skip.outputs.skip != 'true'
+        run: gmake release-staging
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Mark release:end
+        if: steps.check-skip.outputs.skip != 'true' && success()
+        run: |
+          gh pr edit "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}" \
+            --remove-label release:start --add-label release:end
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Clear release:start on failure
+        if: steps.check-skip.outputs.skip != 'true' && failure()
+        run: gh pr edit "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}" --remove-label release:start
+        env:
+          GH_TOKEN: ${{ github.token }}

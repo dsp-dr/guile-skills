@@ -1,0 +1,29 @@
+name: Path labeler
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Skip if labeler:skip is set
+        id: check-skip
+        run: |
+          has_skip=$(gh pr view "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" --json labels \
+            --jq '[.labels[].name] | any(. == "labeler:skip")')
+          echo "skip=$has_skip" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - uses: actions/labeler@v5
+        if: steps.check-skip.outputs.skip != 'true'
+        with:
+          configuration-path: .github/labeler.yml
+          sync-labels: true

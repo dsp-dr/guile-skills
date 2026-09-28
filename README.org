@@ -82,10 +82,16 @@ validator accepts --- ~name~, ~description~, ~license~, ~allowed-tools~,
 Every skill here declares ~danger: a Guile socket REPL is unauthenticated
 arbitrary code execution~, because it is.
 
-*The eval suite is authored but unrun*: ~claude plugin eval~ is in early access
-and not enabled on this account. See [[file:evals/README.org]]. A suite nobody
-has run is precisely the unverified-claim failure this plugin argues against, so
-it is labelled, not implied.
+~claude plugin eval~ itself is in early access and not enabled on this account,
+so the hand-written suite in [[file:evals/README.org]] hasn't been run through it.
+It has been run a different way: ~skill-creator~'s benchmark mode, comparing an
+agent with each skill against one without across four real prompts per skill,
+with the port/log overrides that made 24 isolated runs safe to execute in
+parallel in this same repository. Results, per-expectation grading, and
+timing live under ~skills/<name>-workspace/iteration-1/~.
+
+See [[file:RELEASING.md]] for what counts as a patch/minor/major bump and how to
+cut one.
 
 * Quick start
 
