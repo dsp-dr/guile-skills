@@ -44,7 +44,7 @@ gmake eval F='(+ 1 1)'
 gmake stop
 ```
 
-## The shape
+## How it works
 
     agent / Emacs+Geiser ──▶ 127.0.0.1:PORT+1 ──▶ 127.0.0.1:PORT
                                   (proxy)          (guile3 --debug --listen)
@@ -53,7 +53,66 @@ gmake stop
 
 The port pair is derived from the working directory, so a project — and each worktree of it — always gets its own. The transcript is keyed the same way, under the plugin's data directory rather than inside your repository, because it contains whatever you evaluated. Rotated at 4 MiB, five generations.
 
-[Control flow for a sample project](docs/control-flow.org) walks one session end to end.
+### A session, end to end
+
+A real session on a project with a bug in `src/math.scm`. The point of drawing it is that each skill hands off to the next, and the debugger is reached *through* the same socket as ordinary evaluation – there is no second channel.
+
+```mermaid
+sequenceDiagram
+    actor Agent
+    participant Server as guile-repl-server
+    participant Proxy as proxy :PORT+1
+    participant REPL as guile3 --debug :PORT
+    participant Log as repl.log
+    actor Human as Human + Geiser
+
+    Note over Agent,Server: 1. stand up the surface, once per project
+    Agent->>Server: ${CLAUDE_SKILL_DIR}/scripts/guile-repl-server.sh
+    Server->>Server: paths.sh: probe guile3/guile-3.0, derive PORT
+    Server->>Server: refuse if PORT already listening
+    Server->>REPL: spawn --debug --listen=PORT
+    Server->>Proxy: spawn --listen PORT+1 --target PORT
+
+    Note over Agent,Log: 2. evaluate, and every byte is recorded
+    Agent->>Proxy: (use-modules (math)) (fib 10)
+    Proxy->>REPL: forward verbatim
+    REPL-->>Proxy: $1 = 55
+    Proxy->>Log: -> and <- with timestamps
+    Proxy-->>Agent: $1 = 55
+
+    Note over Agent,REPL: 3. the debugger, same socket
+    Agent->>Proxy: ,trace (fib 4)
+    Proxy->>REPL: forward
+    REPL-->>Agent: indented call tree
+    Agent->>Proxy: ,break fib
+    Agent->>Proxy: (fib 4) then ,bt
+    REPL-->>Agent: frames at the breakpoint
+    Agent->>Proxy: ,profile (fib 30)
+    REPL-->>Agent: flat profile, 3 samples
+
+    Note over Agent,REPL: 4. fix, then force the reload
+    Agent->>Agent: edit src/math.scm
+    Agent->>Proxy: (reload-module (resolve-module '(math)))
+    Agent->>Proxy: (fib 10)
+    REPL-->>Agent: $2 = 55
+
+    Note over Human,Log: 5. the human shares the transcript
+    Human->>Proxy: M-x geiser-connect 127.0.0.1 PORT+1
+    Proxy->>Log: the human's forms land in the same file
+    Agent->>Log: read it back to see what they tried
+```
+
+Where it goes quiet rather than wrong, by step:
+
+| Step | If you skip it | What you see |
+|----|----|----|
+| 1, `--debug` | tracing and breakpoints do nothing | `,trace` prints **no lines and no error**, reading as "makes no calls" |
+| 1, port check | a stale listener keeps serving | the new process dies, the old one answers, and your log never grows |
+| 2, `PORT+1` | connect to `PORT` instead | the right answer, and nothing recorded |
+| 3, `,profile` too small | nothing to sample | `No samples recorded.`, which reads as a broken profiler |
+| 4, reload | the module is already loaded | the **pre-edit** answer, with no error |
+
+Only step 5 is optional. The proxy serves connections serially, so an agent and Geiser at once needs two proxies or a threaded accept loop.
 
 ## Three things that will bite you
 
@@ -70,7 +129,6 @@ A Guile socket REPL is unauthenticated arbitrary code execution. That is why eve
 ## More
 
 - [Why this exists](docs/rationale.org) — the argument, the numbers, and which claims are inherited
-- [Control flow](docs/control-flow.org) — one session end to end, and where each step fails quietly
 - [EXPERIMENTS.org](EXPERIMENTS.org) — six real failures, four of them silent
 - [CONTRIBUTING.org](CONTRIBUTING.org) — tooling versions, the four testing layers, conventions
 - [RELEASING.md](RELEASING.md) — what counts as patch, minor, major, and how to cut one
