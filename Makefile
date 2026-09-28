@@ -12,7 +12,7 @@ PROXY_SCRIPTS  := skills/guile-repl-proxy/scripts
 GUILE ?= $(shell command -v guile3 2>/dev/null || command -v guile-3.0 2>/dev/null || echo guile)
 GUILD ?= $(shell command -v guild3 2>/dev/null || command -v guild-3.0 2>/dev/null || echo guild)
 
-.PHONY: help start stop status eval lint lint-org lint-claude test check-evals check-scripts sync-scripts checks try try-in ship-check readme paths clean release-staging release-production
+.PHONY: help start stop status eval lint lint-org lint-claude test check-evals check-scripts check-version sync-scripts checks try try-in ship-check readme paths clean release-staging release-production
 
 help:
 	@echo "guile-skills"
@@ -29,6 +29,7 @@ help:
 	@echo "  gmake check-evals  validate every skills/*/evals/evals.json"
 	@echo "  gmake sync-scripts  copy scripts/lib/ into each skill that needs it"
 	@echo "  gmake check-scripts verify those copies have not drifted"
+	@echo "  gmake check-version verify a shipped change raised plugin.json version"
 	@echo "  gmake checks   everything CI runs: lint + check-evals + test"
 	@echo "  gmake try      open Claude Code with this plugin loaded from the working tree"
 	@echo "  gmake try-in DIR=<path>  same, but with the cwd in another project"
@@ -94,10 +95,15 @@ sync-scripts:
 check-scripts:
 	@./scripts/sync-skill-scripts.sh --check
 
+# A change to what users receive needs a version bump, or every existing
+# install silently stays on the old copy. BASE defaults to the newest tag.
+check-version:
+	@./scripts/check-version-bump.sh $${BASE:-$$(git describe --tags --abbrev=0)}
+
 # What CI runs, in the order that fails cheapest first. `claude plugin validate'
 # is deliberately not here: it needs the Claude Code CLI, which CI installs and
 # a developer already has running.
-checks: lint lint-org lint-claude check-scripts check-evals test
+checks: lint lint-org lint-claude check-scripts check-version check-evals test
 
 # Manual testing. `checks' proves the code is sound; these prove the *plugin*
 # works, which is a different question -- the skills reference scripts by path,
@@ -123,12 +129,14 @@ endif
 ship-check:
 	@./scripts/ship-check.sh
 
-GENERATED_DOCS := README.md
+GENERATED_DOCS := README.md CONTRIBUTING.md
 
-# Org is the authored form for every document here. README.md is the single
-# exception: it is a generated projection, because the plugin directory requires
-# a README in the plugin folder, "preferably named README.md", and shows it as
-# the listing description.
+# Org is the authored form for every document here; the .md files below are
+# generated projections, never edited by hand. README.md exists because the
+# plugin directory requires a README in the plugin folder, "preferably named
+# README.md", and shows it as the listing description. CONTRIBUTING.md exists
+# because GitHub surfaces it in the repository's "Contributing guidelines"
+# affordance and does not recognise CONTRIBUTING.org there.
 # Both are committed, because GitHub renders the .md and the directory listing
 # reads it. Edit the .org.
 #

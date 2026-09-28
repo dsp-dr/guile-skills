@@ -39,6 +39,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # check-version-bump diffs against the base commit
 
       # Ubuntu names the binaries guile-3.0 / guild-3.0; FreeBSD names them
       # guile3 / guild3. The Makefile and scripts/lib/guile-repl-paths.sh probe for
@@ -55,6 +57,18 @@ jobs:
       # Makefile requires GNU make either way.
       - name: Shell and Scheme lint
         run: make lint
+
+      - name: A shipped change must raise the version
+        env:
+          BEFORE: ${{ github.event.before }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          base="${PR_BASE:-$BEFORE}"
+          case "$base" in
+            ""|0000000000000000000000000000000000000000)
+              echo "no base commit for this event; skipping" ;;
+            *) ./scripts/check-version-bump.sh "$base" ;;
+          esac
 
       - name: Validate every eval suite
         run: make check-evals
