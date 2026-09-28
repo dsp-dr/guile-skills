@@ -1,0 +1,29 @@
+Context
+  Asked to wire the evals into CI so a patch bump is verified through CI/CD
+  directly. Discovered first that CI had never run at all: two workflows
+  registered and active, zero runs, because both fire only on pull_request and
+  no PR has ever been opened on this repo.
+
+Considerations
+  - The eval suites cannot be *executed* in CI: `claude plugin eval` is early
+    access and unavailable on this account, and a DSPy arm needs a model
+    endpoint and key. What CI can own is that the suites are structurally
+    valid and that the regression tests pass -- so the validator checks schema
+    and, less obviously, that expectations are transcript-checkable, which is
+    the property that makes the suites worth running later.
+  - The validator was tested against broken fixtures before being trusted. An
+    unexercised checker that always prints ok is worse than no checker; that is
+    the same failure this plugin exists to prevent, one level up.
+
+Deviations
+  - `claude plugin validate` is continue-on-error in the new workflow. It has
+    never run in CI, so its exit status is not yet trusted to gate anything.
+    The comment in the workflow says to make it fatal once a green run exists.
+  - release.sh's staging path now degrades rather than refusing. That is a
+    behaviour change to a bin/ script, but not to its arguments or output
+    contract, so it stays patch work per RELEASING.md.
+
+Timeline
+  2026-09-28, nexus. Local `gmake checks` green: lint, 3 eval suites valid,
+  7/7 proxy tests. `./bin/release.sh staging` now exits 0 with the publish
+  step reported as skipped.
