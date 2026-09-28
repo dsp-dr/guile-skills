@@ -1,0 +1,16 @@
+Correction to this commit message
+  It claims "GitHub renders mermaid in Markdown but not in Org". That is false.
+  Verified against the rendered blob for docs/control-flow.org at e2bfe3d: the
+  page shows GitHub's mermaid loading placeholder where the sequenceDiagram is,
+  not a source block. GitHub renders mermaid in .org files.
+
+  I asserted it without checking and used it as a second justification for
+  moving the section into the README. The first reason stands on its own and is
+  the actual reason: the control flow is the best short answer to "what is this
+  and how does it work", so it belongs on the front page rather than a page
+  behind it. The rendering argument should be struck.
+
+Also recorded here: this commit is incomplete. The `git add' that should have
+staged README.org aborted on the already-removed docs/control-flow.org path, so
+only the deletion landed and main briefly had the section in neither file.
+295a282 adds the content.
