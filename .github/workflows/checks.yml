@@ -1,0 +1,61 @@
+name: Checks
+
+# The deterministic half of this repo's verification, run on every push to main
+# and every PR -- so a patch bump is checked by CI directly rather than only on
+# whichever machine happened to cut it.
+#
+# What is NOT here, and why: `claude plugin eval` runs the three skills' eval
+# suites against a model. It is early access, it needs credits, and it is not
+# enabled on this account (evals/README.org). A DSPy/GEPA grading arm has the
+# same dependency -- a model endpoint and a key. Neither belongs in a workflow
+# that must be green to mean anything, so CI owns structure and regression
+# tests, and model-graded runs stay manual until early access lands. When it
+# does, the suites are already valid and machine-checked by the step below.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Ubuntu names the binaries guile-3.0 / guild-3.0; FreeBSD names them
+      # guile3 / guild3. The Makefile and bin/guile-repl-paths.sh probe for
+      # both, so nothing here needs to pin a name. netcat-openbsd is the nc
+      # with -N, which tests/test-proxy.sh needs for half-close.
+      - name: Install Guile and netcat
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y guile-3.0 netcat-openbsd
+          guile-3.0 --version | head -1
+          command -v guild-3.0 || echo "no guild-3.0; lint will skip Scheme warnings"
+
+      # `make` on Ubuntu IS GNU make, so there is no gmake here. The repo's
+      # Makefile requires GNU make either way.
+      - name: Shell and Scheme lint
+        run: make lint
+
+      - name: Validate every eval suite
+        run: make check-evals
+
+      - name: Proxy regression tests
+        run: make test
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      # Informational for now: this has never run in CI, so its exit status is
+      # not yet trusted to gate a merge. Make it fatal (drop continue-on-error)
+      # once a green run exists to point at.
+      - name: Validate plugin manifest
+        continue-on-error: true
+        run: claude plugin validate .

@@ -30,15 +30,30 @@ if [ -z "$GH" ]; then
         fi
     done
 fi
-[ -n "$GH" ] || { echo "release.sh: no \`gh\` with \`gh skill\` support found (needs gh >= the version that added it)" >&2; exit 2; }
+# `gh skill` ships in no released gh as of 2026-09-28 -- not as a builtin and not
+# as an extension. Staging therefore runs the gate steps that exist and says
+# plainly which one it could not run; production still refuses, because there is
+# nothing to publish with.
+SKILL_CMD=1
+if [ -z "$GH" ]; then
+    SKILL_CMD=0
+    GH=gh
+fi
 
 gate() {
     echo "== regression tests: gmake test =="
     gmake test
     echo "== plugin manifest: claude plugin validate . =="
     claude plugin validate .
-    echo "== skill validation: $GH skill publish --dry-run =="
-    "$GH" skill publish --dry-run
+    echo "== eval suites: gmake check-evals =="
+    gmake check-evals
+    if [ "$SKILL_CMD" -eq 1 ]; then
+        echo "== skill validation: $GH skill publish --dry-run =="
+        "$GH" skill publish --dry-run
+    else
+        echo "== skill validation: SKIPPED, this gh has no \`gh skill\` =="
+        echo "   the other gate steps ran; nothing was published"
+    fi
     echo "== gate passed =="
 }
 
@@ -50,6 +65,11 @@ case ${1:-} in
         tag=${2:-}
         [ -n "$tag" ] || { echo "release.sh: production needs a tag, e.g. ./bin/release.sh production v0.1.0" >&2; exit 2; }
         gate
+        [ "$SKILL_CMD" -eq 1 ] || {
+            echo "release.sh: cannot publish -- no \`gh\` on PATH has \`gh skill\`." >&2
+            echo "  The gate above passed; publishing is the only blocked step." >&2
+            exit 2
+        }
         echo "== publishing $tag =="
         "$GH" skill publish --tag "$tag"
         ;;

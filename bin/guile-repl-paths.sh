@@ -25,11 +25,17 @@ GUILE_REPL_PROXY_PORT=$((GUILE_REPL_PORT + 1))
 
 export GUILE_REPL_ROOT GUILE_REPL_SLUG GUILE_REPL_DIR GUILE_REPL_PORT GUILE_REPL_PROXY_PORT
 
-# Prefer guile3 where it exists: bare `guile' is 2.2.7 on some FreeBSD boxes
-# and 3.x under Homebrew, and the tracing surfaces need 3.x.
-if command -v guile3 >/dev/null 2>&1; then
-    GUILE=${GUILE:-guile3}
-else
+# Prefer an explicitly-3.x binary: bare `guile' is 2.2.7 on some FreeBSD boxes
+# and 3.x under Homebrew, and the tracing surfaces need 3.x. FreeBSD ports name
+# it guile3 and guile-3.0; Debian and Ubuntu name it guile-3.0 only, which is
+# what CI runners have -- probing in this order covers all three.
+if [ -z "${GUILE:-}" ]; then
+    for guile_candidate in guile3 guile-3.0 guile; do
+        if command -v "$guile_candidate" >/dev/null 2>&1; then
+            GUILE=$guile_candidate
+            break
+        fi
+    done
     GUILE=${GUILE:-guile}
 fi
 export GUILE
