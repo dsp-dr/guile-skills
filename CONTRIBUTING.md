@@ -2,7 +2,22 @@
 
 # Contributing
 
-Upstream documentation this guide assumes and does not restate: [Claude Code plugins](https://code.claude.com/docs/en/plugins) – plugin structure, the component types and where each one's files belong, the `${CLAUDE_PLUGIN_ROOT}` / `${CLAUDE_PLUGIN_DATA}` / `${CLAUDE_PROJECT_DIR}` path variables and where each resolves, and the loading and distribution rules. Where this file and that documentation disagree, the documentation is right and this file is stale – say so in the PR.
+Upstream documentation this guide assumes and does not restate. Where this file and the documentation disagree, the documentation is right and this file is stale – say so in the PR.
+
+| What | Where |
+|----|----|
+| Documentation index, for finding pages before searching | [code.claude.com/docs/llms.txt](https://code.claude.com/docs/llms.txt) |
+| Plugin structure, components, loading and distribution | [Claude Code plugins](https://code.claude.com/docs/en/plugins) |
+| `plugin.json`: every field, path rules, `userConfig`, the environment variables, the standard layout | [Plugin manifest reference](https://code.claude.com/docs/en/plugins/manifest-reference) |
+| `SKILL.md` frontmatter, the `compatibility` field, directory rules | [Agent Skills specification](https://agentskills.io/specification) |
+
+Three things from the manifest reference that this repository depends on, so that a reader knows where they came from:
+
+- **The path variables resolve in Markdown bodies, not in the Bash environment.** `${CLAUDE_PLUGIN_ROOT}`, `${CLAUDE_PLUGIN_DATA}` and `${CLAUDE_PROJECT_DIR}` are substituted into skill, command and agent content when it loads, and are "not present in the environment of commands Claude runs through the Bash tool". That is why `SKILL.md` hands the data directory to the scripts as `GUILE_SKILL_DATA="${CLAUDE_PLUGIN_DATA}"` rather than having them read it.
+- **Never write state under `${CLAUDE_PLUGIN_ROOT}`**, which moves on every plugin update. `${CLAUDE_PLUGIN_DATA}` is `~/.claude/plugins/data/<id>/`, created on first reference and kept across updates – and deleted on uninstall unless `--keep-data`.
+- **`bin/` is a reserved directory.** Files in it are on the Bash tool's `PATH` while the plugin is enabled, and "claude.ai and Cowork don't install a plugin that has this directory". This repository still has one; see issue \#2.
+
+`claude plugin validate --strict` turns warnings into failures, which is what CI should use once the manifest is warning-free.
 
 ### Tooling, and the versions that matter
 
