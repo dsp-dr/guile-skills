@@ -5,10 +5,14 @@
 # FreeBSD ports give guile3/guild3; Debian and Ubuntu give guile-3.0/guild-3.0.
 # Probe rather than assume -- gate.yml's first run would otherwise fail on a
 # binary name (EXPERIMENTS.org E9 is the same class of mistake).
+SERVER_SCRIPTS := skills/guile-repl-server/scripts
+EVAL_SCRIPTS   := skills/guile-repl-eval/scripts
+PROXY_SCRIPTS  := skills/guile-repl-proxy/scripts
+
 GUILE ?= $(shell command -v guile3 2>/dev/null || command -v guile-3.0 2>/dev/null || echo guile)
 GUILD ?= $(shell command -v guild3 2>/dev/null || command -v guild-3.0 2>/dev/null || echo guild)
 
-.PHONY: help start stop status eval lint lint-org lint-claude test check-evals checks try try-in ship-check readme paths clean release-staging release-production
+.PHONY: help start stop status eval lint lint-org lint-claude test check-evals check-scripts sync-scripts checks try try-in ship-check readme paths clean release-staging release-production
 
 help:
 	@echo "guile-skills"
@@ -23,6 +27,8 @@ help:
 	@echo "  gmake lint-org     org-lint every tracked .org file"
 	@echo "  gmake lint-claude  claude plugin validate ."
 	@echo "  gmake check-evals  validate every skills/*/evals/evals.json"
+	@echo "  gmake sync-scripts  copy scripts/lib/ into each skill that needs it"
+	@echo "  gmake check-scripts verify those copies have not drifted"
 	@echo "  gmake checks   everything CI runs: lint + check-evals + test"
 	@echo "  gmake try      open Claude Code with this plugin loaded from the working tree"
 	@echo "  gmake try-in DIR=<path>  same, but with the cwd in another project"
@@ -33,34 +39,34 @@ help:
 	@echo "  gmake release-production TAG=vX.Y.Z   same gate, then gh skill publish --tag"
 
 start:
-	@./bin/guile-repl-server.sh
+	@$(SERVER_SCRIPTS)/guile-repl-server.sh
 
 stop:
-	@./bin/guile-repl-server.sh --stop
+	@$(SERVER_SCRIPTS)/guile-repl-server.sh --stop
 
 status:
-	@./bin/guile-repl-server.sh --status
+	@$(SERVER_SCRIPTS)/guile-repl-server.sh --status
 
 paths:
-	@./bin/guile-repl-paths.sh
+	@$(SERVER_SCRIPTS)/guile-repl-paths.sh
 
 eval:
 ifndef F
 	$(error F is required. Usage: gmake eval F='(+ 1 1)')
 endif
-	@./bin/guile-repl-eval.sh '$(F)'
+	@$(EVAL_SCRIPTS)/guile-repl-eval.sh '$(F)'
 
 # guild writes a temp file and renames it, so -o /dev/null always fails
 # (EXPERIMENTS.org E7). Compile to a real path and keep only the warnings.
 lint:
 	@mkdir -p .logs
 	@if command -v $(GUILD) >/dev/null 2>&1; then \
-		$(GUILD) compile -W 3 -o .logs/lint.go bin/guile-repl-proxy.scm 2>&1 \
+		$(GUILD) compile -W 3 -o .logs/lint.go $(PROXY_SCRIPTS)/guile-repl-proxy.scm 2>&1 \
 			| grep -iE 'warning|error' || true; \
 	else \
 		echo "lint: no guild on PATH; skipping Scheme warnings (shell checks still run)"; \
 	fi
-	@for s in bin/*.sh admin/*.sh; do sh -n "$$s" || exit 1; done
+	@for s in scripts/*.sh scripts/lib/*.sh skills/*/scripts/*.sh; do sh -n "$$s" || exit 1; done
 	@echo "Lint complete."
 
 test:
@@ -80,10 +86,18 @@ lint-claude:
 check-evals:
 	@python3 ./tests/validate-evals.py
 
+# scripts/lib/ is canonical; skills/*/scripts/ copies are generated, because a
+# skill installed on its own must carry everything it runs.
+sync-scripts:
+	@./scripts/sync-skill-scripts.sh
+
+check-scripts:
+	@./scripts/sync-skill-scripts.sh --check
+
 # What CI runs, in the order that fails cheapest first. `claude plugin validate'
 # is deliberately not here: it needs the Claude Code CLI, which CI installs and
 # a developer already has running.
-checks: lint lint-org lint-claude check-evals test
+checks: lint lint-org lint-claude check-scripts check-evals test
 
 # Manual testing. `checks' proves the code is sound; these prove the *plugin*
 # works, which is a different question -- the skills reference scripts by path,
@@ -107,23 +121,7 @@ endif
 # What a user actually receives. `gh skill install' copies skills/<name>/** and
 # nothing else, so this is how you find out that a script did not ship.
 ship-check:
-	@gh_skill=""; \
-	for c in gh "$$HOME/go/bin/gh"; do \
-		command -v "$$c" >/dev/null 2>&1 && "$$c" skill --help >/dev/null 2>&1 && { gh_skill=$$c; break; }; \
-	done; \
-	[ -n "$$gh_skill" ] || { echo "ship-check: needs a gh with \`gh skill\` (>= 2.90.0); see CONTRIBUTING.md" >&2; exit 1; }; \
-	tmp=$$(mktemp -d) || exit 1; \
-	trap 'rm -rf "$$tmp"' EXIT HUP INT TERM; \
-	"$$gh_skill" skill install "$(CURDIR)" --from-local --agent claude-code --dir "$$tmp" --all >/dev/null 2>&1 \
-		|| { echo "ship-check: install failed" >&2; exit 1; }; \
-	echo "files an install delivers:"; \
-	(cd "$$tmp" && find . -type f | sed 's|^\./|  |' | sort); \
-	echo; \
-	if (cd "$$tmp" && find . -type f -perm -u+x | grep -q .); then \
-		echo "executables shipped: yes"; \
-	else \
-		echo "executables shipped: NO -- any SKILL.md command naming a script is unusable as installed"; \
-	fi
+	@./scripts/ship-check.sh
 
 GENERATED_DOCS := README.md CONTRIBUTING.md
 
@@ -160,10 +158,10 @@ clean:
 	@echo "Cleaned."
 
 release-staging:
-	@./bin/release.sh staging
+	@./scripts/release.sh staging
 
 release-production:
 ifndef TAG
 	$(error TAG is required. Usage: gmake release-production TAG=v0.1.0)
 endif
-	@./bin/release.sh production $(TAG)
+	@./scripts/release.sh production $(TAG)

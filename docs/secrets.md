@@ -85,7 +85,7 @@ Store both values in `pass`, then run the installer:
 ```sh
 pass insert -e github/dsp-dr/guile-skills/directory-webhook-url
 pass insert    github/dsp-dr/guile-skills/directory-webhook-secret
-admin/install-directory-webhook.sh
+scripts/install-directory-webhook.sh
 ```
 
 It takes no arguments, refuses to create a second hook for a payload URL that
@@ -166,13 +166,13 @@ Some secrets need a copy on GitHub so a workflow can use one. `pass` stays the
 source of truth; GitHub is a replica, and values move one way only:
 
 ```sh
-admin/sync-secrets.sh status        # manifest vs. what GitHub actually holds
-admin/sync-secrets.sh push          # set every manifest entry from pass
-admin/sync-secrets.sh push NAME     # just one
-admin/sync-secrets.sh remove NAME   # delete one from GitHub (asks first)
+scripts/sync-secrets.sh status        # manifest vs. what GitHub actually holds
+scripts/sync-secrets.sh push          # set every manifest entry from pass
+scripts/sync-secrets.sh push NAME     # just one
+scripts/sync-secrets.sh remove NAME   # delete one from GitHub (asks first)
 ```
 
-The mapping lives in [`admin/secrets.map`](../admin/secrets.map) — GitHub secret
+The mapping lives in [`scripts/secrets.map`](../scripts/secrets.map) — GitHub secret
 name, `pass` entry, and which application (`actions`, `dependabot`,
 `codespaces`). Names only, no values, which is why it is committed.
 
@@ -193,7 +193,7 @@ Two things about this direction of travel:
 
 ## What is scripted, and what is not
 
-- **Creation is scripted** — `admin/install-directory-webhook.sh`. Typing it at a
+- **Creation is scripted** — `scripts/install-directory-webhook.sh`. Typing it at a
   prompt failed twice on shell quoting before the script existed, which is the
   argument for a file: the fragile part is the JSON body, and a script removes
   every expansion from it.

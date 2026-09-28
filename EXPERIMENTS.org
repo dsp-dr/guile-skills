@@ -82,7 +82,7 @@ while the *old* proxy kept serving and kept writing to the *old* log file. I was
 reading a log nobody was writing to, while a stale process answered the tests.
 
 #+begin_example
-37511 guile3 ./bin/guile-repl-proxy.scm --listen 37497 --target 37496 --log /tmp/proxy-e2e.log
+37511 guile3 ./scripts/lib/guile-repl-proxy.scm --listen 37497 --target 37496 --log /tmp/proxy-e2e.log
 dsp-dr  guile-3.0  37511  8 tcp4  127.0.0.1:37497
 #+end_example
 

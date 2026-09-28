@@ -7,14 +7,14 @@ release — the directory and `gh skill install --pin` both key off it.
 ## What counts as patch / minor / major
 
 Semver, judged against what an installer of this plugin actually depends on:
-the three skills' behavior and their `SKILL.md` contracts, `bin/*.sh` as a
+the three skills' behavior and their `SKILL.md` contracts, `skills/*/scripts/*.sh` as a
 public interface, and the plugin manifest itself.
 
 | Bump | When |
 |---|---|
-| **patch** | Wording/doc fixes in a `SKILL.md` or this repo's own docs; a `bin/*.sh` fix that doesn't change its arguments or output shape; adding a regression test; anything in `evals/` or the `*-workspace/` benchmark output. |
-| **minor** | A new skill added; a new optional flag on a `bin/*.sh` script; a `SKILL.md` description or instructions change that widens *when* it triggers or *what it covers*, without breaking an existing caller. |
-| **major** | Removing or renaming a skill or a `bin/*.sh` script; changing a script's existing argument/output contract; changing the derived-port scheme in `guile-repl-paths.sh`; anything that would silently break someone who scripted against the previous version. |
+| **patch** | Wording/doc fixes in a `SKILL.md` or this repo's own docs; a `skills/*/scripts/*.sh` fix that doesn't change its arguments or output shape; adding a regression test; anything in `evals/` or the `*-workspace/` benchmark output. |
+| **minor** | A new skill added; a new optional flag on a `skills/*/scripts/*.sh` script; a `SKILL.md` description or instructions change that widens *when* it triggers or *what it covers*, without breaking an existing caller. |
+| **major** | Removing or renaming a skill or a `skills/*/scripts/*.sh` script; changing a script's existing argument/output contract; changing the derived-port scheme in `guile-repl-paths.sh`; anything that would silently break someone who scripted against the previous version. |
 
 When in doubt, look at it from `gh skill install dsp-dr/guile-skills <skill> --pin vX.Y.Z` — a bump is major exactly when pinning the *old* tag stops being a reasonable way to avoid the change.
 
@@ -47,7 +47,7 @@ the fallback.
 The manual sequence, which is the whole of it:
 
 ```sh
-./bin/release.sh staging                 # gate: tests, validate, eval suites
+./scripts/release.sh staging                 # gate: tests, validate, eval suites
                                          # (the publish step reports SKIPPED)
 $EDITOR .claude-plugin/plugin.json       # bump "version"
 git commit ... && git push origin main   # the directory reads the version here

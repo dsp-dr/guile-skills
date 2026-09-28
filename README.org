@@ -52,10 +52,10 @@ The expensive half is already done. What was missing is a convention.
 | ~skills/guile-repl-server/~       | stand up a project with a socket REPL an agent can drive        |
 | ~skills/guile-repl-eval/~         | evaluate before you assert; the meta-commands and their traps   |
 | ~skills/guile-repl-proxy/~        | record the session; Emacs + Geiser through the same proxy       |
-| ~bin/guile-repl-paths.sh~         | per-project slug, ports and log directory                      |
-| ~bin/guile-repl-server.sh~        | start, stop and status for the REPL and its proxy              |
-| ~bin/guile-repl-eval.sh~          | send forms, get the value back without the banner              |
-| ~bin/guile-repl-proxy.scm~        | the logging tee, in Guile                                      |
+| ~scripts/lib/guile-repl-paths.sh~         | per-project slug, ports and log directory                      |
+| ~skills/guile-repl-server/scripts/guile-repl-server.sh~        | start, stop and status for the REPL and its proxy              |
+| ~skills/guile-repl-eval/scripts/guile-repl-eval.sh~          | send forms, get the value back without the banner              |
+| ~scripts/lib/guile-repl-proxy.scm~        | the logging tee, in Guile                                      |
 | [[file:EXPERIMENTS.org]]          | *the interesting part*: six failures, four of them silent      |
 | ~tests/test-proxy.sh~             | one regression test per failure                                |
 
@@ -139,7 +139,7 @@ sequenceDiagram
     actor Human as Human + Geiser
 
     Note over Agent,Server: 1. stand up the surface, once per project
-    Agent->>Server: ./bin/guile-repl-server.sh
+    Agent->>Server: ${CLAUDE_SKILL_DIR}/scripts/guile-repl-server.sh
     Server->>Server: paths.sh: probe guile3/guile-3.0, derive PORT
     Server->>Server: refuse if PORT already listening
     Server->>REPL: spawn --debug --listen=PORT

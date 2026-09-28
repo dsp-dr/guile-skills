@@ -58,15 +58,15 @@ for b in guile guile3 guile-3.0; do
 done
 ```
 
-Prefer `guile3` when it exists. `bin/guile-repl-paths.sh` does this and prints
+Prefer `guile3` when it exists. `sh ${CLAUDE_SKILL_DIR}/scripts/guile-repl-paths.sh` does this and prints
 its choice.
 
 ## Start it
 
 ```sh
-GUILE_SKILL_DATA="${CLAUDE_PLUGIN_DATA}" ./bin/guile-repl-server.sh   # REPL on PORT, proxy on PORT+1
-./bin/guile-repl-server.sh --status  # what is actually listening
-./bin/guile-repl-server.sh --stop
+GUILE_SKILL_DATA="${CLAUDE_PLUGIN_DATA}" sh ${CLAUDE_SKILL_DIR}/scripts/guile-repl-server.sh   # REPL on PORT, proxy on PORT+1
+sh ${CLAUDE_SKILL_DIR}/scripts/guile-repl-server.sh --status  # what is actually listening
+sh ${CLAUDE_SKILL_DIR}/scripts/guile-repl-server.sh --stop
 ```
 
 State — transcripts and stderr — goes under `${CLAUDE_PLUGIN_DATA}/projects/<slug>/`,

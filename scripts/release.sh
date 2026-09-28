@@ -1,8 +1,8 @@
 #!/bin/sh
 # release.sh --- gate a release of this plugin behind its regression suite.
 #
-#   ./bin/release.sh staging            # regression tests + validation, no publish
-#   ./bin/release.sh production TAG     # same gate, then a real `gh skill publish --tag TAG`
+#   ./scripts/release.sh staging            # regression tests + validation, no publish
+#   ./scripts/release.sh production TAG     # same gate, then a real `gh skill publish --tag TAG`
 #
 # This plugin has no running service, so "staging" and "production" don't mean
 # separate deployed environments -- they mean the same gate run twice: once as
@@ -64,7 +64,7 @@ case ${1:-} in
         ;;
     production)
         tag=${2:-}
-        [ -n "$tag" ] || { echo "release.sh: production needs a tag, e.g. ./bin/release.sh production v0.1.0" >&2; exit 2; }
+        [ -n "$tag" ] || { echo "release.sh: production needs a tag, e.g. ./scripts/release.sh production v0.1.0" >&2; exit 2; }
         gate
         [ "$SKILL_CMD" -eq 1 ] || {
             echo "release.sh: cannot publish -- no \`gh\` on PATH has \`gh skill\`." >&2

@@ -41,7 +41,7 @@ jobs:
       - uses: actions/checkout@v4
 
       # Ubuntu names the binaries guile-3.0 / guild-3.0; FreeBSD names them
-      # guile3 / guild3. The Makefile and bin/guile-repl-paths.sh probe for
+      # guile3 / guild3. The Makefile and scripts/lib/guile-repl-paths.sh probe for
       # both, so nothing here needs to pin a name. netcat-openbsd is the nc
       # with -N, which tests/test-proxy.sh needs for half-close.
       - name: Install Guile and netcat

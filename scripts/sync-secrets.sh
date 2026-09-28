@@ -1,13 +1,13 @@
 #!/bin/sh
 # sync-secrets.sh --- push secrets from the local pass store into GitHub.
 #
-#   admin/sync-secrets.sh status        # manifest vs. what GitHub actually holds
-#   admin/sync-secrets.sh push          # set every manifest entry from pass
-#   admin/sync-secrets.sh push NAME...  # just these
-#   admin/sync-secrets.sh remove NAME   # delete one from GitHub (asks first)
+#   scripts/sync-secrets.sh status        # manifest vs. what GitHub actually holds
+#   scripts/sync-secrets.sh push          # set every manifest entry from pass
+#   scripts/sync-secrets.sh push NAME...  # just these
+#   scripts/sync-secrets.sh remove NAME   # delete one from GitHub (asks first)
 #
 # pass is the source of truth; GitHub is a replica. The manifest is
-# admin/secrets.map -- names only, safe to commit. Values only ever move
+# scripts/secrets.map -- names only, safe to commit. Values only ever move
 # local -> GitHub, never the other way, because the other way is impossible:
 #
 #   *** GitHub never returns a secret's value. ***

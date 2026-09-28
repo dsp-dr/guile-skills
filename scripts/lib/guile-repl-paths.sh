@@ -3,8 +3,8 @@
 #
 # Sourced by the other scripts, or run directly to see what this project gets:
 #
-#   . bin/guile-repl-paths.sh          # sets GUILE_REPL_{SLUG,DIR,PORT,PROXY_PORT}
-#   ./bin/guile-repl-paths.sh          # prints them
+#   . scripts/guile-repl-paths.sh      # sets GUILE_REPL_{SLUG,DIR,PORT,PROXY_PORT}
+#   ./scripts/guile-repl-paths.sh      # prints them
 #
 # The slug follows the ~/.claude/projects convention exactly: every "/" and "."
 # in the absolute path becomes "-", so the leading slash leaves a leading dash.

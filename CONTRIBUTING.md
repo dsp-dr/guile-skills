@@ -29,12 +29,12 @@ Verified on nexus, FreeBSD 15.1-RELEASE, 2026-09-28. "Minimum" means the repo's 
 | Guile 3 | 3.0 | 3.0.10 | everything; `guile3`, `guile-3.0` or `guile` |
 | GNU make | — | 4.4.1 | `gmake` on FreeBSD, `make` on Linux |
 | Python 3 | 3.9 | 3.11.15 | `tests/validate-evals.py` |
-| `jq` | — | 1.8.1 | `admin/*.sh` |
+| `jq` | — | 1.8.1 | `scripts/*.sh` |
 | `pandoc` | — | 3.9.0.2 | `gmake readme` |
-| `pass` | — | 1.7.4 | `admin/*.sh` only; not needed to contribute |
+| `pass` | — | 1.7.4 | `scripts/*.sh` only; not needed to contribute |
 | Claude Code CLI | — | 2.1.261 | `claude plugin validate` |
 
-The interpreter has three names in the wild — `guile3` on FreeBSD ports, `guile-3.0` on Debian and Ubuntu, `guile` under Homebrew. Nothing here should hard-code one; `bin/guile-repl-paths.sh`, the `Makefile` and `tests/test-proxy.sh` all probe in that order. A hard-coded name is how the logging proxy came to run on exactly one platform (see the v0.1.1 notes).
+The interpreter has three names in the wild — `guile3` on FreeBSD ports, `guile-3.0` on Debian and Ubuntu, `guile` under Homebrew. Nothing here should hard-code one; `scripts/lib/guile-repl-paths.sh`, the `Makefile` and `tests/test-proxy.sh` all probe in that order. A hard-coded name is how the logging proxy came to run on exactly one platform (see the v0.1.1 notes).
 
 ### Checking what you have
 
@@ -58,7 +58,7 @@ gmake --version | head -1; python3 --version; jq --version; pandoc --version | h
   ~/go/bin/gh --version                                 # reports 2.101.0
   ```
 
-  Leave it at `~/go/bin/gh` rather than shadowing the packaged `gh`: `bin/release.sh` probes `gh` first and `$HOME/go/bin/gh` second, taking whichever actually answers `gh skill --help`. So the packaged `gh` stays your everyday client and the built one is used only where it is needed.
+  Leave it at `~/go/bin/gh` rather than shadowing the packaged `gh`: `scripts/release.sh` probes `gh` first and `$HOME/go/bin/gh` second, taking whichever actually answers `gh skill --help`. So the packaged `gh` stays your everyday client and the built one is used only where it is needed.
 
 - **Debian / Ubuntu.** The official apt repository tracks latest; see `.github/workflows/gate.yml` for the exact keyring and source-list steps.
 
@@ -77,7 +77,7 @@ CI runs the same set on every push to `main` and every PR (`.github/workflows/ch
 `gmake test` starts real listeners on derived ports and cleans them up. If a run is interrupted, check for survivors — a stale listener is indistinguishable from a broken new one, which is the failure that cost the most time building this repo:
 
 ```bash
-./bin/guile-repl-server.sh --status
+${CLAUDE_SKILL_DIR}/scripts/guile-repl-server.sh --status
 pgrep -fl guile-repl-proxy
 ```
 
@@ -105,7 +105,7 @@ Then ask it to do the thing — "start a Guile REPL for this project and trace `
 gmake try-in DIR=$HOME/ghq/github.com/dsp-dr/guile-sicp
 ```
 
-**This is the test that matters**, and the one it is easiest to skip. Everything in this repo passes when the cwd is this repo. A `SKILL.md` that says `./bin/guile-repl-server.sh` works here and breaks in every other project, and only this layer catches it. Use a real project with real modules, not an empty directory.
+**This is the test that matters**, and the one it is easiest to skip. Everything in this repo passes when the cwd is this repo. A `SKILL.md` that says `${CLAUDE_SKILL_DIR}/scripts/guile-repl-server.sh` works here and breaks in every other project, and only this layer catches it. Use a real project with real modules, not an empty directory.
 
 #### 4. Check what an install actually delivers
 
@@ -125,13 +125,13 @@ The worked example, against `guile-sicp` and its own modules:
 
 ```bash
 cd ~/ghq/github.com/dsp-dr/guile-sicp
-$GUILE_SKILLS/bin/guile-repl-paths.sh          # slug, ports, data root
-$GUILE_SKILLS/bin/guile-repl-server.sh
-$GUILE_SKILLS/bin/guile-repl-eval.sh '(use-modules (sicp ch1)) (fib 10)'
+$GUILE_SKILLS/scripts/lib/guile-repl-paths.sh          # slug, ports, data root
+$GUILE_SKILLS/skills/guile-repl-server/scripts/guile-repl-server.sh
+$GUILE_SKILLS/skills/guile-repl-eval/scripts/guile-repl-eval.sh '(use-modules (sicp ch1)) (fib 10)'
 # => $1 = 55
-$GUILE_SKILLS/bin/guile-repl-eval.sh '(use-modules (sicp ch1)) ,trace (fib 4)'
+$GUILE_SKILLS/skills/guile-repl-eval/scripts/guile-repl-eval.sh '(use-modules (sicp ch1)) ,trace (fib 4)'
 # => the indented call tree, exposing the exponential double recursion
-$GUILE_SKILLS/bin/guile-repl-server.sh --stop
+$GUILE_SKILLS/skills/guile-repl-server/scripts/guile-repl-server.sh --stop
 ```
 
 Report per project as **worked**, **worked with caveats**, or **failed**, and say why. Two things to check while you are there, because both are silent:

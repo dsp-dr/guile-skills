@@ -1,10 +1,10 @@
 #!/bin/sh
 # guile-repl-server.sh --- start this project's Guile REPL and its logging proxy.
 #
-#   ./bin/guile-repl-server.sh            # REPL on PORT, proxy on PORT+1
-#   ./bin/guile-repl-server.sh --no-proxy # REPL only
-#   ./bin/guile-repl-server.sh --stop     # stop both
-#   ./bin/guile-repl-server.sh --status    # what is actually listening
+#   ${CLAUDE_SKILL_DIR}/scripts/guile-repl-server.sh            # REPL on PORT, proxy on PORT+1
+#   ${CLAUDE_SKILL_DIR}/scripts/guile-repl-server.sh --no-proxy # REPL only
+#   ${CLAUDE_SKILL_DIR}/scripts/guile-repl-server.sh --stop     # stop both
+#   ${CLAUDE_SKILL_DIR}/scripts/guile-repl-server.sh --status    # what is actually listening
 #
 # --debug is not optional. Without it Guile starts the fast VM engine and the
 # tracing and breakpoint meta-commands silently do nothing -- ,trace prints no
@@ -89,7 +89,10 @@ if [ "$PROXY" -eq 1 ]; then
         while [ $n -lt 25 ] && ! listening "$GUILE_REPL_PORT"; do
             n=$((n + 1)); sleep 0.2 2>/dev/null || sleep 1
         done
-        "$(dirname "$0")/guile-repl-proxy.scm" \
+        # `sh' rather than executing it: an installed skill's files arrive
+        # without the executable bit, and the proxy's shebang block is a POSIX
+        # shell trampoline, so this works either way.
+        sh "$(dirname "$0")/guile-repl-proxy.scm" \
             --listen "$GUILE_REPL_PROXY_PORT" \
             --target "$GUILE_REPL_PORT" \
             --log "$GUILE_REPL_DIR/repl.log" \

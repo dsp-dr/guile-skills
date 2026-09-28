@@ -6,7 +6,7 @@
       "prompt": "In Guile 3, what does (assoc-ref '((\"a\" . 1)) \"b\") return for a key that isn't there, and is assoc-ref available without importing anything? Don't guess.",
       "expected_output": "Both questions are answered from output evaluated in the running REPL, with the literal reply quoted, rather than from recollection of the Guile API.",
       "expectations": [
-        "A Bash call sends the form to the REPL via ./bin/guile-repl-eval.sh (or nc to the proxy port) before the answer is stated.",
+        "A Bash call sends the form to the REPL via guile-repl-eval.sh (or nc to the proxy port) before the answer is stated.",
         "The response quotes the literal REPL reply, including its `$N = ` value line or the actual error text.",
         "The availability claim is backed by a second evaluated form — for example evaluating assoc-ref bare, or in a fresh connection with no use-modules — and not by prose about which module it lives in.",
         "The response does not assert the return value or the module in a sentence that precedes any evaluation in the transcript.",
@@ -39,7 +39,7 @@
     },
     {
       "id": 4,
-      "prompt": "Before I commit, lint bin/guile-repl-proxy.scm and tell me what the linter flags.",
+      "prompt": "Before I commit, lint guile-repl-proxy.scm and tell me what the linter flags.",
       "expected_output": "The response states that Guile has no linter, uses guild3 compile -W 3 with a real output path as the closest available check, and reports the warnings that command actually printed.",
       "expectations": [
         "The response states that Guile has no linter and that no clj-kondo equivalent exists.",

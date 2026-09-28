@@ -11,10 +11,10 @@ plugin:
           - ".claude-plugin/**"
           - "assets/**"
 
-bin:
+scripts:
   - changed-files:
       - any-glob-to-any-file:
-          - "bin/**"
+          - "scripts/**"
 
 skill:guile-repl-eval:
   - changed-files:

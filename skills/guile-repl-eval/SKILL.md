@@ -38,11 +38,11 @@ second most-policed anti-pattern across 75 close-read Clojure skills, and
 identical in Guile. The socket REPL is what makes "verified" checkable.
 
 ```sh
-./bin/guile-repl-eval.sh '(+ 1 1)'                   # => $1 = 2
-./bin/guile-repl-eval.sh '(use-modules (my mod)) (my-proc 3)'
-echo '(assoc-ref my-alist "k")' | ./bin/guile-repl-eval.sh
-./bin/guile-repl-eval.sh --raw ',trace (fib 4)'      # keep banner and prompt
-./bin/guile-repl-eval.sh --direct '(+ 1 1)'          # bypass the proxy, no log
+sh ${CLAUDE_SKILL_DIR}/scripts/guile-repl-eval.sh '(+ 1 1)'                   # => $1 = 2
+sh ${CLAUDE_SKILL_DIR}/scripts/guile-repl-eval.sh '(use-modules (my mod)) (my-proc 3)'
+echo '(assoc-ref my-alist "k")' | sh ${CLAUDE_SKILL_DIR}/scripts/guile-repl-eval.sh
+sh ${CLAUDE_SKILL_DIR}/scripts/guile-repl-eval.sh --raw ',trace (fib 4)'      # keep banner and prompt
+sh ${CLAUDE_SKILL_DIR}/scripts/guile-repl-eval.sh --direct '(+ 1 1)'          # bypass the proxy, no log
 ```
 
 Output is stripped of the eight-line banner and the trailing prompt, so what you

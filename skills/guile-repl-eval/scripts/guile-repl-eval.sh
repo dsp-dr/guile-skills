@@ -4,9 +4,9 @@
 # The analogue of clj-nrepl-eval / brepl / nreplctl in the Clojure ecosystem,
 # except that Guile needs no bridge process: `guile3 --listen' is the server.
 #
-#   ./bin/guile-repl-eval.sh '(+ 1 1)'
-#   echo '(use-modules (my mod))' | ./bin/guile-repl-eval.sh
-#   ./bin/guile-repl-eval.sh --raw ',trace (fib 4)'
+#   ${CLAUDE_SKILL_DIR}/scripts/guile-repl-eval.sh '(+ 1 1)'
+#   echo '(use-modules (my mod))' | ${CLAUDE_SKILL_DIR}/scripts/guile-repl-eval.sh
+#   ${CLAUDE_SKILL_DIR}/scripts/guile-repl-eval.sh --raw ',trace (fib 4)'
 #
 # Connects to the PROXY port by default, so every evaluation is recorded in the
 # project transcript. --direct bypasses the proxy (and the log).
@@ -43,7 +43,7 @@ if nc -h 2>&1 | grep -q '\-N'; then NC_SHUTDOWN="-N"; else NC_SHUTDOWN=""; fi
 
 reply=$(printf '%s\n' "$PROGRAM" | nc $NC_SHUTDOWN 127.0.0.1 "$PORT" 2>/dev/null) || {
     echo "guile-repl-eval: nothing listening on 127.0.0.1:$PORT" >&2
-    echo "  start one with: ./bin/guile-repl-server.sh" >&2
+    echo "  start one with the guile-repl-server skill" >&2
     exit 1
 }
 

@@ -6,10 +6,10 @@
       "prompt": "I'm starting work on this Guile project. Which Guile is actually going to run my code on this machine, and what exactly does the REPL surface get started with?",
       "expected_output": "The runtime is identified by probing the candidate binaries rather than assuming, guile3 is chosen over bare guile with the version difference stated, and the start command is reported as guile3 --debug --listen=PORT on 127.0.0.1 with a logging proxy on PORT+1.",
       "expectations": [
-        "A Bash call probes more than one candidate binary (at least two of guile, guile3, guile-3.0) for its version, or runs ./bin/guile-repl-paths.sh, before any claim about the version is made.",
+        "A Bash call probes more than one candidate binary (at least two of guile, guile3, guile-3.0) for its version, or runs guile-repl-paths.sh, before any claim about the version is made.",
         "The response names the specific version each probed binary reported rather than describing them as equivalent.",
         "The response states that bare guile may be 2.2.7 on this host and that guile3 (or guile-3.0) is the 3.x binary to prefer.",
-        "Every command the response runs or recommends for starting or evaluating uses guile3, ./bin/guile-repl-server.sh, or ./bin/guile-repl-eval.sh \u2014 bare `guile` never appears as the invoked binary.",
+        "Every command the response runs or recommends for starting or evaluating uses guile3, guile-repl-server.sh, or guile-repl-eval.sh \u2014 bare `guile` never appears as the invoked binary.",
         "The response identifies the REPL port and the proxy port as PORT and PORT+1, naming the actual numbers for this working directory rather than a placeholder."
       ]
     },
@@ -18,7 +18,7 @@
       "prompt": "Start this project's REPL for me, then show me the call tree of (define (fib n) (if (< n 2) n (+ (fib (- n 1)) (fib (- n 2))))) evaluated at (fib 4).",
       "expected_output": "The REPL is started with --debug and ,trace produces an indented call tree. If no trace lines come back, the response attributes the silence to a REPL started without --debug rather than to fib making no calls.",
       "expectations": [
-        "The command used to start the REPL includes the --debug flag (directly, or via ./bin/guile-repl-server.sh / gmake start).",
+        "The command used to start the REPL includes the --debug flag (directly, or via guile-repl-server.sh / gmake start).",
         "The response states that without --debug, ,trace prints no lines and raises no error.",
         "The trace is requested with a ,trace meta-command sent to the running REPL, not simulated or reasoned about in prose.",
         "If the transcript shows ,trace returning no trace: lines, the response diagnoses a missing --debug (or a stale REPL started without it) and does not report that fib makes no recursive calls.",
@@ -27,14 +27,14 @@
     },
     {
       "id": 3,
-      "prompt": "Something is off. I started the server a minute ago and it said it was up, but ./bin/guile-repl-eval.sh '(+ 1 1)' gives me nothing back and the transcript at the path the skill names hasn't grown at all. Figure out what's wrong before changing any code.",
+      "prompt": "Something is off. I started the server a minute ago and it said it was up, but guile-repl-eval.sh '(+ 1 1)' gives me nothing back and the transcript at the path the skill names hasn't grown at all. Figure out what's wrong before changing any code.",
       "expected_output": "The response checks what is actually listening and looks for a leftover process from an earlier session, identifies that a stale listener holding the port is indistinguishable from a broken new one, and resolves it with --status then --stop rather than editing the proxy or server source.",
       "expectations": [
-        "A Bash call inspects live listeners or processes \u2014 ./bin/guile-repl-server.sh --status, sockstat, lsof, or pgrep -fl on the proxy or listen=PORT \u2014 before any fix is attempted.",
+        "A Bash call inspects live listeners or processes \u2014 guile-repl-server.sh --status, sockstat, lsof, or pgrep -fl on the proxy or listen=PORT \u2014 before any fix is attempted.",
         "The response names a stale listener from an earlier session holding the port as the leading explanation.",
         "The response states that the old process keeps serving and keeps writing to its own log file, so the log being read is not the log being written.",
-        "The response does not edit bin/guile-repl-proxy.scm, bin/guile-repl-server.sh, or any other source file in this diagnosis step.",
-        "If a stale process is found, it is cleared with ./bin/guile-repl-server.sh --stop (or a pkill matching the listen port) and the response re-checks status afterwards."
+        "The response does not edit guile-repl-proxy.scm, guile-repl-server.sh, or any other source file in this diagnosis step.",
+        "If a stale process is found, it is cleared with guile-repl-server.sh --stop (or a pkill matching the listen port) and the response re-checks status afterwards."
       ]
     },
     {
@@ -47,7 +47,7 @@
         "The binding in every command shown remains 127.0.0.1.",
         "The response offers at least one alternative that keeps the REPL loopback-only, such as the teammate running their own server from their own checkout, or sharing the transcript instead of the socket.",
         "The response does not send, or instruct sending, the port number, hostname, repo name or working directory path to any remote service.",
-        "The response reports the port numbers and host name it used from actual command output (hostname -s, ./bin/guile-repl-paths.sh) rather than assuming them."
+        "The response reports the port numbers and host name it used from actual command output (hostname -s, guile-repl-paths.sh) rather than assuming them."
       ]
     }
   ]
