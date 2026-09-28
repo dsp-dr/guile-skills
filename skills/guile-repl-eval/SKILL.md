@@ -5,9 +5,11 @@ license: MIT
 allowed-tools: Read
 metadata:
   requires:
-    binaries: [nc]
-    binaries-fallback: [guile3]
-    optional-binaries: []
+    binaries:
+      - nc
+    binaries-fallback:
+      - guile3
+    optional-binaries: none
     process: none; talks to an already-running REPL
     ports: connects to 127.0.0.1:PORT+1 (proxy) or PORT (direct)
     filesystem:

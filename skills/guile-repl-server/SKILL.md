@@ -5,9 +5,15 @@ license: MIT
 allowed-tools: Read
 metadata:
   requires:
-    binaries: [guile3]
-    binaries-fallback: [guile]
-    optional-binaries: [sockstat, lsof, nc, pgrep]
+    binaries:
+      - guile3
+    binaries-fallback:
+      - guile
+    optional-binaries:
+      - sockstat
+      - lsof
+      - nc
+      - pgrep
     process: >-
       inspects and signals its own listeners (sockstat/lsof to find them,
       pkill to stop them); starts long-lived background processes
