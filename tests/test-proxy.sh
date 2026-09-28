@@ -16,7 +16,12 @@ LOG="$WORK/repl.log"
 passed=0
 failed=0
 
-if command -v guile3 >/dev/null 2>&1; then GUILE=guile3; else GUILE=guile; fi
+# Same probe order as bin/guile-repl-paths.sh: FreeBSD names it guile3, Debian
+# and Ubuntu name it guile-3.0, Homebrew names it guile.
+for guile_candidate in guile3 guile-3.0 guile; do
+    command -v "$guile_candidate" >/dev/null 2>&1 && { GUILE=$guile_candidate; break; }
+done
+GUILE=${GUILE:-guile}
 if nc -h 2>&1 | grep -q '\-N'; then NCS="-N"; else NCS=""; fi
 
 cleanup() {

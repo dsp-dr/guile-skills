@@ -1,4 +1,16 @@
-#!/usr/bin/env guile3
+#!/bin/sh
+# -*- scheme -*-
+# Shell trampoline. Guile reads this whole block as a comment, so the file is
+# both a POSIX shell script and a Guile program. It exists because the
+# interpreter has three names in the wild: guile3 on FreeBSD ports, guile-3.0 on
+# Debian and Ubuntu, guile under Homebrew. A hard-coded `env guile3' shebang
+# worked on nexus and failed silently everywhere else -- the proxy never
+# started, which surfaced as an empty transcript rather than as an error, and
+# CI on ubuntu-latest is what caught it. EXPERIMENTS.org E9 is the same class.
+#
+# Do not name the closing delimiter in this comment: writing those two
+# characters here ends the block early and Guile then fails on the next line.
+exec "$(command -v guile3 || command -v guile-3.0 || command -v guile)" -s "$0" "$@"
 !#
 ;;; guile-repl-proxy.scm --- a logging TCP proxy in front of a Guile socket REPL
 ;;;
