@@ -65,9 +65,7 @@ jobs:
       - name: Install Claude Code CLI
         run: npm install -g @anthropic-ai/claude-code
 
-      # Informational for now: this has never run in CI, so its exit status is
-      # not yet trusted to gate a merge. Make it fatal (drop continue-on-error)
-      # once a green run exists to point at.
+      # Fatal as of run 36382268404, the first green run: this step passed there,
+      # so its exit status is now trusted to gate a merge.
       - name: Validate plugin manifest
-        continue-on-error: true
         run: claude plugin validate .

@@ -88,7 +88,8 @@ README.md: README.org
 	@printf '<!-- Generated from README.org by `gmake readme`. Edit the .org, not this file. -->\n\n' > $@
 	@printf '# %s\n\n' "$$(sed -n 's/^\#+TITLE: *//p' README.org)" >> $@
 	@pandoc -f org -t gfm --wrap=none --shift-heading-level-by=1 README.org \
-		| sed -e 's|](file:|](|g' >> $@
+		| sed -e 's|](file:|](|g' \
+		      -e 's|^``` \([a-z]\)|```\1|' >> $@
 	@echo "wrote $@ from README.org ($$(wc -l < $@ | tr -d ' ') lines)"
 
 clean:

@@ -16,7 +16,7 @@ A census of Guile agent skills on GitHub (`aygp-dr/github-skills-search`, experi
 
 Guile also starts ahead of where Clojure started. Clojure needed nREPL **plus** a bridge, and every ecosystem then shipped its own eval CLI — `clj-nrepl-eval`, `brepl`, `nreplctl`, Penpot's `nrepl-eval.mjs`, Metabase's `./bin/mage`. That fragmentation was the cost of everyone solving it locally. Guile ships the server in the binary:
 
-``` bash
+```bash
 guile3 --debug --listen=37496 -c '(sleep 30)' &
 printf '(+ 1 1)\n' | nc -N 127.0.0.1 37496
 ```
@@ -43,7 +43,7 @@ The expensive half is already done. What was missing is a convention.
 
 The repository is also a Claude Code plugin (`.claude-plugin/plugin.json`), so the three skills load together and the eval suite is targetable:
 
-``` bash
+```bash
 claude plugin eval . --ablation with-without --allow-tools Bash
 ```
 
@@ -60,7 +60,7 @@ See [file:RELEASING.md](RELEASING.md) for what counts as a patch/minor/major bum
 
 ## Quick start
 
-``` bash
+```bash
 gmake paths      # slug, ports, log directory, which guile
 gmake start      # REPL on PORT, logging proxy on PORT+1
 gmake status
@@ -82,6 +82,67 @@ The slug follows `~/.claude/projects/` exactly — every `/` and `.` in the abso
       -> ~/.guile-skill/projects/-home-dsp-dr-ghq-github-com-dsp-dr-guile-skills/
 
 Rotated at 4 MiB, five generations. Outside the repository on purpose.
+
+## Control flow for a sample project
+
+A real session on a project with a bug in `src/math.scm`. The point of drawing it is that each skill hands off to the next, and the debugger is reached *through* the same socket as ordinary evaluation – there is no second channel.
+
+```mermaid
+sequenceDiagram
+    actor Agent
+    participant Server as guile-repl-server
+    participant Proxy as proxy :PORT+1
+    participant REPL as guile3 --debug :PORT
+    participant Log as repl.log
+    actor Human as Human + Geiser
+
+    Note over Agent,Server: 1. stand up the surface, once per project
+    Agent->>Server: ./bin/guile-repl-server.sh
+    Server->>Server: paths.sh: probe guile3/guile-3.0, derive PORT
+    Server->>Server: refuse if PORT already listening
+    Server->>REPL: spawn --debug --listen=PORT
+    Server->>Proxy: spawn --listen PORT+1 --target PORT
+
+    Note over Agent,Log: 2. evaluate, and every byte is recorded
+    Agent->>Proxy: (use-modules (math)) (fib 10)
+    Proxy->>REPL: forward verbatim
+    REPL-->>Proxy: $1 = 55
+    Proxy->>Log: -> and <- with timestamps
+    Proxy-->>Agent: $1 = 55
+
+    Note over Agent,REPL: 3. the debugger, same socket
+    Agent->>Proxy: ,trace (fib 4)
+    Proxy->>REPL: forward
+    REPL-->>Agent: indented call tree
+    Agent->>Proxy: ,break fib
+    Agent->>Proxy: (fib 4) then ,bt
+    REPL-->>Agent: frames at the breakpoint
+    Agent->>Proxy: ,profile (fib 30)
+    REPL-->>Agent: flat profile, 3 samples
+
+    Note over Agent,REPL: 4. fix, then force the reload
+    Agent->>Agent: edit src/math.scm
+    Agent->>Proxy: (reload-module (resolve-module '(math)))
+    Agent->>Proxy: (fib 10)
+    REPL-->>Agent: $2 = 55
+
+    Note over Human,Log: 5. the human shares the transcript
+    Human->>Proxy: M-x geiser-connect 127.0.0.1 PORT+1
+    Proxy->>Log: the human's forms land in the same file
+    Agent->>Log: read it back to see what they tried
+```
+
+Where it goes quiet rather than wrong, by step:
+
+| Step | If you skip it | What you see |
+|----|----|----|
+| 1, `--debug` | tracing and breakpoints do nothing | `,trace` prints **no lines and no error**, reading as "makes no calls" |
+| 1, port check | a stale listener keeps serving | the new process dies, the old one answers, and your log never grows |
+| 2, `PORT+1` | connect to `PORT` instead | the right answer, and nothing recorded |
+| 3, `,profile` too small | nothing to sample | `No samples recorded.`, which reads as a broken profiler |
+| 4, reload | the module is already loaded | the **pre-edit** answer, with no error |
+
+Only step 5 is optional. The proxy serves connections serially, so an agent and Geiser at once needs two proxies or a threaded accept loop.
 
 ## Three things that will bite you
 
