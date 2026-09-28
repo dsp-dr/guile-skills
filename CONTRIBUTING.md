@@ -83,6 +83,89 @@ repo:
 pgrep -fl guile-repl-proxy
 ```
 
+## Testing a change
+
+`gmake checks` proves the code is sound. It does not prove the **plugin** works,
+which is a separate question: the skills reference scripts by path, and a path
+that resolves in this repository may resolve nowhere else. Four layers, cheapest
+first.
+
+### 1. Deterministic checks
+
+```sh
+gmake checks        # lint + check-evals + test; exactly what CI runs
+```
+
+### 2. Load the plugin from the working tree
+
+```sh
+gmake try           # claude --plugin-dir $(pwd)
+```
+
+Then ask it to do the thing — "start a Guile REPL for this project and trace
+`(fib 4)`" — and watch which commands it actually runs. `--plugin-dir` takes a
+directory or a `.zip` and is repeatable, so a second plugin can be loaded
+alongside.
+
+### 3. Load it with your working directory somewhere else
+
+```sh
+gmake try-in DIR=$HOME/ghq/github.com/dsp-dr/guile-sicp
+```
+
+**This is the test that matters**, and the one it is easiest to skip. Everything
+in this repo passes when the cwd is this repo. A `SKILL.md` that says
+`./bin/guile-repl-server.sh` works here and breaks in every other project, and
+only this layer catches it. Use a real project with real modules, not an empty
+directory.
+
+### 4. Check what an install actually delivers
+
+```sh
+gmake ship-check
+```
+
+Installs into a throwaway directory and lists every file a user receives, then
+says whether any of them is executable. `gh skill install` copies
+`skills/<name>/**` and nothing else, so a script outside that tree does not ship
+— and a skill whose documented commands are unusable as installed is the failure
+this target exists to make loud:
+
+```
+executables shipped: NO -- any SKILL.md command naming a script is unusable as installed
+```
+
+### Using the corpus
+
+There are 30-plus Guile and Scheme checkouts under `~/ghq/github.com/` here.
+That is enough to answer "is this actually useful" with a matrix rather than an
+anecdote, and enough to shake out per-project assumptions — projects with no
+`src/`, projects whose modules need arguments, and derived-port collisions.
+
+The worked example, against `guile-sicp` and its own modules:
+
+```sh
+cd ~/ghq/github.com/dsp-dr/guile-sicp
+$GUILE_SKILLS/bin/guile-repl-paths.sh          # slug, ports, data root
+$GUILE_SKILLS/bin/guile-repl-server.sh
+$GUILE_SKILLS/bin/guile-repl-eval.sh '(use-modules (sicp ch1)) (fib 10)'
+# => $1 = 55
+$GUILE_SKILLS/bin/guile-repl-eval.sh '(use-modules (sicp ch1)) ,trace (fib 4)'
+# => the indented call tree, exposing the exponential double recursion
+$GUILE_SKILLS/bin/guile-repl-server.sh --stop
+```
+
+Report per project as **worked**, **worked with caveats**, or **failed**, and say
+why. Two things to check while you are there, because both are silent:
+
+- The derived port pair. `37000 + cksum(slug) mod 900` gives each checkout its
+  own pair, and worktrees — sibling or child — get their own too, since the slug
+  is the absolute path. But `PORT+1` is not collision-checked against other
+  projects, and across 33 checkouts here there are already two cases where one
+  project's proxy port is another project's REPL port.
+- Clean up. `--stop` before you leave, and `pgrep -fl guile-repl-proxy`
+  afterwards. A stale listener is indistinguishable from a broken new one.
+
 ## Conventions
 
 - **Conventional commits**, and `--trailer` for co-authorship rather than a

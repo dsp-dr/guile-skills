@@ -8,7 +8,7 @@
 GUILE ?= $(shell command -v guile3 2>/dev/null || command -v guile-3.0 2>/dev/null || echo guile)
 GUILD ?= $(shell command -v guild3 2>/dev/null || command -v guild-3.0 2>/dev/null || echo guild)
 
-.PHONY: help start stop status eval lint test check-evals checks readme paths clean release-staging release-production
+.PHONY: help start stop status eval lint test check-evals checks try try-in ship-check readme paths clean release-staging release-production
 
 help:
 	@echo "guile-skills"
@@ -22,6 +22,9 @@ help:
 	@echo "  gmake test     end-to-end proxy tests"
 	@echo "  gmake check-evals  validate every skills/*/evals/evals.json"
 	@echo "  gmake checks   everything CI runs: lint + check-evals + test"
+	@echo "  gmake try      open Claude Code with this plugin loaded from the working tree"
+	@echo "  gmake try-in DIR=<path>  same, but with the cwd in another project"
+	@echo "  gmake ship-check  show exactly which files an install actually delivers"
 	@echo "  gmake readme   regenerate README.md from README.org"
 	@echo "  gmake clean    remove compiled files"
 	@echo "  gmake release-staging              regression tests + validation, no publish"
@@ -68,6 +71,46 @@ check-evals:
 # is deliberately not here: it needs the Claude Code CLI, which CI installs and
 # a developer already has running.
 checks: lint check-evals test
+
+# Manual testing. `checks' proves the code is sound; these prove the *plugin*
+# works, which is a different question -- the skills reference scripts by path,
+# and a path that resolves here may resolve nowhere else.
+
+try:
+	@command -v claude >/dev/null 2>&1 || { echo "try: the Claude Code CLI is not on PATH" >&2; exit 1; }
+	@echo "loading $(CURDIR) as a plugin; ask it to start a Guile REPL"
+	@claude --plugin-dir $(CURDIR)
+
+# The test that matters: plugin from here, working directory somewhere else.
+# Anything in a SKILL.md written as ./bin/... breaks here and only here.
+try-in:
+ifndef DIR
+	$(error DIR is required. Usage: gmake try-in DIR=$$HOME/ghq/github.com/dsp-dr/guile-sicp)
+endif
+	@test -d "$(DIR)" || { echo "try-in: no such directory: $(DIR)" >&2; exit 1; }
+	@echo "cwd $(DIR), plugin $(CURDIR)"
+	@cd "$(DIR)" && claude --plugin-dir $(CURDIR)
+
+# What a user actually receives. `gh skill install' copies skills/<name>/** and
+# nothing else, so this is how you find out that a script did not ship.
+ship-check:
+	@gh_skill=""; \
+	for c in gh "$$HOME/go/bin/gh"; do \
+		command -v "$$c" >/dev/null 2>&1 && "$$c" skill --help >/dev/null 2>&1 && { gh_skill=$$c; break; }; \
+	done; \
+	[ -n "$$gh_skill" ] || { echo "ship-check: needs a gh with \`gh skill\` (>= 2.90.0); see CONTRIBUTING.md" >&2; exit 1; }; \
+	tmp=$$(mktemp -d) || exit 1; \
+	trap 'rm -rf "$$tmp"' EXIT HUP INT TERM; \
+	"$$gh_skill" skill install "$(CURDIR)" --from-local --agent claude-code --dir "$$tmp" --all >/dev/null 2>&1 \
+		|| { echo "ship-check: install failed" >&2; exit 1; }; \
+	echo "files an install delivers:"; \
+	(cd "$$tmp" && find . -type f | sed 's|^\./|  |' | sort); \
+	echo; \
+	if (cd "$$tmp" && find . -type f -perm -u+x | grep -q .); then \
+		echo "executables shipped: yes"; \
+	else \
+		echo "executables shipped: NO -- any SKILL.md command naming a script is unusable as installed"; \
+	fi
 
 # README.org is the source; README.md is generated for GitHub's front page.
 # Both are committed, because GitHub renders the .md and the directory listing
