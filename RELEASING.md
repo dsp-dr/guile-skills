@@ -34,3 +34,42 @@ to a PR to bypass the gate (e.g. a docs-only change), the same escape hatch
 `gh skill publish` handles the GitHub side: it tags the release, adds the
 `agent-skills` topic if the token has admin on the repo, and prints the
 `gh skill install` / `--pin` commands for that version.
+
+## Cutting one by hand, while `gh skill` does not exist
+
+As of 2026-09-28 `gh skill` is in no released `gh` — not as a builtin, not as an
+extension, and not at `~/go/bin/gh`. `gmake release-production` therefore cannot
+run to completion: `bin/release.sh` gates fine and then refuses at the publish
+step, on purpose, because there is nothing to publish with.
+
+v0.1.1 was cut manually. The sequence, which is the whole of it:
+
+```sh
+./bin/release.sh staging                 # gate: tests, validate, eval suites
+                                         # (the publish step reports SKIPPED)
+$EDITOR .claude-plugin/plugin.json       # bump "version"
+git commit ... && git push origin main   # the directory reads the version here
+
+git tag -a v0.1.1 -m "..." && git push origin v0.1.1
+gh release create v0.1.1 --notes-file - <<'NOTES'
+...
+NOTES
+```
+
+Four things this does **not** do, each of which is easy to assume it did:
+
+- **It does not publish to the plugin directory.** The directory tracks `main`
+  and reads the version from `.claude-plugin/plugin.json`; the tag is a git
+  artifact beside that, not the mechanism. The push is what the directory sees.
+- **It does not clear review.** A listing held for content-policy review stays
+  held, and with auto-publish off no version goes live without a reviewer.
+- **It does not add the `agent-skills` topic.** `gh skill publish` would; check
+  with `gh api repos/<owner>/<repo>/topics` and add it by hand if missing. It was
+  already set here.
+- **It does not print `gh skill install --pin` lines**, since that command is the
+  thing that is missing.
+
+Two conventions worth keeping when doing it by hand: tag **annotated** (`-a`), so
+the tag carries who cut it and what the gate said — `v0.1.0` is lightweight,
+which is the inconsistency this note exists to stop repeating — and tag the exact
+commit that was gated rather than whatever `HEAD` has become since.
