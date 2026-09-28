@@ -1,0 +1,28 @@
+Context
+  Directed to treat ~/.guile-skill/projects/<slug>/ as deprecated in favour of
+  the sanctioned ${CLAUDE_PLUGIN_DATA}, after the developer guides turned up the
+  convention we had reinvented.
+
+Considerations
+  - The three path variables are documented as resolving inline in Markdown
+    bodies, and explicitly NOT exported to the Bash tool's environment. A design
+    that had the scripts read $CLAUDE_PLUGIN_DATA themselves would appear to
+    work in a hook or an MCP server and silently fall back everywhere else. The
+    handover via GUILE_SKILL_DATA is what makes the substitution the single
+    source.
+  - ${CLAUDE_PLUGIN_DATA} is deleted on plugin uninstall unless --keep-data,
+    where ~/.guile-skill survived. For REPL transcripts -- which contain
+    whatever was evaluated -- deletion on uninstall is defensible, arguably
+    better. Recorded because it is a real semantic change, not a free swap.
+  - The fallback is kept rather than a hard cutover so an existing checkout
+    keeps finding its old transcripts. `guile-repl-paths.sh' marks the fallback
+    DEPRECATED in its report so the choice is visible.
+
+Deviations
+  - No new flags on any bin/*.sh script; the data root arrives by environment
+    variable. That keeps the argument contracts untouched, so this stays below
+    the major bar in RELEASING.md while still adding a supported configuration.
+  - evals/stale-listener/prompt.md was edited despite the top-level evals/ being
+    out of scope earlier in this work: it names the transcript path, and leaving
+    it pointing at the deprecated location would make the eval test the wrong
+    thing.
