@@ -84,8 +84,9 @@ where the difficulty lives.
 
 * The local setup
 
-Ollama is on *192.168.86.22:11434*. The hostnames do not resolve -- ~mini~,
-~mini.local~ and ~mini.lan~ all fail -- so the IP is the address. Models with a
+Ollama runs on the LAN box called *mini* here, port 11434. Its hostnames do not
+resolve -- ~mini~, ~mini.local~ and ~mini.lan~ all fail -- so it has to be
+addressed by IP, which is operator-held and not recorded in this repo. Models with a
 ~tools~ capability, which is what an agentic arm needs:
 
 | Model                             | Params | Context | Capabilities                          |
@@ -132,11 +133,11 @@ Two findings:
   provider prefix and an ~api_base~. Verified setup in [[file:dspy/]].
 - *Claude Code -> a local model.* A different problem: Claude Code speaks the
   Anthropic API, so it needs an Anthropic-shaped endpoint, not Ollama's
-  ~/api/chat~. The *LiteLLM proxy already running on 192.168.86.22:4000* is the
+  ~/api/chat~. The *LiteLLM proxy already running on the LAN* is the
   right front end -- it exposes ~/v1/messages~ -- but it returns *401
   Authentication Error, No api key passed in*. So this needs the proxy's key,
   which is operator-held and deliberately not hunted for here. With it:
-  ~ANTHROPIC_BASE_URL=http://192.168.86.22:4000~ plus the key.
+  ~ANTHROPIC_BASE_URL=<the proxy, operator-held>~ plus the key.
 
   Expect tool-calling fidelity, not language quality, to be the limit. Claude
   Code drives a large tool surface, and a 26B model's tool-call accuracy is the
@@ -167,7 +168,7 @@ So arm C splits in two, and only one half is blocked:
 | drive Ollama over plain HTTP               | *works on nexus now* -- measured above                 |
 | DSPy programs and the GEPA optimizer       | needs a macOS or Linux host                          |
 
-The obvious host is *mini* (192.168.86.22): the macOS ~orjson~ wheel exists, and
+The obvious host is *mini*: the macOS ~orjson~ wheel exists, and
 Ollama is already local to it, which removes the network hop from every call.
 That is also where this repo will be read from macOS as ~jwalsh~.
 
@@ -210,14 +211,14 @@ Note the Python version constraint: ports packages ~py312-orjson~ only, no py311
 
 *** hydra was not testable
 
-hydra (192.168.86.29, ~hydra.lan~) is reachable -- ssh/22 open, portclaim
-answering on 4700, six services claimed from ~aygp-dr/hydra-setup~ -- but there is
+hydra (~hydra.lan~) is reachable -- ssh/22 open, its port registry answering,
+six services claimed from ~aygp-dr/hydra-setup~ -- but there is
 no SSH credential for it on nexus: only ~id_ed25519_github.pub~ exists and no
 agent is running. Both ~dsp-dr@~ and ~jwalsh@~ are refused with
 ~Permission denied (publickey,keyboard-interactive)~.
 
 One thing worth writing down, since it will recur: ~ssh hydra~ and
-~ssh 192.168.86.29~ fail *host key verification* while
+~ssh~ to hydra's bare IP fail *host key verification* while
 ~ssh hydra.lan~ does not. This is *not* a key mismatch -- the fingerprint offered
 and the fingerprint stored are both
 ~SHA256:SpuXbnVeVovNv1vtnp5mGSh3DnlvPD9VbcdqV2JgzNc~. ~known_hosts~ simply holds

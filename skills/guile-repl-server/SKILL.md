@@ -17,7 +17,6 @@ metadata:
       - <project>/src  (r; Guile load path)
     network:
       - 127.0.0.1 only
-      - http://192.168.86.29:4700  (portclaim; optional port registration)
     credentials: none
     danger: >-
       a Guile socket REPL is unauthenticated arbitrary code execution;
@@ -75,10 +74,12 @@ every `/` and `.` replaced by `-`.
   procedure makes no calls". Every start path here passes `--debug`.
 - **Bind loopback only.** A socket REPL is unauthenticated arbitrary code
   execution. Never `0.0.0.0`, never a tunnel you forget about.
-- **Register the port.** This network runs *portclaim* at
-  `http://192.168.86.29:4700`. `GET /ports/<port>` (404 means free), then
-  `POST /claim` naming `node`, `repo`, `pwd`, `kind` and a `mandate` that states
-  the exposure. Release with `DELETE /claim/<port>` on teardown.
+- **A derived port is not a reserved port.** `37000 + cksum(slug) mod 900`
+  separates projects by convention only: two can still collide, and something
+  unrelated may already hold the number. Check what is actually listening before
+  trusting it, and if your site runs a port registry, record it there. This
+  skill names no registry endpoint on purpose — it should never send your
+  hostname, repo or working directory anywhere.
 - **A stale listener looks exactly like a broken new one.** Check before you
   start; `--status` before `--stop` before debugging anything else.
 

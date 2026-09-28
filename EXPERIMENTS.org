@@ -190,9 +190,10 @@ Any liveness check for a profiler must use a workload large enough to sample.
   so it is recorded as load-bearing.
 - *Ports are derived from the working directory, then actually reserved.* The
   derivation (~37000 + cksum(slug) mod 900~) started as a convention with a
-  comment admitting it was not a reservation. It is now registered in *portclaim*
-  (~http://192.168.86.29:4700~) as ~nexus-guile-skills-repl~ and
-  ~nexus-guile-skills-repl-proxy~. The whole 37000-37999 range was unclaimed,
+  comment admitting it was not a reservation. It is now registered in this
+  network's own port registry as ~nexus-guile-skills-repl~ and
+  ~nexus-guile-skills-repl-proxy~; that registry is operator-held infrastructure
+  and deliberately not named here. The whole 37000-37999 range was unclaimed,
   which is why the base is there.
 - *Logs live outside the repository*, under
   ~~/.guile-skill/projects/<slug>/~, mirroring ~~/.claude/projects/~ exactly
