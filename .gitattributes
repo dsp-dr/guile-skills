@@ -2,10 +2,9 @@
 # keeps them out of the language statistics, which is what you want for a file
 # nobody edits by hand: the .org beside it is the source.
 #
-#   gmake readme    regenerates both from README.org / CONTRIBUTING.org
+#   gmake readme    regenerates it from README.org
 #
 README.md        linguist-generated=true
-CONTRIBUTING.md  linguist-generated=true
 
 # Benchmark output from skill-creator: recorded evidence of what an agent
 # produced, not authored source. Collapsed for the same reason.

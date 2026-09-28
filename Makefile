@@ -123,10 +123,12 @@ endif
 ship-check:
 	@./scripts/ship-check.sh
 
-GENERATED_DOCS := README.md CONTRIBUTING.md
+GENERATED_DOCS := README.md
 
-# The .org files are the source; the .md files are generated for GitHub, which
-# surfaces README.md on the front page and CONTRIBUTING.md in its contribute UI.
+# Org is the authored form for every document here. README.md is the single
+# exception: it is a generated projection, because the plugin directory requires
+# a README in the plugin folder, "preferably named README.md", and shows it as
+# the listing description.
 # Both are committed, because GitHub renders the .md and the directory listing
 # reads it. Edit the .org.
 #

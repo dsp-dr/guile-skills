@@ -131,4 +131,4 @@ A Guile socket REPL is unauthenticated arbitrary code execution. That is why eve
 - [Why this exists](docs/rationale.org) — the argument, the numbers, and which claims are inherited
 - [EXPERIMENTS.org](EXPERIMENTS.org) — six real failures, four of them silent
 - [CONTRIBUTING.org](CONTRIBUTING.org) — tooling versions, the four testing layers, conventions
-- [RELEASING.md](RELEASING.md) — what counts as patch, minor, major, and how to cut one
+- [RELEASING.org](RELEASING.org) — what counts as patch, minor, major, and how to cut one

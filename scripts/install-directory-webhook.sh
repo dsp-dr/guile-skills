@@ -45,7 +45,7 @@ hooks=$(gh api "repos/$REPO/hooks" 2>&1) || die "cannot list hooks on $REPO: $ho
 dupe=$(printf '%s' "$hooks" | jq -r --arg u "$url" '[.[] | select(.config.url == $u)] | length')
 [ "$dupe" = "0" ] ||
     die "a hook on $REPO already points at that payload URL -- nothing to create.
-  To change its secret instead, see docs/secrets.md (rotation is portal-first)."
+  To change its secret instead, see docs/secrets.org (rotation is portal-first)."
 
 # --- create --------------------------------------------------------------
 # Secret: pass -> pipe -> jq -> pipe -> gh. Never in argv, never on screen,
@@ -94,7 +94,7 @@ case $delivery in
         echo "OK: the directory accepted a signed delivery." ;;
     *code=40*)
         echo "REJECTED: the stored secret and the portal's disagree." >&2
-        echo "  Rotate from the portal; see docs/secrets.md." >&2
+        echo "  Rotate from the portal; see docs/secrets.org." >&2
         exit 1 ;;
     *)
         echo "inconclusive -- check: gh api repos/$REPO/hooks/$id/deliveries" >&2

@@ -157,4 +157,4 @@ everything here binds ~127.0.0.1~ only, and why the skills decline to bind
 - [[file:docs/rationale.org][Why this exists]] --- the argument, the numbers, and which claims are inherited
 - [[file:EXPERIMENTS.org][EXPERIMENTS.org]] --- six real failures, four of them silent
 - [[file:CONTRIBUTING.org][CONTRIBUTING.org]] --- tooling versions, the four testing layers, conventions
-- [[file:RELEASING.md][RELEASING.md]] --- what counts as patch, minor, major, and how to cut one
+- [[file:RELEASING.org][RELEASING.org]] --- what counts as patch, minor, major, and how to cut one

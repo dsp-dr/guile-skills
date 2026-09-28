@@ -22,7 +22,7 @@ cd "$ROOT"
 # `gh skill` is a preview command that landed in gh v2.90.0. Pick whichever gh
 # actually answers `gh skill --help' rather than trusting a version number:
 # the packaged gh may lag (FreeBSD ports had 2.83.2 well after v2.101.0 shipped),
-# so a go-installed ~/go/bin/gh is the usual second candidate. See CONTRIBUTING.md.
+# so a go-installed ~/go/bin/gh is the usual second candidate. See CONTRIBUTING.org.
 GH=${GH:-}
 if [ -z "$GH" ]; then
     for candidate in gh "$HOME/go/bin/gh"; do

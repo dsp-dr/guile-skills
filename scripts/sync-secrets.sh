@@ -16,10 +16,10 @@
 # tell you the replica matches pass, only that something is set and when. If you
 # are unsure, re-push: setting a secret to its current value is harmless.
 #
-# Not in bin/: RELEASING.md treats bin/*.sh as this plugin's public interface,
+# Not in bin/: RELEASING.org treats bin/*.sh as this plugin's public interface,
 # where an argument change is a major version bump. This is repo administration.
 #
-# Secret hygiene, same rules as docs/secrets.md:
+# Secret hygiene, same rules as docs/secrets.org:
 #   - values reach gh on stdin, never via --body, so they stay out of argv/ps
 #   - the trailing newline is stripped explicitly; gh does not strip it, and a
 #     secret with a stray \n fails authentication somewhere far away with no

@@ -149,8 +149,8 @@ Report per project as *worked*, *worked with caveats*, or *failed*, and say why.
 - *Conventional commits*, and =--trailer= for co-authorship rather than a hand-typed trailer line.
 - *Stage explicitly.* Never =git add -A= or =git add .=; look at what you are adding first. This repo has committed a 7.1 GB core dump once already.
 - *A =git note= per commit* carrying context, considerations, deviations and timeline --- the things a commit message should not carry but a reader six months out will want. Push them with =git push origin refs/notes/commits=; they do not travel with a normal push.
-- *No secrets in the repo, ever.* =docs/secrets.md= is the runbook; values live in =pass= and reach the network on a pipe, never as a process argument.
-- *Version bumps* are judged by =RELEASING.md='s table, from the point of view of someone who pinned the previous tag.
+- *No secrets in the repo, ever.* =docs/secrets.org= is the runbook; values live in =pass= and reach the network on a pipe, never as a process argument.
+- *Version bumps* are judged by =RELEASING.org='s table, from the point of view of someone who pinned the previous tag.
 
 ** What this repo is opinionated about
 Not style. There is no Guile linter, and this repo will never tell you to run one --- =guild compile -W 3= against a real output path is the whole of it (=-o /dev/null= always fails: =guild= renames a temp file into place). What it does police is whether you can tell what you actually ran. Prefer a measurement over a claim, and when a check is silent, say that it was silent.

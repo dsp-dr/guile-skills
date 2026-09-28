@@ -1,0 +1,52 @@
+#+TITLE: Releasing
+#+DATE: 2026-09-28
+#+AUTHOR: dsp-dr
+
+This plugin's version lives in one place: =version= in [[file:.claude-plugin/plugin.json][=.claude-plugin/plugin.json=]]. Raise it on every release --- the directory and =gh skill install --pin= both key off it.
+
+** What counts as patch / minor / major
+Semver, judged against what an installer of this plugin actually depends on: the three skills' behavior and their =SKILL.md= contracts, =skills/*/scripts/*.sh= as a public interface, and the plugin manifest itself.
+
+| Bump    | When                                                                                                                                                                                                                                                                      |
+|---------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| *patch* | Wording/doc fixes in a =SKILL.md= or this repo's own docs; a =skills/*/scripts/*.sh= fix that doesn't change its arguments or output shape; adding a regression test; anything in =evals/= or the =*-workspace/= benchmark output.                                        |
+| *minor* | A new skill added; a new optional flag on a =skills/*/scripts/*.sh= script; a =SKILL.md= description or instructions change that widens /when/ it triggers or /what it covers/, without breaking an existing caller.                                                      |
+| *major* | Removing or renaming a skill or a =skills/*/scripts/*.sh= script; changing a script's existing argument/output contract; changing the derived-port scheme in =guile-repl-paths.sh=; anything that would silently break someone who scripted against the previous version. |
+
+When in doubt, look at it from =gh skill install dsp-dr/guile-skills <skill> --pin vX.Y.Z= --- a bump is major exactly when pinning the /old/ tag stops being a reasonable way to avoid the change.
+
+** Cutting one
+#+begin_src sh
+gmake release-staging                    # regression tests + validate + dry-run, no publish
+gmake release-production TAG=v0.2.0      # same gate, then the real `gh skill publish --tag`
+#+end_src
+
+=release-production= refuses to publish if the gate fails. It also drives the same =release:start= / =release:end= labels the CI gate uses (=.github/workflows/gate.yml=) when run against a PR --- apply =release:skip= to a PR to bypass the gate (e.g. a docs-only change), the same escape hatch =labeler:skip= gives the path labeler.
+
+=gh skill publish= handles the GitHub side: it tags the release, adds the =agent-skills= topic if the token has admin on the repo, and prints the =gh skill install= / =--pin= commands for that version.
+
+** Cutting one by hand
+=gh skill= is a preview command that landed in *gh v2.90.0*. FreeBSD's ports tree lagged well behind it --- =pkg= offered 2.83.2 on 2026-09-28, which has no =gh skill= at all --- so v0.1.1 was cut by hand before the newer =gh= was built from source. [[file:CONTRIBUTING.org][CONTRIBUTING.org]] has the upgrade; once =gh skill --help= answers, =gmake release-production TAG=vX.Y.Z= is the supported path and this section is the fallback.
+
+The manual sequence, which is the whole of it:
+
+#+begin_src sh
+./scripts/release.sh staging                 # gate: tests, validate, eval suites
+                                         # (the publish step reports SKIPPED)
+$EDITOR .claude-plugin/plugin.json       # bump "version"
+git commit ... && git push origin main   # the directory reads the version here
+
+git tag -a v0.1.1 -m "..." && git push origin v0.1.1
+gh release create v0.1.1 --notes-file - <<'NOTES'
+...
+NOTES
+#+end_src
+
+Four things this does *not* do, each of which is easy to assume it did:
+
+- *It does not publish to the plugin directory.* The directory tracks =main= and reads the version from =.claude-plugin/plugin.json=; the tag is a git artifact beside that, not the mechanism. The push is what the directory sees.
+- *It does not clear review.* A listing held for content-policy review stays held, and with auto-publish off no version goes live without a reviewer.
+- *It does not add the =agent-skills= topic.* =gh skill publish= would; check with =gh api repos/<owner>/<repo>/topics= and add it by hand if missing. It was already set here.
+- *It does not print =gh skill install --pin= lines*, and it skips the Agent Skills spec validation that =gh skill publish= performs --- name rules, =name= matching the directory, required frontmatter, =allowed-tools= being a string rather than an array, and stripped install metadata. Run =gh skill publish --dry-run= separately if you cut a release by hand.
+
+Two conventions worth keeping when doing it by hand: tag *annotated* (=-a=), so the tag carries who cut it and what the gate said --- =v0.1.0= is lightweight, which is the inconsistency this note exists to stop repeating --- and tag the exact commit that was gated rather than whatever =HEAD= has become since.
