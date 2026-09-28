@@ -1,6 +1,6 @@
 {
   "name": "guile-skills",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Stand up and drive a Guile socket REPL from an agent: guile3 --debug --listen on a per-project port, a transcript-logging proxy on PORT+1, and the eval bridge that makes \"verified\" mean something. Use when starting or resuming a Guile/Scheme project, when a claim about Guile behaviour needs checking against a running interpreter, or when a REPL session should be recorded.",
   "author": {
     "name": "dsp-dr"
