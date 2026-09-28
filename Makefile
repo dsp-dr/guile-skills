@@ -25,7 +25,7 @@ help:
 	@echo "  gmake try      open Claude Code with this plugin loaded from the working tree"
 	@echo "  gmake try-in DIR=<path>  same, but with the cwd in another project"
 	@echo "  gmake ship-check  show exactly which files an install actually delivers"
-	@echo "  gmake readme   regenerate README.md from README.org"
+	@echo "  gmake readme   regenerate the generated .md docs from their .org sources"
 	@echo "  gmake clean    remove compiled files"
 	@echo "  gmake release-staging              regression tests + validation, no publish"
 	@echo "  gmake release-production TAG=vX.Y.Z   same gate, then gh skill publish --tag"
@@ -112,7 +112,10 @@ ship-check:
 		echo "executables shipped: NO -- any SKILL.md command naming a script is unusable as installed"; \
 	fi
 
-# README.org is the source; README.md is generated for GitHub's front page.
+GENERATED_DOCS := README.md CONTRIBUTING.md
+
+# The .org files are the source; the .md files are generated for GitHub, which
+# surfaces README.md on the front page and CONTRIBUTING.md in its contribute UI.
 # Both are committed, because GitHub renders the .md and the directory listing
 # reads it. Edit the .org.
 #
@@ -121,19 +124,21 @@ ship-check:
 # should still skip, put [skip ci] in the commit message -- GitHub Actions
 # honours that natively and paths-ignore will not, since paths-ignore only
 # skips when *every* changed path matches.
-readme: README.md
+readme: $(GENERATED_DOCS)
 
-README.md: README.org
+# One rule for every generated doc. A .md target fires it only when that .md is
+# asked for, so EXPERIMENTS.org and the rest stay org-only.
+%.md: %.org
 	@command -v pandoc >/dev/null 2>&1 || { \
 		echo "readme: pandoc is required (pkg install hs-pandoc, or brew install pandoc)" >&2; \
 		exit 1; \
 	}
-	@printf '<!-- Generated from README.org by `gmake readme`. Edit the .org, not this file. -->\n\n' > $@
-	@printf '# %s\n\n' "$$(sed -n 's/^\#+TITLE: *//p' README.org)" >> $@
-	@pandoc -f org -t gfm --wrap=none --shift-heading-level-by=1 README.org \
+	@printf '<!-- Generated from $< by `gmake readme`. Edit the .org, not this file. -->\n\n' > $@
+	@printf '# %s\n\n' "$$(sed -n 's/^\#+TITLE: *//p' $<)" >> $@
+	@pandoc -f org -t gfm --wrap=none --shift-heading-level-by=1 $< \
 		| sed -e 's|](file:|](|g' \
 		      -e 's|^``` \([a-z]\)|```\1|' >> $@
-	@echo "wrote $@ from README.org ($$(wc -l < $@ | tr -d ' ') lines)"
+	@echo "wrote $@ from $< ($$(wc -l < $@ | tr -d ' ') lines)"
 
 clean:
 	@rm -rf .logs
