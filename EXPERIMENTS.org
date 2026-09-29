@@ -206,6 +206,21 @@ Any liveness check for a profiler must use a workload large enough to sample.
   loops drew zero warnings across 75 skills. The skills here are about not lying
   to yourself about what you ran.
 
+* Other experiment logs
+
+A numbered log lives here whether or not the answer was yes. A *decline is a
+decision about the boundaries of the system*, and it is worth exactly as much as a
+build: it says where the edges are and why, so the next person does not re-derive
+it.
+
+- [[file:EXPERIMENTS-channels.org][EXPERIMENTS-channels.org]] --- C1--C8: could this
+  plugin expose a channel (message-protocol) server? *Declined*, and the four things
+  the experiment bought anyway: a channel is an MCP server over stdio and not a
+  listener at all; what the CLI really validates about =channels= versus
+  =mcpServers=; that a Guile backtrace goes to *stdout* and so corrupts any protocol
+  carried there; and that =guile-json= is GPL-3, which closes a door this repository
+  was about to walk through.
+
 * Still open
 
 - ~,locals~ reports "No local variables" at a breakpoint where an argument is

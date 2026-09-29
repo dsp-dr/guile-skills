@@ -104,3 +104,9 @@ or a threaded accept loop.
   No error is raised.
 - **Non-UTF-8 chunks** are logged as `#<N non-utf8 bytes>` rather than corrupting
   the transcript; the bytes are still forwarded unchanged.
+
+## Documentation
+
+Full write-up, including the three binary names this probes across FreeBSD,
+Debian/Ubuntu and Homebrew: <https://wal.sh/tools/plugins/guile-skills/>
+Source and issues: <https://github.com/dsp-dr/guile-skills>

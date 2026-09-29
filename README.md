@@ -130,6 +130,8 @@ A Guile socket REPL is unauthenticated arbitrary code execution. That is why eve
 
 - [Why this exists](docs/rationale.org) — the argument, the numbers, and which claims are inherited
 - [EXPERIMENTS.org](EXPERIMENTS.org) — six real failures, four of them silent
+- [EXPERIMENTS-channels.org](EXPERIMENTS-channels.org) — C1–C8, a channel server: declined, with the measurements that decided it
 - [CONTRIBUTING.org](CONTRIBUTING.org) — tooling versions, the four testing layers, conventions
 - [RELEASING.org](RELEASING.org) — what counts as patch, minor, major, and how to cut one
 - [Roadmap](docs/roadmap.org) — what the history says is still missing, and what to do first
+- [Documentation](https://wal.sh/tools/plugins/guile-skills/) — the published write-up, and the canonical home for this plugin

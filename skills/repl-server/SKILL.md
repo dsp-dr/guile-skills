@@ -102,3 +102,9 @@ every `/` and `.` replaced by `-`.
 
 Evaluate with the `repl-eval` skill. Read the transcript with
 `repl-proxy`.
+
+## Documentation
+
+Full write-up, including the three binary names this probes across FreeBSD,
+Debian/Ubuntu and Homebrew: <https://wal.sh/tools/plugins/guile-skills/>
+Source and issues: <https://github.com/dsp-dr/guile-skills>

@@ -201,6 +201,31 @@
         }
       ],
       "verified_end_to_end": "marketplace add (local dir) -> marketplace list -> plugin install -> plugin list, in a throwaway CLAUDE_CONFIG_DIR; installed 0.3.0 at user scope, enabled"
+    },
+    {
+      "file": ".claude-plugin/plugin.json -- channels and mcpServers",
+      "cli_validates": "channels: yes (strict entries); mcpServers: barely",
+      "notes": [
+        "`channels' is a recognised NON-experimental manifest field. Its entries are genuinely strict: an unknown key is rejected as `channels.0: Invalid input'. That is the opposite of monitors/monitors.json, where the reference claims strictness and the CLI checks nothing.",
+        "`mcpServers' entries are barely checked, and there is NO cross-check between the two: a channels entry naming a server absent from mcpServers passes.",
+        "A channel is an MCP server spawned over stdio (newline-delimited JSON-RPC 2.0), not a listener. Registered via capabilities.experimental['claude/channel']. No session id exists in the protocol.",
+        "meta keys outside [A-Za-z0-9_]+ are dropped silently at the host."
+      ],
+      "measured_faults": [
+        {
+          "fault": "unknown key in a channels entry",
+          "cli_result": "error: channels.0: Invalid input"
+        },
+        {
+          "fault": "channels entry naming a server absent from mcpServers",
+          "cli_result": "PASSED -- no cross-check"
+        },
+        {
+          "fault": "unknown key in an mcpServers entry",
+          "cli_result": "PASSED"
+        }
+      ],
+      "independently_reverified": "2026-09-29, claude 2.1.261, throwaway plugin dir"
     }
   ]
 }

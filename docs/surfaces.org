@@ -22,7 +22,7 @@ reference fetched 2026-09-28.
 | agents            | =agents/*.md=               | *yes* --- one, new in 0.2.0   |
 | hooks             | =hooks/hooks.json=          | no                            |
 | MCP servers       | =.mcp.json=                 | no --- blocked, issue #1      |
-| channels          | manifest =channels=         | no --- needs an MCP server    |
+| channels          | manifest =channels=         | no --- an MCP server over stdio |
 | LSP servers       | =.lsp.json=                 | no --- maturity not established |
 | output styles     | =output-styles/*.md=        | no                            |
 | themes            | =themes/*.json=             | no                            |
@@ -112,7 +112,7 @@ may carry/.
 | hook        | an *event*, deterministically    | process in, exit code out | *yes* |
 | monitor     | the *session*, in the background | stdout → notifications | no        |
 | MCP server  | the model, calling a tool        | request / response  | no            |
-| channel     | a *person*, from outside         | MCP server + per-channel config | no |
+| channel     | a *person*, from outside         | MCP server over *stdio*, JSON-RPC 2.0 | no |
 | LSP server  | the *editor*                     | diagnostics         | no            |
 
 Three consequences worth stating, because each is a mistake waiting to happen:
@@ -125,6 +125,34 @@ Three consequences worth stating, because each is a mistake waiting to happen:
   human in Geiser who never asked for an agent to read along.
 - *A channel is a person reaching in*, so it presupposes an MCP server and a
   credential. That is the whole of issue #1, and why the row is empty.
+
+  One correction, measured 2026-09-29 against the =fakechat= reference plugin and
+  =claude= 2.1.261: *a channel is not a listener.* It is an MCP server that Claude
+  Code spawns as a *subprocess*, speaking newline-delimited JSON-RPC 2.0 over stdio
+  --- no socket between plugin and host, no port, no bind. It registers itself with
+  =capabilities.experimental['claude/channel']= and pushes
+  =notifications/claude/channel= carrying =params.content= and a =params.meta= string
+  map, which the host wraps as a =<channel source="NAME">= block. There is no session
+  id in the protocol: any =chat_id= is a =meta= key the server invents and asks the
+  model to pass back. Nothing is acknowledged --- with channels disabled the host
+  drops events silently.
+
+  So the credential and the egress belong to whatever *ingress* the server chooses,
+  not to the channel mechanism. A stdio channel with a local ingress could honour the
+  loopback rule completely --- and would then be =guile-repl-health= with a different
+  delivery mechanism. A channel that carries messages from a person on another machine
+  cannot, and that is the reason this row stays empty rather than a missing dependency.
+
+  Two things the manifest actually enforces here, and they cut the other way from
+  =monitors=: =channels= is a *recognised non-experimental* field whose entries are
+  genuinely strict --- an unknown key is rejected as =channels.0: Invalid input= ---
+  while =mcpServers= is barely checked: an unknown key in an entry, a nonexistent
+  =command=, a missing referenced file, and a =channels= entry naming a server that is
+  absent from =mcpServers= all pass. There is no cross-check between the two.
+
+  And one hazard for any Guile process whose stdout *is* a protocol: an unbound
+  variable inside a =(web server)= handler prints its backtrace to *stdout*, which on
+  a JSON-RPC pipe is transport corruption rather than a 500. Same class as E2 and E3.
 
 * Adding a surface: the process
 
