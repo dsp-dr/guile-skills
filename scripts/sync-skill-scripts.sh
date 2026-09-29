@@ -18,7 +18,13 @@ set -u
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 CHECK=0
-[ "${1:-}" = "--check" ] && CHECK=1
+# An unrecognised flag must NOT fall through to the write path: `--dry-run'
+# looked harmless and silently rewrote every synced copy.
+case ${1:-} in
+    "")       : ;;
+    --check)  CHECK=1 ;;
+    *)        echo "usage: $0 [--check]" >&2; exit 2 ;;
+esac
 
 # <shared file>:<skill that needs it>
 # guile-repl-server.sh spawns the proxy, so the server skill carries it too.
