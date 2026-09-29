@@ -1,0 +1,24 @@
+Context
+  Asked whether this should have a marketplace and to look at simple consistency, off
+  the install documentation. A research pass on whether Anthropic publishes
+  machine-readable schemas came back at the same time and corrected two of my own
+  contract claims.
+
+Deviations
+  The $schema fix is a retraction. I asserted in a docstring, a commit message and a
+  calibration that $schema in plugin.json would fail --strict, and calibrated a
+  'fault' that was actually a legal field. Measuring it took one command. The check now
+  permits it and the artifacts file records why.
+
+Considerations
+  A marketplace in THIS repository is the cheap prototype: no new repo, no org, and
+  `marketplace add <owner>/<repo>' works against it directly. Whether a walsh- or
+  defrecord-org marketplace should exist is a separate question about catalogues of
+  several plugins, and it is not answered by this file.
+
+  Verification used a throwaway CLAUDE_CONFIG_DIR deliberately -- installing a plugin
+  to check that installation works would otherwise modify the user's real config.
+
+Timeline
+  2026-09-29, nexus, Claude Code 2.1.261, as dsp-dr. gmake checks green; marketplace
+  install verified in isolation; 14 manifest/hook/marketplace faults now calibrated.
