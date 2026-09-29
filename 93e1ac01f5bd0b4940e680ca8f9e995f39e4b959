@@ -48,3 +48,19 @@ Timeline
   2026-09-28, nexus, FreeBSD 15.1-RELEASE, guile3 3.0.10, Claude Code CLI as
   installed, as dsp-dr. Branched from main. gmake checks green: 3 eval suites
   valid, 7/7 proxy regressions, validate --strict passing.
+
+Amended 2026-09-29
+  Rebased onto origin/main after PRs #4 and #5 merged (02:20) and v0.1.4 was
+  tagged and published. One conflict, on plugin.json's version line, exactly as
+  the pre-rebase dry run predicted; SKILL.md auto-merged, so PR #4's
+  `compatibility' frontmatter and this branch's port-bullet rewording coexist.
+
+  0.1.5 is no longer a skipped number. It was chosen when 0.1.4 was held by an
+  unmerged PR and skipping looked cheaper than colliding; 0.1.4 has since been
+  published, so 0.1.5 is simply the next one. The reasoning is now written up as
+  the version rule in RELEASING.org on the other branch.
+
+  Re-verified after the rebase: validate --strict passes, gmake checks is green
+  (3 eval suites, 7/7 proxy regressions), the generated .md files regenerate to
+  no diff, check-version-bump.sh against origin/main reports the bump, and no
+  tracked or untracked file references a private address or the registry by name.
