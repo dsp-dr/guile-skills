@@ -1,0 +1,24 @@
+Context
+  Asked whether skills should have been namespaced guile:repl:{server,eval,proxy}
+  rather than dash-prefixed, and whether to plan a deeper refactor at 0.5 or 1.0.
+  Then asked to document the process for review rather than just the outcome, and to
+  widen the sample using the claude-skills GitHub topic.
+
+Deviations
+  The document answers the method question, not the refactor question. The refactor
+  decision needs the numbers this produced and is better made in an issue against
+  them than asserted here.
+
+Considerations
+  The topic sample is biased toward popular repositories and is stated as such. It is
+  good enough for the question asked: a popular-biased sample that CONTRADICTS a
+  convention is decisive, while one that agrees is only suggestive. It contradicted
+  mine, which is why the N4 claim changed.
+
+  Two of the three nesting repos did not print their nested paths under my grep,
+  which required a literal skills/ segment. Not chased -- the one clear example was
+  enough to establish the shape, and 'good enough' was the explicit instruction.
+
+Timeline
+  2026-09-29, nexus, claude 2.1.261, gh CLI, as dsp-dr. 1,382 skills sampled across
+  10 repositories plus 31 upstream and 25 installed.
