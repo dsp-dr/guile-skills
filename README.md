@@ -132,3 +132,4 @@ A Guile socket REPL is unauthenticated arbitrary code execution. That is why eve
 - [EXPERIMENTS.org](EXPERIMENTS.org) — six real failures, four of them silent
 - [CONTRIBUTING.org](CONTRIBUTING.org) — tooling versions, the four testing layers, conventions
 - [RELEASING.org](RELEASING.org) — what counts as patch, minor, major, and how to cut one
+- [Roadmap](docs/roadmap.org) — what the history says is still missing, and what to do first
