@@ -18,3 +18,9 @@
 *.core
 core
 core.*
+
+# Environment: .env may acquire host-local values or, by accident, a secret.
+# Track the template only.
+.env
+.env.local
+!.env.example

@@ -1,0 +1,515 @@
+#+TITLE: What the history says is still missing
+#+DATE: 2026-09-28
+#+AUTHOR: dsp-dr
+
+A backlog read out of this repository's own record rather than invented: 31
+commits, every ~git notes~ entry, [[file:../EXPERIMENTS.org][EXPERIMENTS.org]],
+[[file:../evals/PLAN.org][evals/PLAN.org]], the shipped skill scripts, the
+Makefile and the two workflows. Four passes, one per dimension --- startup,
+trace, tooling, evals --- each asked the same question: *what did we hit, what
+did we write down and not do, and what would still fail.*
+
+Every line below carries its evidence. Where a claim was inherited rather than
+measured it says so, in the same spirit as
+[[file:rationale.org][rationale.org]]: this repository exists to avoid lying to
+itself about what it ran.
+
+Measured on *nexus*, FreeBSD 15.1-RELEASE, ~guile3~ 3.0.10, ~direnv~ 2.35.0, as
+~dsp-dr~, on branch ~docs/contributing-check-targets~.
+
+* The recurring shape
+
+Four of the six experiments failed silently (~cdc4a22~), and every dimension
+below rediscovered the same shape in a new place:
+
+#+begin_quote
+Something reports success it never checked, and the symptom surfaces somewhere
+else --- usually as an empty transcript.
+#+end_quote
+
+- ~8178314~ --- the proxy never started on Linux; because ~tests/test-proxy.sh~
+  redirects its stderr, the symptom read as a logging bug.
+- ~cdc4a22~ E4 --- a stale proxy held the port, the new ~bind~ died silently, the
+  *old* one kept serving and logging.
+- ~guile-repl-server.sh:79-81,100~ --- prints ~repl PORT~ and ~proxy ... logging
+  to ...~ unconditionally, checking neither return code nor liveness.
+- ~guile-repl-eval.sh:44-58~ --- exits 0 for a Scheme error exactly as for a
+  value.
+- ~Makefile:64-69~ --- ~gmake lint~ cannot fail on Scheme (below).
+
+That is the through-line for prioritisation: the requests that convert a silent
+success into a loud failure come first.
+
+* Verified in this pass
+
+One claim was cheap enough to settle rather than repeat, so it was:
+
+#+begin_src sh
+printf '\n(this-is-not-balanced (\n' >> skills/guile-repl-proxy/scripts/guile-repl-proxy.scm
+gmake lint; echo $?
+#+end_src
+
+#+begin_example
+0
+#+end_example
+
+~guild3 compile~ exits 1, but ~Makefile:64-69~ pipes it through ~grep -iE
+'warning|error' || true~, so the target exits 0 and CI's "Shell and Scheme lint"
+step (~checks.yml:59~) is *decorative for Scheme*. This is the exact failure
+class the repository was built to catch, inside the repository's own checks. The
+working tree was restored after the probe.
+
+A second one settled itself. Checking for orphans after ~gmake checks~ found
+*eleven* proxies still bound on nexus, owned by ~jwalsh~ --- another login, another
+checkout --- the oldest running ~1-00:58~, all of them still invoking
+~./bin/guile-repl-proxy.scm~, the path deleted in ~8d71a62~. They predate that
+refactor and have held ports through it.
+
+Worse than the record says. *Nine of the eleven proxy to a dead REPL*: the
+children were ~-c '(sleep 86400)'~ and exited at 24 hours, while the proxies did
+not. So the listener survives the thing it proxies, and a client gets the
+repository's signature failure:
+
+#+begin_src sh
+printf '(+ 1 1)\n' | nc -N 127.0.0.1 42042; echo $?
+#+end_src
+
+#+begin_example
+0
+#+end_example
+
+An empty reply and a *successful* exit status --- the same shape as E4, from the
+other end. That makes A4 a measured need rather than a tidiness request, and adds
+an eval below. The processes were left alone: they belong to another login.
+
+Everything else below is sourced to a commit, note or file and was *not*
+re-measured here.
+
+* 1. Startup, bootstrap and lifecycle
+
+** Already closed
+
+Interpreter probing ~guile3~ → ~guile-3.0~ → ~guile~ in all four places that
+need it (~8178314~); data-root precedence ~GUILE_REPL_ROOT~ >
+~GUILE_SKILL_DATA~ > ~CLAUDE_PLUGIN_DATA~ > legacy ~~/.guile-skill~, the legacy
+path marked DEPRECATED in the report (~2dc20e9~, ~guile-repl-paths.sh:29-39~);
+~${CLAUDE_PLUGIN_DATA}~ is Markdown-only and absent from the Bash environment,
+so SKILL.md hands it over as ~GUILE_SKILL_DATA=~ (~2dc20e9~ note); stale-listener
+triage --- ~bind~ wrapped in ~catch 'system-error~ with errno and a ~pgrep~ hint,
+a server that refuses a live port, ~--status~/~--stop~ (~cdc4a22~); scripts ship
+*inside* each skill because ~gh skill install~ copies only ~skills/<name>/**~
+and strips ~+x~ (~8d71a62~); the port-registry endpoint removed from a shipped
+skill after it read as "reports usage to an outside endpoint" (~b9600a6~).
+
+** Open gaps
+
+- *False success on spawn.* Neither port is verified;
+  with ~--no-proxy~ the readiness loop (~guile-repl-server.sh:87-91~) never runs,
+  so there is *zero* verification.
+- *No version assertion.* ~guile-repl-paths.sh:55-63~ falls through to
+  ~GUILE=${GUILE:-guile}~ and ~:75~ prints only the path. On a host where only
+  ~guile~ 2.2.7 exists, the server starts a 2.2 REPL that answers ~--listen~ and
+  quietly lacks 3.x debug behaviour. The probe exists as prose only
+  (~guile-repl-server/SKILL.md:54-59~).
+- *No preflight.* Nothing reports ~uname -a~ / ~whoami~ / ~hostname -s~, though
+  E9 (~EXPERIMENTS.org:154-170~) is precisely two agents measuring "the same"
+  binary on two hosts and both being right.
+- *Port collision has no documented escape hatch.* 900 slots;
+  ~GUILE_REPL_PORT~ and ~GUILE_REPL_ROOT~ exist (~guile-repl-paths.sh:45,29~) and
+  appear in *no* SKILL.md, README or CONTRIBUTING. Meanwhile ~--stop~ is
+  ~pkill -f "listen=$PORT"~ (~:58~), so two colliding projects can kill each
+  other's REPL --- and two such pairs were measured across 33 checkouts
+  (~CONTRIBUTING.org:167~).
+- *No teardown.* No pidfile, no ~SessionEnd~; the REPL is ~-c '(sleep 86400)'~
+  (~:79~), so an orphan survives 24 hours --- and the *proxy* survives longer than
+  that, measured above. ~cdc4a22~ records roughly a dozen manual teardowns; nexus
+  is currently carrying eleven.
+- *Previous crash diagnostics destroyed.* ~repl.stderr~ is truncated with ~>~
+  (~:80~) while ~proxy.stderr~ appends (~:99~).
+- *~gmake start~ writes to the deprecated root* --- ~Makefile:42-43~ passes no
+  ~GUILE_SKILL_DATA~, so the README quick start (~README.org:49-55~) lands in
+  ~~/.guile-skill~.
+- *Three references outlived ~8d71a62~*: ~guile-repl-server.sh:104~ prints
+  ~./bin/guile-repl-eval.sh~ --- the first thing an agent reads after a
+  successful start --- ~CONTRIBUTING.org:29-31~ says the repo still has ~bin/~
+  (~git ls-files bin~ is empty), and ~CONTRIBUTING.org:90~ hands a *contributor* a
+  ~${CLAUDE_SKILL_DIR}~ command that is unset in any shell.
+- CI is ~ubuntu-latest~ only (~checks.yml:39~); macOS/Homebrew ~guile~ and the
+  2.2-only host are asserted in docs and tested nowhere.
+
+** Requests
+
+| # | Request                                                                   | Effort |
+|---+---------------------------------------------------------------------------+--------|
+| A1 | ~feat(server)~: assert both ports are listening before reporting success; on timeout print the stderr tail and exit 1 | S |
+| A2 | ~feat(paths)~: verify the chosen interpreter is ≥ 3.0, export ~GUILE_VERSION~, refuse otherwise (~GUILE_ALLOW_LEGACY=1~ to override) | S |
+| A3 | ~feat(skills)~: ~guile-repl-paths.sh --preflight~ --- node, user, OS, every candidate with its version, data root, ports, live listeners, in one pasteable block | S |
+| A4 | ~feat(server)~: pidfiles, ~--stop~ by pid, ~--stop-all~, ~--sweep~ --- so ~--stop~ cannot kill another project's REPL, and an orphan proxying a dead REPL is reaped (11 measured today) | M |
+| A5 | ~feat(paths)~: document ~GUILE_REPL_PORT~/~GUILE_REPL_ROOT~, add ~--port N~, and name the override in the refusal message | S |
+| A6 | ~feat(makefile)~: ~gmake start~ off the deprecated data root | S |
+| A7 | ~fix(docs)~: remove the three surviving ~bin/~ and ~${CLAUDE_SKILL_DIR}~ references, with a lint guard against reintroduction | S |
+| A8 | ~build~: cold-start CI matrix --- macOS, plus a guile-2.2-only job asserting A2's refusal | M |
+
+* 2. Trace, transcript and what an agent can observe
+
+** Already closed
+
+Block buffering, because ~get-bytevector-some~ on an unbuffered socket returns
+one byte (E2, ~guile-repl-proxy.scm:118-120~); per-direction EOF retirement plus
+~shutdown peer 1~, because ~nc -N~'s half-close was tearing down the whole
+connection and losing every reply (E3, ~:108-140~); rotation at 4 MiB × 5, at
+startup and *between* connections so no session is cut mid-transcript (E5,
+~:66-90,206-207~); non-UTF-8 chunks rendered as ~#<N non-utf8 bytes>~ with the
+bytes still forwarded (~:92-96~); ~~3,'0d~ needs ~(ice-9 format)~, which
+~simple-format~ accepted silently (E8, ~:32-34~). Transcripts live under
+~${CLAUDE_PLUGIN_DATA}/projects/<slug>/~ and never in-repo, with
+~.gitignore:9-15~ as "belt and braces in case someone points ~--log~ at the
+working directory" --- a REPL transcript contains whatever was evaluated.
+
+Worth keeping in view: ~b9600a6~'s note declined to scrub the already-generated
+workspace transcripts, on the grounds that rewriting a record falsifies
+evidence.
+
+** Open gaps
+
+- *A failed evaluation is indistinguishable from a value.*
+  ~guile-repl-eval.sh:44-58~ exits 0 either way, and the banner/prompt stripper
+  (~:63-69~) can swallow the error text outright.
+- *No session or eval id.* ~;; connection N~ restarts at 1 on every proxy restart
+  (~guile-repl-proxy.scm:185~) into an append-only file, so two ~connection 1~
+  blocks coexist. Correlation is by wall clock --- and the millisecond lines are
+  localtime (~:47~) while the session header is UTC (~:38-39~).
+- *No timing record.* Latency is recoverable only by subtracting timestamps by
+  hand; no per-form duration, no ~,time~ capture.
+- *~--status~ lies by omission.* It prints the *configured* log path
+  (~guile-repl-server.sh:55~), not the running proxy's actual ~--log~, no size or
+  mtime, and never mentions ~repl.stderr~/~proxy.stderr~ --- while the proxy's
+  own eval #2 asks an agent to check exactly that.
+- *stderr is unrotated and asymmetric*; rotation covers only ~repl.log~.
+- *Rotation is silent and lossy*: no "rotated from" marker in the new file,
+  generation 5 is ~delete-file~'d (~:86-87~), and because rotation only happens
+  between connections a single long Geiser session grows unbounded.
+- *Idle close is invisible client-side*: the 300 s ~select~ timeout logs ~!! idle
+  for 300s, closing~ (~:123-127~) and drops the connection; the client sees only a
+  closed socket.
+- *No redaction or excerpt tooling*, though proxy eval 3 requires producing a
+  reviewed excerpt rather than committing the transcript.
+- No ~gmake tail~/~log~ target (~Makefile:15-24~).
+- ~,locals~ reports no variables at a frame where an argument is in scope ---
+  unexplained, carried from ~guile-sicp~, and tagged *not established*
+  (~rationale.org:96~). It stays a question, not a request.
+
+** Requests
+
+| # | Request                                                                    | Effort |
+|---+----------------------------------------------------------------------------+--------|
+| B1 | ~feat(eval)~: non-zero exit on a REPL error, plus a stable ~;; eval <id>~ emitted into the transcript and echoed on stderr | S |
+| B2 | ~feat(status)~: report the *running* proxy's ~--log~, flag a mismatch, print size and mtime for all three files | S |
+| B3 | ~feat(proxy)~: ~--log-format text\vert{}jsonl~ --- ~{ts_utc, mono_ms, session_id, connection, dir, bytes, text}~ | M |
+| B4 | ~fix(proxy)~: unique session ids (pid + start time) and one clock, UTC throughout | S |
+| B5 | ~feat(server)~: append and rotate both stderr files; surface their tails in ~--status~ when a port is down | M |
+| B6 | ~feat(proxy)~: ~guile-repl-excerpt.sh --since/--session/--grep~ --- masks ~*(KEY\vert{}TOKEN\vert{}SECRET\vert{}PASSWORD)~ and long base64/hex runs, writes to stdout only, refuses a destination inside the git toplevel | M |
+| B7 | ~feat(proxy)~: mark rotation in the new file and cap a single long connection with a ~;; continues in .1~ marker | M |
+
+* 3. Tooling, build and the authoring toolchain
+
+** Already closed
+
+~guild compile -o /dev/null~ always fails, because guild renames into place, so
+lint compiles to a real path (E7, ~Makefile:60-65~); ~bin/~ is reserved and
+blocks installs, and ~gh skill install~ both restricts to ~skills/<name>/**~ and
+strips ~+x~ --- found by measurement, not by reading (~8d71a62~ note); the
+org→md rule, after hand-written Markdown had drifted and pandoc emitted
+~****bold****~, unresolvable ~](file:...)~ links and a ~``` mermaid~ fence GitHub
+won't render (~f46c160~, ~306afd1~); two workflows that had *never run* because
+both were ~pull_request~-only (~a3c7413~); ~claude plugin validate~ promoted from
+~continue-on-error~ to fatal once a green run existed (~306afd1~);
+~check-version-bump.sh~ diffing the base against the *working tree*, because the
+first version compared HEAD and reported a bump that sat uncommitted
+(~70b109f~); ~gmake~ absent on Ubuntu runners, and a labeler rename that
+silently applied nothing because the label was never created (~781fb4c~);
+StrictYAML rejecting flow sequences, so ~binaries: [guile3]~ failed ~skills-ref
+validate~ (~a23284b~), with ~compatibility~ added later as the sanctioned field
+(~e27e776~).
+
+** Open gaps
+
+- *~gmake lint~ cannot fail on Scheme* --- measured above.
+- *CI runs a hand-copied subset, not ~gmake checks~.* No ~check-scripts~ and no
+  ~lint-org~, so the drift check that makes ~scripts/lib/~ duplication safe
+  (~8d71a62~, ~CONTRIBUTING.org:109~) is never enforced: a drifted skill copy
+  merges green.
+- *Exactly one ~.scm~ file is ever compiled* (~Makefile:65~); ~assets/gen-icon.scm~
+  never is. ~shellcheck~ is installed, referenced by an inline
+  ~# shellcheck disable=SC2086~ directive (~check-version-bump.sh:30~), and run by
+  nothing.
+- *Nothing asserts the generated docs match their org.* ~checks.yml:22-31~
+  deliberately excludes README from CI, so a ~README.org~ edit with a stale
+  ~README.md~ is invisible --- while the directory listing reads ~README.md~.
+- *The load path assumes ~src/~.* ~SRC_DIR=${SRC_DIR:-src}~
+  (~guile-repl-server.sh:20,76~) means a project with modules at the root or under
+  ~modules/~ starts with load path ~none~ and ~(use-modules ...)~ fails ---
+  "projects with no ~src/~" being a named corpus shape (~CONTRIBUTING.org:150~).
+- *No Scheme-side tooling beyond compilation*, verified by grep: no formatter or
+  indenter, no delimiter-balance check --- though hand-editing parens is the
+  top anti-pattern at 22/75 (~rationale.org:55~) --- *zero* SRFI-64 usage
+  anywhere, no coverage, no module/load-path checking, no ~guild compile~ sweep
+  over a *target project's* modules, and no REPL-driven test loop.
+- *~check-version-bump.sh:42-46~ only greps the diff for a ~+"version"~ line*, so
+  a downgrade or a bump-then-revert passes; ~publish.yml:47-52~ then fails
+  *after* merge on "tag already exists".
+- ~skills-ref validate~ is still not wired into ~checks~ ("needs a cloned repo
+  and a venv", ~a23284b~); ~claude plugin validate --strict~ waits on a known
+  ~icon~ warning (~CONTRIBUTING.org:33~); ~gh skill~ is absent on FreeBSD, so
+  ~ship-check~/~release.sh~ skip and v0.1.1 was cut by hand (~1e2139c~,
+  ~f47429d~).
+
+** Requests
+
+| # | Request                                                                     | Effort |
+|---+-----------------------------------------------------------------------------+--------|
+| C1 | ~fix(build)~: ~gmake lint~ exits on guild's status; ~LINT_WARNINGS_FATAL=1~ to fail on any ~-W 3~ warning | S |
+| C2 | ~ci(checks)~: run ~gmake checks~ itself, not a hand-copied subset | S |
+| C3 | ~feat(lint)~: compile every tracked ~.scm~ (~git ls-files '*.scm'~) and run ~shellcheck -S warning~ | S |
+| C4 | ~feat(build)~: ~gmake check-readme~ --- regenerate to a temp dir and diff, so a stale generated doc fails ~checks~ | S |
+| C5 | ~feat(paths)~: derive ~-L~ from where ~(define-module ...)~ forms actually live; keep ~SRC_DIR~ as an override | M |
+| C6 | ~feat(test)~: an SRFI-64 runner through the logged proxy, plus ~gmake test-project DIR=~ | M |
+| C7 | ~fix(check)~: require the version to be semver-greater *and* unpublished, in review rather than post-merge | S |
+| C8 | ~build~: wire ~skills-ref validate~ into ~checks~, skipping with a message when absent | S |
+
+* 4. Evals and the test bed
+
+** What the bed actually is
+
+Three layers, two of them automated:
+
+1. *Deterministic regressions* --- ~tests/test-proxy.sh~, seven checks, one per
+   EXPERIMENTS.org failure (E1, E2, E3, E3b, E4, E5, E6). Gate run 36463634928
+   printed ~7 passed, 0 failed~.
+2. *Eval-suite structure* --- ~tests/validate-evals.py~ (~a3c7413~) checks
+   ~skills/*/evals/evals.json~ against the skill-creator schema: allowed keys,
+   ids consecutive from 1, ~skill_name~ matching SKILL.md frontmatter, 3--4 evals
+   per skill, and a ~VAGUE~ regex (~:24~) rejecting untestable expectations such
+   as "helpful" or "as expected". Its note records that it catches all seven
+   injected faults. 12 evals, 63 expectations, three skills (~c06d9e7~).
+3. *One measured benchmark* --- skill-creator ~with_skill~ vs ~without_skill~,
+   committed as evidence (~fd00b82~, ~e29e9a3~), at ~runs_per_configuration: 1~:
+
+| skill             | pass with | pass without |    Δ pass |  Δ time |  Δ tokens |
+|-------------------+-----------+--------------+-----------+---------+-----------|
+| guile-repl-eval   |      0.95 |         0.85 |     +0.10 |  −5.5 s |     −3237 |
+| guile-repl-proxy  |    0.8167 |       0.7665 |     +0.05 | −132.2 s |    −7096 |
+| guile-repl-server |    0.9583 |       0.9167 |     +0.04 | −153.5 s |     −110 |
+
+The honest part is already written down in ~benchmark.json:notes~: *five of
+twelve cases are explicit ties* --- ~reload-after-edit~, ~lint-proxy-script~,
+~transcript-of-eval~, ~identify-runtime~, ~start-and-trace-fib~,
+~stale-listener-diagnose~ --- the recorded reason being that the repository's own
+README, EXPERIMENTS and Makefile already teach the lesson, so a baseline that
+reads the repo wins without the skill. And ~decline-copy-transcript~ is
+*negative*: 4/6 with the skill against 5/6 without, noted as "a real
+negative-discrimination result worth investigating."
+
+Regressions are tracked only in layers 1 and 2. The benchmark is a one-shot
+artifact --- no baseline file, no threshold, no target, not in CI.
+
+** Stated and not done
+
+- *~claude plugin eval~ has never run* --- early access not enabled, from
+  ~3b16205~ through ~a3c7413~. ~evals/README.org:16~ promises results under
+  ~evals/results/~; that directory does not exist.
+- *Gate 1 is unenforced.* ~PLAN.org:271~ forbids an eval entering the suite
+  without a planted-fault calibration, and ~:48-54~ names five faults. Zero are
+  implemented. ~PLAN.org:44~'s own line --- "a check that cannot fail is
+  decoration" --- currently applies to the eval suite itself.
+- *Gate 2 is violated by our own artifact.*
+  ~skills/guile-repl-eval-workspace/iteration-1/benchmark.md~ is an unfilled
+  template: ~**Model**: <model-name>~, ~Pass Rate 0% ± 0%~, and "(3 runs each per
+  configuration)" contradicting ~runs_per_configuration: 1~ in the JSON beside
+  it. No ~benchmark.md~ exists for proxy or server at all.
+- *Gate 3* says delete a tie rather than celebrate it; six ties remain.
+- *Arm C* --- ~evals/dspy/~ is linked from ~PLAN.org:133~ and is an empty,
+  untracked directory. Blockers are measured: gemma4:26b at 0.78 tok/s, 130 s for
+  a trivial prompt, empty ~content~ with ~done_reason: length~ at
+  ~num_predict: 32~ (~d599692~); no FreeBSD ~orjson~ wheel at 3.12.0 or 3.11.9,
+  maturin compiling from source, ~litellm<=1.90.0~ the only dodgeable link
+  (~e06b621~). The unexhausted route --- ports ~py312-orjson-3.11.9_2~ installed
+  via ~pip~ rather than ~uv~ --- is explicitly untested (~PLAN.org:197-210~).
+- *No dollar cost is recorded anywhere*, for any arm, since the "~zero cost"
+  claim was retracted (~d599692~).
+- *The corpus matrix was promised and never committed.*
+  ~CONTRIBUTING.org:149~ describes "30-plus Guile and Scheme checkouts... a
+  matrix rather than an anecdote" with a worked / worked-with-caveats / failed
+  vocabulary. No table exists --- including for the two measured pairs where one
+  project's proxy port is another's REPL port.
+
+** Gaps
+
+- *Scoring is manual.* Graders are prose Markdown; the skill-creator grading is
+  an analyzer model writing ~grading.json~. CI grades nothing model-side, and
+  ~checks.yml:7-13~ says so deliberately.
+- *There is no variance measurement.* ~runs_per_configuration: 1~, and
+  ~run_summary.stddev~ is *between-case* spread, not run-to-run: guile-repl-server
+  ~without_skill~ shows ~mean 281.65, stddev 236.9, max 691.6~, which is four
+  different tasks. Any ~±~ in these artifacts read as run variance is wrong.
+- *The negative cases test refusal, not dormancy.* ~decline-remote-bind~,
+  ~decline-copy-transcript~ and ~no-linter-claim~ exist --- and came from the
+  generator, "the half a skill author is least likely to write"
+  (~PLAN.org:294-298~) --- but nothing tests that a skill *stays quiet* on an
+  unrelated prompt, so trigger precision is unmeasured.
+- *There is no fixture Guile project.* ~evals/no-linter-claim/prompt.md~ names
+  ~scripts/lib/guile-repl-proxy.scm~, a path inside *this* repo, so that eval
+  cannot run in a foreign project --- which is exactly the ~try-in~ case
+  ~CONTRIBUTING.org:161~ calls "the test that matters".
+- *Graders hard-code host facts.*
+  ~evals/right-guile-binary/graders/used-guile3.md~ asserts that bare ~guile~ is
+  2.2.7 while ~guile3~ is 3.0.10 --- true on nexus, false on hydra (3.0.11), and
+  the whole point of E9. ~benchmark.json:metadata~ records the executor and
+  analyzer models and *no host, OS or Guile version*.
+- Latency and tokens are recorded per run (~timing.json~); cost is not, and
+  ~tool_calls~ is 0 for every run in ~benchmark.json~ although ~metrics.json~
+  holds the counts.
+
+** Requests
+
+| # | Request                                                                      | Effort |
+|---+------------------------------------------------------------------------------+--------|
+| D1 | ~feat(evals)~: a fixture Guile project, so evals and ~try-in~ run outside this repo | M |
+| D2 | ~feat(evals)~: a planted-fault calibration harness --- PLAN.org gate 1, one ~plant_*~ per named fault, ~gmake calibrate~ | M |
+| D3 | ~feat(bench)~: repeat runs and *within-case* variance; regenerate ~benchmark.md~ from the JSON instead of a template | M |
+| D4 | ~feat(bench)~: record host, OS and each probed binary's version with every result; make the version-trap grader probe instead of asserting a literal | S |
+| D5 | ~feat(evals)~: negative *trigger* cases and a precision/recall number | S |
+| D6 | ~feat(evals)~: harden or delete the six zero-discrimination cases; explain ~decline-copy-transcript~'s negative delta | M |
+| D7 | ~feat(evals)~: the corpus matrix over the local Guile checkouts, with the collision pairs named | L |
+| D8 | ~feat(evals)~: unblock arm C via ports ~orjson~ + ~pip~, and record ~cost_usd~ per run | L |
+
+* The test bed
+
+Two fixtures, because one cannot show both shapes:
+
+- ~tests/fixtures/hello-guile/~ --- a single module, a naive ~fib~, a procedure
+  redefined to exercise reload-after-edit, a file that produces ~guild compile
+  -W 3~ warnings, and *no* ~src/~ directory, which is the per-project assumption
+  ~CONTRIBUTING.org:149~ says to shake out.
+- ~tests/fixtures/deep-guile/~ --- a nested module path needing ~-L~, a module
+  whose load takes arguments, and a slug chosen to collide with ~hello-guile~'s
+  ~PORT+1~, so the measured collision becomes a test rather than an anecdote.
+
+The matrix:
+
+| axis    | values                                                                                     |
+|---------+--------------------------------------------------------------------------------------------|
+| host    | nexus (FreeBSD 15.1, ~guile3~ 3.0.10, bare ~guile~ 2.2.7); ubuntu-latest (~guile-3.0~); macOS (Homebrew ~guile~) |
+| skill   | guile-repl-server, guile-repl-eval, guile-repl-proxy                                       |
+| arm     | with_skill, without_skill, planted-fault, negative-trigger                                 |
+| fixture | hello-guile, deep-guile; corpus sweep on nexus only                                        |
+
+Deterministic layers --- ~test-proxy~, ~check-evals~, ~calibrate~, ~ship-check~,
+fixture ~try-in~ --- run on every host. Model-graded arms run only where a key
+exists.
+
+One row per ~(host, guile, skill, case, arm, run)~: pass per expectation,
+~pass_rate~, ~discrimination = pass_with − pass_without~, ~latency_s~,
+~tokens_in/out~, ~cost_usd~, ~tool_calls~ (currently always 0 --- fix),
+~skill_fired~ for precision/recall, ~calibrated~, ~host~, ~guile_version~,
+~model~, ~runs~. Aggregated: per-case discrimination with within-case stddev at
+N ≥ 3, per-skill trigger precision/recall, and a verdict column for the corpus.
+
+Plumbing: new targets ~calibrate~, ~corpus~, ~try-in-fixture~, ~bench~. The
+first and third join ~checks~, since both are deterministic and need no model,
+keeping ~checks~ the single command it is today (~Makefile:106~,
+~checks.yml:73-77~). ~bench~ stays out of CI for the reason ~checks.yml:7-13~
+already gives, but gains a committed ~benchmark-baseline.json~ so ~gmake bench
+--check~ can fail on a discrimination regression --- the one thing a one-shot
+artifact cannot do.
+
+* Skills backlog
+
+Candidates, each with the evidence that motivates it. None of these should be
+written before the corresponding gap is measured; that is the ~,locals~ lesson.
+
+| skill                  | why                                                                        |
+|------------------------+----------------------------------------------------------------------------|
+| ~guile-repl-preflight~ | the missing first step of the standing host-facts checklist; E9's incident. No endpoint --- ~b9600a6~ is the reason |
+| ~guile-repl-triage~    | the E3b/E4/E9 diagnosis ladder, today prose spread across three SKILL.md files and two graders |
+| ~guile-repl-teardown~  | sweep and reap orphans by slug; ~cdc4a22~ hit this roughly a dozen times    |
+| ~guile-structural-edit~ | hand-editing delimiters is the top anti-pattern at 22/75 (~rationale.org:55~) and has *zero* tooling here |
+| ~guile-module-path~    | "no code for module": module↔path mapping and ~-L~ derivation; see C5        |
+| ~guile-test-loop~      | SRFI-64 plus reload-after-edit through the logging proxy; stale-code testing is 14/75 |
+| ~plugin-ship-check~    | generalise ~ship-check.sh~/~sync-skill-scripts.sh~ for any plugin author --- the ~+x~ stripping and subtree-only install of ~8d71a62~ |
+
+Two existing skills want extending rather than replacing: ~guile-repl-eval~ with
+a documented wire error contract (what an exception looks like, how the banner
+stripper can eat it, B1's exit code), and ~guile-repl-proxy~ with a "reading the
+transcript" section (finding your own connection, why ~connection 1~ recurs, the
+idle-close line).
+
+* Evals backlog
+
+Each of these fails today, which is the point --- an eval that cannot fail is
+decoration (~PLAN.org:44~).
+
+- *error-vs-value* --- ask for a value from a form that throws; fail if the
+  answer reports success. Measures B1.
+- *correlate a failure to its transcript lines* --- impossible today without an
+  eval id (B1/B4).
+- *lint-exit-status* --- given a ~.scm~ that will not compile, does the agent
+  report ~gmake lint~ as passing? It would. Discriminates only after C1.
+- *cold start on a 2.2.7-only host* --- the *start decision*, not the version
+  report; ~evals/right-guile-binary~ covers only the report.
+- *cold start with no guile at all* --- does the agent notice the success message
+  was a lie? Directly tests A1.
+- *second concurrent session in one cwd* --- identical derived port: does it find
+  the override or kill the other session's REPL?
+- *orphan started without ~--debug~* while ~--status~ says "listening" --- harder
+  than ~evals/stale-listener~.
+- *proxy outlives its REPL* --- connect to a proxy whose target is dead: the
+  connection succeeds, the reply is empty, ~nc~ exits 0. Does the agent diagnose a
+  dead target, or report that the form evaluated to nothing? Measured live today;
+  no eval covers it.
+- *no-src-dir* --- modules at the root: does the agent notice load path ~none~,
+  or claim the module loaded?
+- *stale-generated-doc* --- ~README.org~ edited, ~README.md~ not regenerated:
+  ~gmake readme~, or a claim that the docs are consistent?
+- *rotation amnesia* --- plant a rotation between two evals and ask for the
+  earlier one; pass only if ~repl.log.1~ is read.
+- *idle-close attribution* --- hold past 300 s; pass only if the ~!!~ line is
+  cited rather than a crash hypothesised.
+- *stderr-first* --- break the interpreter name (~8178314~'s scenario); pass only
+  if ~proxy.stderr~ is read before the proxy source.
+- *redaction* --- stronger than the current eval 3: require a *produced*, masked
+  excerpt, not just a refusal.
+- *host-fact reporting* --- does any answer about "the Guile version" name the
+  node it was measured on? E9's lesson, covered by nothing.
+- *absent ~gh skill~* --- is the publish step reported as SKIPPED, or as a
+  release?
+- *version-bump judgement* --- given a flag added to a shipped script, is minor
+  chosen per RELEASING.org, and bumped before pushing?
+
+A test bed for these needs a fake REPL that emits known errors, non-UTF-8 bytes
+and slow replies; a planted stale proxy; a clock injector for deterministic
+timestamps; and per-case ~timing.json~, a pattern the workspace artifacts already
+established.
+
+* What to do first
+
+Ranked by the criterion at the top --- convert a silent success into a loud
+failure, cheaply:
+
+1. *C1* --- ~gmake lint~ can fail on Scheme. Measured broken, S, and it is the
+   check every other check is trusted through.
+2. *C2* --- CI runs ~gmake checks~, so the drift guard actually guards.
+3. *A1* --- the server stops claiming a port it never checked.
+4. *B1* --- a failed evaluation exits non-zero.
+5. *A2* + *A3* --- know which interpreter, on which host, before binding.
+6. *A7* --- the ~./bin/~ hint an agent reads immediately after a successful start.
+7. *D1* --- a fixture project, which unblocks D2, C5, C6 and most of the eval
+   backlog.
+8. *D4* --- no committed result without its host, so the next E9 cannot happen.
+9. *D2* + *D3* --- calibration and repeat runs, at which point the tie/negative
+   findings can be settled instead of quoted.
+
+*A4* joins that list at position 4 on the strength of today's measurement: an
+orphan that answers a connection and returns nothing is the failure this
+repository is named after. B3, B5--B7, C5--C8, D5--D8 follow; D7 and D8 are the
+two L items and should wait for the fixture and the calibration harness.
