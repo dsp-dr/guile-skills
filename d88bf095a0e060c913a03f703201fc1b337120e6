@@ -1,0 +1,24 @@
+Context
+  Asked to have 0.3.0 fix the nomenclature and point the publish metadata at
+  https://wal.sh/tools/plugins/guile-skills/ and its children.
+
+Deviations
+  Only the parent page and /docs/ are referenced. The per-skill children were probed
+  and all 404, so linking them would have shipped dead URLs.
+
+  The skill nomenclature itself needed nothing: the guile- prefix came out in 0.2.0
+  and a grep of the shipped prose found no residue. The workspace directories keep
+  their old names deliberately -- recorded evidence.
+
+Considerations
+  The channels correction came from a worktree experiment and reverses what
+  surfaces.org claimed. I had described a channel as presupposing an MCP server and a
+  credential, which is half right: the MCP server is real, the credential belongs to
+  the ingress rather than the mechanism, and there is no listener at all.
+
+  Directory state at the time of this commit: v0.2.0 is still SCANNING and v0.1.4 is
+  live. Publishing 0.3.0 queues a second scan; whether that serialises is not known.
+
+Timeline
+  2026-09-29, nexus, claude 2.1.261, as dsp-dr. gmake checks green; validate --strict
+  passing; the four child URLs probed before being left out.
