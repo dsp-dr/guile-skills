@@ -1,0 +1,36 @@
+Context
+  Asked to have subagents mine the git log for tasks around trace, startup and
+  tooling for Guile projects, and turn them into feature requests or a document
+  for future skills, evals and a test bed. Four subagents, one per dimension,
+  read-only, each required to cite a sha or file:line per claim. Their findings
+  are in docs/roadmap.org; nothing was taken on faith where a check was cheap.
+
+Deviations
+  Two claims were verified locally instead of being restated, and both changed
+  the document. The lint finding (C1) came back from the tooling pass as an
+  assertion; planting a broken form confirmed exit 0, so it leads the roadmap.
+  The orphan finding was not in any agent's report at all --- it surfaced from
+  the post-checks cleanup sweep, and is the one item here measured today rather
+  than read out of the record.
+
+  evals/PLAN.org's remaining hydra.lan references were left alone deliberately.
+  They carry no address, the IP is already recorded as operator-held and absent
+  from the repo (PLAN.org:88), and the FQDN-vs-short-name distinction is the
+  whole point of the known_hosts finding: generalizing it would destroy the
+  lesson. Only the service inventory was removed.
+
+Considerations
+  This branch carries no change under skills/, .claude-plugin/ or scripts/lib/,
+  so it is not `deployable' and needs no version bump. The shipped half of this
+  work --- redacting an internal endpoint out of the committed benchmark
+  artifacts, the SKILL.md wording, and the manifest path fix --- is deliberately
+  a separate branch, because merging a deployable PR publishes a release and
+  0.1.4 is already claimed by the open PR #4.
+
+  The eleven orphan processes belong to another login (jwalsh) and were left
+  running. Reaping them is the user's call, not this branch's.
+
+Timeline
+  2026-09-28, nexus, FreeBSD 15.1-RELEASE, guile3 3.0.10, direnv 2.35.0, as
+  dsp-dr. Branched from main rather than from docs/contributing-check-targets so
+  PR #5 stays a single-purpose diff.
