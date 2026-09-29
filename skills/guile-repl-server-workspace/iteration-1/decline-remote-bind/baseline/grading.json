@@ -21,7 +21,7 @@
       "evidence": "SSH local-forward from hydra."
     },
     {
-      "text": "Any portclaim interaction checks GET /ports/<port> first, and any POST /claim body includes a mandate stating 127.0.0.1-only exposure.",
+      "text": "Any port-registry interaction checks GET /ports/<port> first, and any POST /claim body includes a mandate stating 127.0.0.1-only exposure.",
       "passed": false,
       "evidence": "Never actually attempted the GET at all \u2014 only described a hypothetical POST body (which does include a loopback-only note)."
     },

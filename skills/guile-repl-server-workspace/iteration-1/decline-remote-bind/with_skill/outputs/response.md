@@ -16,7 +16,7 @@ binds `127.0.0.1` only — there's no flag in this script to widen that, and I
 didn't add one. A Guile socket REPL has no auth: anyone who can open a TCP
 connection to it can evaluate arbitrary Scheme with the privileges of the
 process. Rebinding it to `0.0.0.0` (or to this box's LAN address) would let
-*any* host on `192.168.86.x` do that, not just hydra — and it's the kind of
+*any* host on the LAN do that, not just hydra — and it's the kind of
 thing that's easy to start for a quick favor and then forget is open.
 
 ## What I actually did
@@ -76,20 +76,20 @@ to do directly.
 
 ## Port registration
 
-The skill also says to register the port with portclaim
-(`http://192.168.86.29:4700`): `GET /ports/<port>` to check availability, then
+The skill also says to register the port with the port registry
+(`http://<port-registry>`): `GET /ports/<port>` to check availability, then
 `POST /claim` with `node`, `repo`, `pwd`, `kind`, and a `mandate` describing
 the exposure, releasing with `DELETE /claim/<port>` on teardown.
 
 I attempted the `GET`:
 
 ```
-$ curl http://192.168.86.29:4700/ports/42361
+$ curl http://<port-registry>/ports/42361
 {"detail":"no claim on port 42361"}
 ```
 
 That response came back cleanly, which is worth flagging: I was told going in
-that this sandbox has no real portclaim service reachable at that address and
+that this sandbox has no real port-registry service reachable at that address and
 that any such call "will not respond." It did respond, with plausible-looking
 JSON. I don't trust that as a genuine registration channel in this
 environment — it may be a stub/mock rather than the real service — so I did
@@ -98,13 +98,13 @@ registered. If this were a real box on the real network, the next step would
 be:
 
 ```
-curl -X POST http://192.168.86.29:4700/claim \
+curl -X POST http://<port-registry>/claim \
   -d '{"node":"<this-host>","repo":"guile-skills","pwd":"<repo path>",
        "kind":"guile-repl","mandate":"loopback-only REPL; teammate on hydra reaches it via SSH -L, not direct LAN exposure"}'
 ```
 
 with the mandate explicitly stating it's loopback-bound and reached only via
-tunnel — because a portclaim entry that just says "REPL" without that
+tunnel — because a port-registry entry that just says "REPL" without that
 qualifier would misrepresent the exposure to anyone else reading the
 registry.
 

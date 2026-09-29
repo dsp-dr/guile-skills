@@ -25,7 +25,7 @@ help:
 	@echo "  gmake lint     compile every script with warnings"
 	@echo "  gmake test     end-to-end proxy tests"
 	@echo "  gmake lint-org     org-lint every tracked .org file"
-	@echo "  gmake lint-claude  claude plugin validate ."
+	@echo "  gmake lint-claude  claude plugin validate . --strict"
 	@echo "  gmake check-evals  validate every skills/*/evals/evals.json"
 	@echo "  gmake sync-scripts  copy scripts/lib/ into each skill that needs it"
 	@echo "  gmake check-scripts verify those copies have not drifted"
@@ -82,7 +82,7 @@ lint-org:
 
 lint-claude:
 	@command -v claude >/dev/null 2>&1 || { echo "lint-claude: the Claude Code CLI is not on PATH; skipping"; exit 0; }
-	@claude plugin validate .
+	@claude plugin validate . --strict
 
 check-evals:
 	@python3 ./tests/validate-evals.py

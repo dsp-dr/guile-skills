@@ -17,7 +17,7 @@ Three things from the manifest reference that this repository depends on, so tha
 - **Never write state under `${CLAUDE_PLUGIN_ROOT}`**, which moves on every plugin update. `${CLAUDE_PLUGIN_DATA}` is `~/.claude/plugins/data/<id>/`, created on first reference and kept across updates – and deleted on uninstall unless `--keep-data`.
 - **`bin/` is a reserved directory.** Files in it are on the Bash tool's `PATH` while the plugin is enabled, and "claude.ai and Cowork don't install a plugin that has this directory". This repository still has one; see issue \#2.
 
-`claude plugin validate --strict` turns warnings into failures, which is what CI should use once the manifest is warning-free.
+`claude plugin validate --strict` turns warnings into failures, and CI uses it: the manifest is warning-free as of 0.1.5, when the inert `icon` key moved under `metadata` (the reference's free-form field) and `experimental.evals` gained the `./` prefix every component path is required to carry.
 
 ### Tooling, and the versions that matter
 

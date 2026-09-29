@@ -30,8 +30,10 @@ that a reader knows where they came from:
   while the plugin is enabled, and "claude.ai and Cowork don't install a plugin
   that has this directory". This repository still has one; see issue #2.
 
-~claude plugin validate --strict~ turns warnings into failures, which is what CI
-should use once the manifest is warning-free.
+~claude plugin validate --strict~ turns warnings into failures, and CI uses it:
+the manifest is warning-free as of 0.1.5, when the inert ~icon~ key moved under
+~metadata~ (the reference's free-form field) and ~experimental.evals~ gained the
+~./~ prefix every component path is required to carry.
 
 ** Tooling, and the versions that matter
 Verified on nexus, FreeBSD 15.1-RELEASE, 2026-09-28. "Minimum" means the repo's own tooling breaks below it; where no minimum is given, anything current works.

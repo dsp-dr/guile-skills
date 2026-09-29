@@ -82,4 +82,4 @@ jobs:
       # Fatal as of run 36382268404, the first green run: this step passed there,
       # so its exit status is now trusted to gate a merge.
       - name: Validate plugin manifest
-        run: claude plugin validate .
+        run: claude plugin validate . --strict

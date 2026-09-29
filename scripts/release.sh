@@ -50,8 +50,8 @@ MAKE=${MAKE:-$(command -v gmake || command -v make)}
 gate() {
     echo "== regression tests: $MAKE test =="
     "$MAKE" test
-    echo "== plugin manifest: claude plugin validate . =="
-    claude plugin validate .
+    echo "== plugin manifest: claude plugin validate . --strict =="
+    claude plugin validate . --strict
     echo "== eval suites: $MAKE check-evals =="
     "$MAKE" check-evals
     if [ "$SKILL_CMD" -eq 1 ]; then
