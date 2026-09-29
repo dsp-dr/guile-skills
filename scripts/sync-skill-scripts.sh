@@ -22,11 +22,11 @@ CHECK=0
 
 # <shared file>:<skill that needs it>
 # guile-repl-server.sh spawns the proxy, so the server skill carries it too.
-PAIRS='guile-repl-paths.sh:guile-repl-server
-guile-repl-paths.sh:guile-repl-eval
-guile-repl-paths.sh:guile-repl-proxy
-guile-repl-proxy.scm:guile-repl-server
-guile-repl-proxy.scm:guile-repl-proxy'
+PAIRS='guile-repl-paths.sh:repl-server
+guile-repl-paths.sh:repl-eval
+guile-repl-paths.sh:repl-proxy
+guile-repl-proxy.scm:repl-server
+guile-repl-proxy.scm:repl-proxy'
 
 drift=0
 echo "$PAIRS" | while IFS=: read -r file skill; do

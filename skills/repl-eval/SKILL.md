@@ -1,5 +1,5 @@
 ---
-name: guile-repl-eval
+name: repl-eval
 description: Evaluate Scheme in a running Guile REPL over its socket, and use tracing, breakpoints, macro expansion and profiling from it. Use whenever a claim about Guile code should be checked by running it - before asserting an API exists, after editing a module, or when asked what shape a recursion has.
 license: MIT
 allowed-tools: Read

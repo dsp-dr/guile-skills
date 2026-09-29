@@ -1,0 +1,8 @@
+[
+  {
+    "name": "guile-repl-health",
+    "command": "sh \"${CLAUDE_PLUGIN_ROOT}/monitors/guile-repl-health.sh\" \"${CLAUDE_PLUGIN_DATA}\"",
+    "description": "This project's Guile REPL and proxy stderr, so a process that died says so instead of showing up as an empty transcript",
+    "when": "on-skill-invoke:repl-server"
+  }
+]

@@ -17,7 +17,7 @@ Three things from the manifest reference that this repository depends on, so tha
 - **Never write state under `${CLAUDE_PLUGIN_ROOT}`**, which moves on every plugin update. `${CLAUDE_PLUGIN_DATA}` is `~/.claude/plugins/data/<id>/`, created on first reference and kept across updates – and deleted on uninstall unless `--keep-data`.
 - **`bin/` is a reserved directory.** Files in it are on the Bash tool's `PATH` while the plugin is enabled, and "claude.ai and Cowork don't install a plugin that has this directory". This repository still has one; see issue \#2.
 
-`claude plugin validate --strict` turns warnings into failures, which is what CI should use once the manifest is warning-free.
+`claude plugin validate --strict` turns warnings into failures, and CI uses it: the manifest is warning-free as of 0.1.5, when the inert `icon` key moved under `metadata` (the reference's free-form field) and `experimental.evals` gained the `./` prefix every component path is required to carry.
 
 ### Tooling, and the versions that matter
 
@@ -78,7 +78,7 @@ CI runs the same set on every push to `main` and every PR (`.github/workflows/ch
 
 ```bash
 ${CLAUDE_SKILL_DIR}/scripts/guile-repl-server.sh --status
-pgrep -fl guile-repl-proxy
+pgrep -fl repl-proxy
 ```
 
 ### Testing a change
@@ -142,18 +142,18 @@ The worked example, against `guile-sicp` and its own modules:
 ```bash
 cd ~/ghq/github.com/dsp-dr/guile-sicp
 $GUILE_SKILLS/scripts/lib/guile-repl-paths.sh          # slug, ports, data root
-$GUILE_SKILLS/skills/guile-repl-server/scripts/guile-repl-server.sh
-$GUILE_SKILLS/skills/guile-repl-eval/scripts/guile-repl-eval.sh '(use-modules (sicp ch1)) (fib 10)'
+$GUILE_SKILLS/skills/repl-server/scripts/guile-repl-server.sh
+$GUILE_SKILLS/skills/repl-eval/scripts/guile-repl-eval.sh '(use-modules (sicp ch1)) (fib 10)'
 # => $1 = 55
-$GUILE_SKILLS/skills/guile-repl-eval/scripts/guile-repl-eval.sh '(use-modules (sicp ch1)) ,trace (fib 4)'
+$GUILE_SKILLS/skills/repl-eval/scripts/guile-repl-eval.sh '(use-modules (sicp ch1)) ,trace (fib 4)'
 # => the indented call tree, exposing the exponential double recursion
-$GUILE_SKILLS/skills/guile-repl-server/scripts/guile-repl-server.sh --stop
+$GUILE_SKILLS/skills/repl-server/scripts/guile-repl-server.sh --stop
 ```
 
 Report per project as **worked**, **worked with caveats**, or **failed**, and say why. Two things to check while you are there, because both are silent:
 
 - The derived port pair. `37000 + cksum(slug) mod 900` gives each checkout its own pair, and worktrees — sibling or child — get their own too, since the slug is the absolute path. But `PORT+1` is not collision-checked against other projects, and across 33 checkouts here there are already two cases where one project's proxy port is another project's REPL port.
-- Clean up. `--stop` before you leave, and `pgrep -fl guile-repl-proxy` afterwards. A stale listener is indistinguishable from a broken new one.
+- Clean up. `--stop` before you leave, and `pgrep -fl repl-proxy` afterwards. A stale listener is indistinguishable from a broken new one.
 
 ### Conventions
 

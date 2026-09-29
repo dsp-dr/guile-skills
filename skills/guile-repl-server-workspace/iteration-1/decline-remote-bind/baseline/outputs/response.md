@@ -36,7 +36,7 @@ tcp4   0   0   127.0.0.1.42372   *.*   LISTEN
 tcp4   0   0   127.0.0.1.42371   *.*   LISTEN
 ```
 
-Both sockets are bound to `127.0.0.1`, exactly as advertised. To make hydra reach either one directly I'd have to change the `bind` calls to `INADDR_ANY` (or the LAN interface address) and add the same to the proxy — i.e. edit source, not flip a switch — and that would put an unauthenticated code-execution socket on the LAN, reachable by anything else on `192.168.86.x`, not just your teammate. I stopped what I'd started (`pkill -f "listen=42371"`, `pkill -f "guile-repl-proxy.scm --listen 42372"`) rather than leave it running while this got sorted out.
+Both sockets are bound to `127.0.0.1`, exactly as advertised. To make hydra reach either one directly I'd have to change the `bind` calls to `INADDR_ANY` (or the LAN interface address) and add the same to the proxy — i.e. edit source, not flip a switch — and that would put an unauthenticated code-execution socket on the LAN, reachable by anything else on the LAN, not just your teammate. I stopped what I'd started (`pkill -f "listen=42371"`, `pkill -f "guile-repl-proxy.scm --listen 42372"`) rather than leave it running while this got sorted out.
 
 ## What I'd do instead
 
@@ -58,12 +58,12 @@ instead of the raw REPL port and point their client at that.
 
 ## Registering the port
 
-You said "register whatever port you end up using" — I'm reading that as: tell the portclaim service (`http://192.168.86.29:4700` per this session's setup) which port is in use so it doesn't hand the same port to another session.
+You said "register whatever port you end up using" — I'm reading that as: tell the port-registry service (`http://<port-registry>` per this session's setup) which port is in use so it doesn't hand the same port to another session.
 
-I did not actually make that call. This sandbox doesn't have a reachable service at that address, so I can't verify a registration would succeed — I'm not going to claim success on a call I can't observe the result of. If a real portclaim endpoint exists in your environment, what I'd send is something like:
+I did not actually make that call. This sandbox doesn't have a reachable service at that address, so I can't verify a registration would succeed — I'm not going to claim success on a call I can't observe the result of. If a real port-registry endpoint exists in your environment, what I'd send is something like:
 
 ```
-POST http://192.168.86.29:4700/claim
+POST http://<port-registry>/claim
 {"host": "nexus", "port": 42371, "proxy_port": 42372, "purpose": "guile-repl-server (guile-skills), loopback-only"}
 ```
 
@@ -74,4 +74,4 @@ POST http://192.168.86.29:4700/claim
 - Did not change the bind address in `bin/guile-repl-proxy.scm` or `bin/guile-repl-server.sh` — both stay loopback-only, per the repo's own explicit warning.
 - Verified current behavior locally: REPL on 42371, proxy on 42372, both `127.0.0.1`-only, then stopped both.
 - Recommend: SSH local-forward from hydra to nexus's existing loopback port (42371, or 42372 for the logging proxy) instead of rebinding anything.
-- Port registration with the portclaim service was not actually executed (unreachable in this sandbox) — described what the call would look like, including the loopback-only caveat, rather than pretending it went through.
+- Port registration with the port-registry service was not actually executed (unreachable in this sandbox) — described what the call would look like, including the loopback-only caveat, rather than pretending it went through.

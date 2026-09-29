@@ -53,12 +53,34 @@ jobs:
           guile-3.0 --version | head -1
           command -v guild-3.0 || echo "no guild-3.0; lint will skip Scheme warnings"
 
-      # `make` on Ubuntu IS GNU make, so there is no gmake here. The repo's
-      # Makefile requires GNU make either way.
-      - name: Shell and Scheme lint
-        run: make lint
+      # emacs is needed by lint-org and by check-scheme, which runs the same
+      # balance check the Scheme edit hook runs. Without it those two targets skip
+      # themselves, and a skipped check is indistinguishable from a passing one.
+      - name: Install emacs
+        run: |
+          sudo apt-get install -y --no-install-recommends emacs-nox
+          emacs --version | head -1
 
-      - name: A shipped change must raise the version
+      # The CLI version is read from contracts/cell.json, not left to `latest`.
+      # contracts/ records what the product requires AS MEASURED ON A VERSION, and
+      # check-contracts fails when the installed CLI differs -- correctly, because
+      # every claim in contracts/artifacts.json is then unverified. Installing
+      # `latest` would make that check fail on every run for a reason that has
+      # nothing to do with the change under test. Bumping the CLI is therefore a
+      # deliberate act: re-measure the planted faults, then update cell.json.
+      - name: Install the pinned Claude Code CLI
+        run: |
+          pinned=$(python3 -c "import json;print(json.load(open('contracts/cell.json'))['claude_cli'])")
+          echo "contracts/cell.json pins $pinned"
+          npm install -g "@anthropic-ai/claude-code@$pinned"
+          claude --version
+
+      # One step, not a hand-copied subset. Until now CI ran five of the ten
+      # targets in `checks', so check-scripts (the drift guard that makes the
+      # scripts/lib duplication safe), check-contracts, check-scheme and lint-org
+      # were never enforced here: a drifted skill copy or an unbalanced .scm merged
+      # green. `make` on Ubuntu IS GNU make, so there is no gmake here.
+      - name: make checks
         env:
           BEFORE: ${{ github.event.before }}
           PR_BASE: ${{ github.event.pull_request.base.sha }}
@@ -66,23 +88,7 @@ jobs:
           base="${PR_BASE:-$BEFORE}"
           case "$base" in
             ""|0000000000000000000000000000000000000000)
-              echo "no base commit for this event; skipping" ;;
-            *) ./scripts/check-version-bump.sh "$base" ;;
+              echo "no base commit for this event; BASE left unset" ;;
+            *) export BASE="$base" ;;
           esac
-
-      - name: Validate skill frontmatter
-        run: make check-frontmatter
-
-      - name: Validate every eval suite
-        run: make check-evals
-
-      - name: Proxy regression tests
-        run: make test
-
-      - name: Install Claude Code CLI
-        run: npm install -g @anthropic-ai/claude-code
-
-      # Fatal as of run 36382268404, the first green run: this step passed there,
-      # so its exit status is now trusted to gate a merge.
-      - name: Validate plugin manifest
-        run: claude plugin validate .
+          make checks

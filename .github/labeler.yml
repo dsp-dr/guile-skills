@@ -17,6 +17,13 @@ deployable:
           - "skills/**"
           - ".claude-plugin/**"
           - "scripts/lib/**"
+          - "monitors/**"
+          - "agents/**"
+          - "commands/**"
+          - "hooks/**"
+          - "output-styles/**"
+          - "themes/**"
+          - "workflows/**"
 
 plugin:
   - changed-files:
@@ -29,17 +36,17 @@ scripts:
       - any-glob-to-any-file:
           - "scripts/**"
 
-skill:guile-repl-eval:
+skill:repl-eval:
   - changed-files:
       - any-glob-to-any-file:
-          - "skills/guile-repl-eval/**"
+          - "skills/repl-eval/**"
 
-skill:guile-repl-proxy:
+skill:repl-proxy:
   - changed-files:
       - any-glob-to-any-file:
-          - "skills/guile-repl-proxy/**"
+          - "skills/repl-proxy/**"
 
-skill:guile-repl-server:
+skill:repl-server:
   - changed-files:
       - any-glob-to-any-file:
-          - "skills/guile-repl-server/**"
+          - "skills/repl-server/**"

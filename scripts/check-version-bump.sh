@@ -16,7 +16,12 @@
 # Shipped means: what an install actually delivers. skills/** is copied by
 # `gh skill install'; .claude-plugin/ is the manifest; scripts/lib/ is the
 # canonical source of the files synced into each skill, so a change there
-# reaches users through the copies.
+# reaches users through the copies. The rest are plugin-level component
+# directories: a plugin install delivers the whole plugin root, so every one of
+# them reaches users even though `gh skill install <skill>' does not copy them.
+# monitors/ was missing from this list until 0.1.6 and agents/ until 0.2.0, and
+# in both cases a change would have shipped with no version bump and no publish.
+# Listing the directories a plugin can have is cheaper than rediscovering each.
 
 set -u
 
@@ -25,10 +30,23 @@ BASE=${1:-}
 git rev-parse --verify --quiet "$BASE" >/dev/null || {
     echo "check-version-bump: cannot resolve base ref '$BASE'" >&2; exit 2; }
 
-SHIPPED="skills/ .claude-plugin/ scripts/lib/"
+SHIPPED="skills/ .claude-plugin/ scripts/lib/ monitors/ agents/ commands/ hooks/ \
+         output-styles/ themes/ workflows/"
 
+# `git diff' cannot see a file that is not tracked yet, so an entirely NEW shipped
+# component -- a new skill directory, a new agent, a new monitor -- was invisible
+# here until it was staged. In CI the tree is clean and it never mattered; locally
+# it defeated the whole point, which is to warn before the commit. Measured
+# 2026-09-29 with agents/geiser-setup.md: reported nothing until `git add'.
+# So ask about untracked-but-not-ignored paths too.
+#
 # shellcheck disable=SC2086
-changed=$(git diff --name-only "$BASE" -- $SHIPPED)
+changed=$(
+    {
+        git diff --name-only "$BASE" -- $SHIPPED
+        git ls-files --others --exclude-standard -- $SHIPPED
+    } | sort -u
+)
 
 if [ -z "$changed" ]; then
     echo "no shipped files changed since $BASE; no version bump needed."

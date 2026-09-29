@@ -1,0 +1,70 @@
+#+TITLE: Contracts: what we believe the product requires
+#+DATE: 2026-09-29
+#+AUTHOR: dsp-dr
+
+* The isolation rule, first
+
+*Nothing in this directory is read by Claude Code, and nothing in here may appear
+in the files Claude Code reads.*
+
+Two kinds of file get confused otherwise, and confusing them is how a future agent
+breaks a plugin:
+
+| Kind                  | Lives in                                                  | Who reads it   |
+|-----------------------+-----------------------------------------------------------+----------------|
+| *operational config*  | =.claude-plugin/plugin.json=, =hooks/hooks.json=, =monitors/monitors.json= | Claude Code    |
+| *the contract for it* | this directory                                            | our validators |
+
+The operational files carry no contract version, no schema URL, no provenance
+comment and no extra keys --- because an unknown key in a strict entry stops the
+plugin loading, and an unknown top-level manifest key is stripped with a warning
+that fails =--strict=. The temptation to record "which spec this was written
+against" *inside* the file is exactly what must not happen. It goes here instead.
+
+So: if you are changing what the product reads, change the operational file. If
+you are recording what you believe the product requires, change a file here. Never
+both in one file.
+
+* Why a pin at all
+
+Because the contract has already moved under us, twice, measured on 2026-09-29:
+
+- =hooks/hooks.json= must have a top-level =hooks= key. The manifest reference
+  describes inline manifest hooks as "the same shape as =hooks= in settings.json",
+  which is the bare event map --- and a bare event map in the *file* is rejected:
+  "hooks.json must have =hooks= (the hook matchers) or =modules=".
+- =monitors/monitors.json= is not validated at all. Nine planted faults --- unknown
+  key, missing =description=, =when: "sometimes"=, a =when= naming no skill,
+  =${user_config.*}= in a command, duplicate name, command pointing nowhere, empty
+  name, empty array --- all passed =claude plugin validate --strict=, at the default
+  path and declared explicitly. The reference says an unknown key inside an entry
+  stops the plugin loading, so that silence is absence of coverage, not approval.
+- Hook entries are only *partly* validated: a missing =command= is caught, an
+  unknown key inside a hook entry is not.
+
+A contract we measured once and never re-checked is a contract we are guessing
+about. =gmake check-contracts= fails when the cell it was measured on no longer
+matches, which turns a silent drift into a loud one.
+
+* Files
+
+- =cell.json= --- the environment the contracts were established on. If the live
+  CLI differs from the pinned one, the validator fails and asks for a re-measure
+  rather than assuming the old answers hold.
+- =artifacts.json= --- per operational file: its required top-level shape, which
+  keys are strict, what the CLI does and does not check, and the evidence for each
+  claim.
+
+* Re-measuring
+
+When =check-contracts= fails on a version change, the work is to re-run the planted
+faults, not to bump the number. The fault lists live in =artifacts.json= next to
+each claim so the re-measure is mechanical:
+
+#+begin_src sh
+gmake check-monitors      # our own coverage, calibrated against nine faults
+claude plugin validate . --strict
+# then plant each fault in artifacts.json's `measured_faults' and record what happened
+#+end_src
+
+Update =cell.json= only once every claim has been re-observed on the new version.

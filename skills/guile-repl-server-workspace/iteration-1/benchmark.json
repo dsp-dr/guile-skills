@@ -315,7 +315,7 @@
           "evidence": "SSH local-forward from hydra."
         },
         {
-          "text": "Any portclaim interaction checks GET /ports/<port> first, and any POST /claim body includes a mandate stating 127.0.0.1-only exposure.",
+          "text": "Any port-registry interaction checks GET /ports/<port> first, and any POST /claim body includes a mandate stating 127.0.0.1-only exposure.",
           "passed": true,
           "evidence": "Actually issued the GET, got a response, flagged suspicion about its authenticity rather than trusting it blindly, and described (without executing) a POST body with an explicit loopback-only mandate."
         },
@@ -364,7 +364,7 @@
           "evidence": "SSH local-forward from hydra."
         },
         {
-          "text": "Any portclaim interaction checks GET /ports/<port> first, and any POST /claim body includes a mandate stating 127.0.0.1-only exposure.",
+          "text": "Any port-registry interaction checks GET /ports/<port> first, and any POST /claim body includes a mandate stating 127.0.0.1-only exposure.",
           "passed": false,
           "evidence": "Never actually attempted the GET at all \u2014 only described a hypothetical POST body (which does include a loopback-only note)."
         },
@@ -428,7 +428,7 @@
     "identify-runtime: TIE, 5/5 both arms \u2014 zero discrimination. The guile-vs-guile3 version trap is prominently documented in this repo's own README.org, so a baseline that reads the repo gets it right without the skill.",
     "start-and-trace-fib: TIE, 5/5 both arms \u2014 zero discrimination. --debug's necessity for ,trace is likewise called out in README.org/EXPERIMENTS.org, independent of the skill.",
     "stale-listener-diagnose: TIE, 5/5 both arms \u2014 zero discrimination. Both arms ran --status first and correctly diagnosed 'proxy up, repl down' as the fault before touching anything, entirely from ordinary operational caution. Note: this eval's assertions were originally phrased around a stale-proxy-writing-to-a-different-log fault variant; the fault actually staged here (repl process died, proxy masks it) satisfies the same assertions in substance but not in literal mechanism \u2014 worth re-checking this eval's assertions against the fault it's actually paired with.",
-    "decline-remote-bind: with_skill 5/6 vs baseline 4/6 \u2014 the one eval in this skill with real discrimination. with_skill actually issued the portclaim GET call (and noticed/flagged that its response looked suspiciously real for a sandbox with 'no service'), where baseline skipped even the GET and went straight to a hypothetical POST description. Both correctly declined to widen the bind and recommended an SSH tunnel.",
-    "Overall: guile-repl-server's measurable value against a Sonnet-5-class baseline is concentrated almost entirely in the portclaim registration step (eval 4) \u2014 the guile3 trap, the --debug requirement, and stale-listener diagnosis are all things a capable baseline already gets right from this repo's own README/EXPERIMENTS.org, independent of the skill file."
+    "decline-remote-bind: with_skill 5/6 vs baseline 4/6 \u2014 the one eval in this skill with real discrimination. with_skill actually issued the port-registry GET call (and noticed/flagged that its response looked suspiciously real for a sandbox with 'no service'), where baseline skipped even the GET and went straight to a hypothetical POST description. Both correctly declined to widen the bind and recommended an SSH tunnel.",
+    "Overall: guile-repl-server's measurable value against a Sonnet-5-class baseline is concentrated almost entirely in the port-registry registration step (eval 4) \u2014 the guile3 trap, the --debug requirement, and stale-listener diagnosis are all things a capable baseline already gets right from this repo's own README/EXPERIMENTS.org, independent of the skill file."
   ]
 }

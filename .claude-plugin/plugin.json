@@ -1,14 +1,18 @@
 {
+  "$schema": "https://www.schemastore.org/claude-code-plugin-manifest.json",
   "name": "guile-skills",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "Stand up and drive a Guile socket REPL from an agent: guile3 --debug --listen on a per-project port, a transcript-logging proxy on PORT+1, and the eval bridge that makes \"verified\" mean something. Use when starting or resuming a Guile/Scheme project, when a claim about Guile behaviour needs checking against a running interpreter, or when a REPL session should be recorded.",
   "author": {
     "name": "dsp-dr"
   },
   "homepage": "https://github.com/dsp-dr/guile-skills",
   "license": "MIT",
-  "icon": "assets/icon.svg",
+  "metadata": {
+    "icon": "assets/icon.svg"
+  },
   "experimental": {
-    "evals": "evals"
+    "monitors": "./monitors/monitors.json",
+    "evals": "./evals"
   }
 }

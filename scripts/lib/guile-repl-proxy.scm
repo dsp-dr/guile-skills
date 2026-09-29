@@ -167,19 +167,19 @@ keep forwarding the other until it closes too."
       (lambda () (bind listener AF_INET INADDR_LOOPBACK listen-port))
       (lambda args
         (format (current-error-port)
-                "guile-repl-proxy: cannot bind 127.0.0.1:~a -- ~a\n"
+                "repl-proxy: cannot bind 127.0.0.1:~a -- ~a\n"
                 listen-port (strerror (system-error-errno args)))
         (format (current-error-port)
                 "  another proxy is probably still running; check with:\n")
         (format (current-error-port)
-                "    pgrep -fl guile-repl-proxy\n")
+                "    pgrep -fl repl-proxy\n")
         (exit 1)))
     (listen listener 5)
     (format log-port "\n;; session ~a  proxy ~a -> repl ~a\n"
             (iso-8601-now) listen-port target-port)
     (force-output log-port)
     (format (current-error-port)
-            "guile-repl-proxy: 127.0.0.1:~a -> 127.0.0.1:~a, logging to ~a\n"
+            "repl-proxy: 127.0.0.1:~a -> 127.0.0.1:~a, logging to ~a\n"
             listen-port target-port log-file)
 
     (let accept-loop ((n 1))
@@ -200,7 +200,7 @@ keep forwarding the other until it closes too."
                     (clock-now) target-port args)
             (force-output log-port)
             (format (current-error-port)
-                    "guile-repl-proxy: no REPL on port ~a -- is it started?\n"
+                    "repl-proxy: no REPL on port ~a -- is it started?\n"
                     target-port)))
         (close-port client)
         ;; Between connections, never mid-transcript.

@@ -42,13 +42,13 @@ fi
 if nc -h 2>&1 | grep -q '\-N'; then NC_SHUTDOWN="-N"; else NC_SHUTDOWN=""; fi
 
 reply=$(printf '%s\n' "$PROGRAM" | nc $NC_SHUTDOWN 127.0.0.1 "$PORT" 2>/dev/null) || {
-    echo "guile-repl-eval: nothing listening on 127.0.0.1:$PORT" >&2
-    echo "  start one with the guile-repl-server skill" >&2
+    echo "repl-eval: nothing listening on 127.0.0.1:$PORT" >&2
+    echo "  start one with the repl-server skill" >&2
     exit 1
 }
 
 if [ -z "$reply" ]; then
-    echo "guile-repl-eval: no reply from 127.0.0.1:$PORT" >&2
+    echo "repl-eval: no reply from 127.0.0.1:$PORT" >&2
     exit 1
 fi
 

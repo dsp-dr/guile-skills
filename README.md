@@ -12,9 +12,9 @@ Everything stays on `127.0.0.1`. Nothing is sent anywhere.
 
 | Skill | Use it when |
 |----|----|
-| `guile-repl-server` | starting or resuming a Guile project: brings up the REPL and its logging proxy |
-| `guile-repl-eval` | a claim about Guile code should be checked by running it, not recalled |
-| `guile-repl-proxy` | you need a reviewable transcript of what was evaluated, or Emacs and an agent sharing one session |
+| `repl-server` | starting or resuming a Guile project: brings up the REPL and its logging proxy |
+| `repl-eval` | a claim about Guile code should be checked by running it, not recalled |
+| `repl-proxy` | you need a reviewable transcript of what was evaluated, or Emacs and an agent sharing one session |
 
 ## Requirements
 
@@ -60,7 +60,7 @@ A real session on a project with a bug in `src/math.scm`. The point of drawing i
 ```mermaid
 sequenceDiagram
     actor Agent
-    participant Server as guile-repl-server
+    participant Server as repl-server
     participant Proxy as proxy :PORT+1
     participant REPL as guile3 --debug :PORT
     participant Log as repl.log

@@ -1,5 +1,5 @@
 ---
-name: guile-repl-server
+name: repl-server
 description: Stand up a Guile project with a socket REPL an agent can drive - guile3 --debug --listen on a per-project port, with a logging proxy on PORT+1. Use when starting or resuming work on a Guile/Scheme project, when you need to evaluate code rather than only read it, or when a claim about Guile behaviour needs checking against a running interpreter.
 license: MIT
 allowed-tools: Read
@@ -92,13 +92,13 @@ every `/` and `.` replaced by `-`.
 - **A derived port is not a reserved port.** `37000 + cksum(slug) mod 900`
   separates projects by convention only: two can still collide, and something
   unrelated may already hold the number. Check what is actually listening before
-  trusting it, and if your site runs a port registry, record it there. This
-  skill names no registry endpoint on purpose — it should never send your
-  hostname, repo or working directory anywhere.
+  trusting it. This skill reads and writes local state only: it contacts no
+  registry and no other service, and never sends your hostname, repo or working
+  directory anywhere.
 - **A stale listener looks exactly like a broken new one.** Check before you
   start; `--status` before `--stop` before debugging anything else.
 
 ## Then
 
-Evaluate with the `guile-repl-eval` skill. Read the transcript with
-`guile-repl-proxy`.
+Evaluate with the `repl-eval` skill. Read the transcript with
+`repl-proxy`.
