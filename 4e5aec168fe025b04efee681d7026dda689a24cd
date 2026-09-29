@@ -1,0 +1,30 @@
+Context
+  Asked for a setup portion so Guile projects look similar -- core Makefile, src
+  layout, tests, then Emacs support -- and to do it in a separate tree because the
+  work is extensive. Then asked to look in ../guile-* or fetch a real application
+  such as rekado/guile-irc.
+
+  This is a sibling worktree per the house convention:
+  ghq/github.com/dsp-dr/guile-skills-scaffold on feat/guile-project-scaffold.
+
+Deviations
+  Surveyed first, built second. The request implied a standard shape; the corpus
+  says there is no single shape to standardize on -- src/ is 43% -- so the first
+  artifact is a detector rather than a template. Templates that assume src/ would
+  have been wrong for the majority of the projects they were meant to serve.
+
+  guile-irc was cloned with ghq get as asked, and read only as reference. Nothing
+  from it is vendored.
+
+Considerations
+  Deliberately non-deployable: the detector is in scripts/, not scripts/lib/, so
+  nothing ships and no version moves. check-version-bump.sh caught the first
+  placement, which is the gate working as designed rather than an obstacle.
+
+  The survey is reproducible but its script lives in the session scratchpad, not
+  the repo. If the corpus matrix (roadmap D7) gets built, that script is the
+  starting point and belongs in tests/ with the numbers committed.
+
+Timeline
+  2026-09-29, nexus, FreeBSD 15.1-RELEASE, guile3 3.0.10, as dsp-dr. 48 projects
+  surveyed, 12 used for calibration. gmake checks green.
