@@ -1,0 +1,24 @@
+Context
+  /doc-align, then the user confirmed all findings were required.
+
+Deviations
+  One finding is deliberately NOT fixed here: gmake start still writes to the
+  deprecated ~/.guile-skill root, so the README quick start documents the deprecated
+  path. That is roadmap A6 and changes runtime behaviour rather than prose, so it
+  wants its own change and its own consideration of where a contributor's transcripts
+  should land.
+
+  Six documented targets -- bench, calibrate, check-readme, scaffold, tail,
+  test-project -- have no implementation. All six are proposals in docs/roadmap.org,
+  written in the same 'gmake x' form as real targets, which is what made my own check
+  flag them. Not a defect; worth knowing the check has that false positive.
+
+Considerations
+  The  guard is the interesting failure. It looked like the
+  obvious twin of the bin/ guard and was wrong for a reason the bin/ one is not: bin/
+  is dead everywhere, while CLAUDE_SKILL_DIR is alive in exactly the place the guard
+  searched. Calibrating against the CLEAN tree, not just against a planted fault, is
+  what caught it.
+
+Timeline
+  2026-09-29, nexus, as dsp-dr. gmake checks green; both guard directions calibrated.
