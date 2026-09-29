@@ -1,0 +1,29 @@
+Context
+  Asked to start a tmux session with emacs -nw plus the project's DX tooling and a
+  harness over the skills and other metadata, and separately to make the boundaries
+  for development and the process for not holding onto changes explicit. scripts/
+  wip.sh is the second half of that: the boundaries are documented, but a report is
+  what makes them checkable.
+
+Deviations
+  ELPA installs into the checkout rather than relying on the user's Emacs. Geiser
+  and paredit were MISSING from this machine's Emacs, so a profile that assumed
+  them would have been a config that cannot work. The cost is a download on first
+  run and a gitignored elpa/ tree; the benefit is that the Emacs requirement is
+  self-contained and verifiable.
+
+Considerations
+  The three findings the harness surfaced are all pre-existing and none is fixed
+  here -- this branch is non-deployable and touches nothing under skills/. They
+  belong to roadmap A1, A7 and C5, and A1 is now better characterised than it was:
+  the failure is not only that start reports success it never checked, but that it
+  does not wait for the proxy at all while status is documented to run right after.
+
+  wip.sh cannot check the thing that actually went wrong today. A commit whose
+  message describes files it does not contain is not mechanically detectable, so it
+  prints each commit's stat and leaves the reading to a person. That is a weaker
+  guarantee than a check, and it is stated as such.
+
+Timeline
+  2026-09-29, nexus, FreeBSD 15.1-RELEASE, guile3 3.0.10, tmux 3.6a, GNU Emacs
+  30.2, as dsp-dr. Session created and torn down; geiser/paredit install verified.
