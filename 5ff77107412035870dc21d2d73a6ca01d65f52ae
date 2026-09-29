@@ -1,0 +1,27 @@
+Context
+  Asked for a baseline of the logs taken before a run, referenced off the project
+  directory, so a build check has something to compare against -- prompted by the
+  guile3/guile-3.0 naming checks and the hooks documentation.
+
+Deviations
+  The request named CLAUDE_PROJECT_ROOT. That variable does not exist; the real one
+  is CLAUDE_PROJECT_DIR, confirmed against the CLI binary. Used the real one and
+  recorded the check in the script header so the next reader does not repeat it.
+
+  The baseline records the resolved interpreter and version as well as the log sizes,
+  because a session that starts with guile3 3.0.10 and later resolves bare guile 2.2.7
+  after a PATH change would otherwise look like a code change.
+
+Considerations
+  A hook must never fail a session, so every failure path here exits 0. That is
+  deliberate and it is also a limitation: a baseline that could not be written is
+  indistinguishable from one that was not needed. The --show mode is the only way to
+  tell.
+
+  Not verified: that a SessionStart hook actually fires with this plugin loaded.
+  SessionStart exists in the CLI binary and validate accepts the entry, but observing
+  it needs a real session (gmake try / try-clean).
+
+Timeline
+  2026-09-29, nexus, FreeBSD 15.1-RELEASE, guile3 3.0.10, Claude Code 2.1.261, as
+  dsp-dr. gmake checks green; both baseline directions calibrated.
