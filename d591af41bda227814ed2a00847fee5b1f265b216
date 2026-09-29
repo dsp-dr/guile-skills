@@ -1,0 +1,23 @@
+Context
+  Asked to push the screenshots for review with the flow and the contract and
+  integration points.
+
+Deviations
+  Three captures were taken; two shipped. The third was a 7KB blank frame from a
+  capture taken before Emacs had drawn, and a blank image presented as a trace would
+  have been worse than no image. The trace evidence ships as the transcript excerpt
+  instead, which is what actually demonstrates it.
+
+Considerations
+  I spent a long time trying to photograph ,trace inside Geiser and did not get it.
+  The repeated cause was my own polling: loops that test a fast condition complete in
+  microseconds, so I captured before Emacs had started, three separate times. The
+  working pattern is to poll something that costs real time, and it is written into
+  the geiser-setup agent.
+
+  ImageMagick on this cell has no X11 delegate -- import cannot capture and cannot
+  decode xwd -- so ffmpeg -f x11grab is the only screenshot path that works here.
+  That contradicts the usual 'scrot/import' advice and is worth knowing on FreeBSD.
+
+Timeline
+  2026-09-29, nexus, guile-sicp, Xvfb :99, GNU Emacs 30.2, ffmpeg x11grab.
