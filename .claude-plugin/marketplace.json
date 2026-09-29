@@ -18,8 +18,14 @@
         "name": "dsp-dr"
       },
       "homepage": "https://github.com/dsp-dr/guile-skills",
-      "license": "MIT",
-      "keywords": ["guile", "scheme", "repl", "geiser", "emacs", "debugging"],
+      "keywords": [
+        "guile",
+        "scheme",
+        "repl",
+        "geiser",
+        "emacs",
+        "debugging"
+      ],
       "category": "development"
     }
   ]
