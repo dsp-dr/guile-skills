@@ -12,7 +12,7 @@ PROXY_SCRIPTS  := skills/guile-repl-proxy/scripts
 GUILE ?= $(shell command -v guile3 2>/dev/null || command -v guile-3.0 2>/dev/null || echo guile)
 GUILD ?= $(shell command -v guild3 2>/dev/null || command -v guild-3.0 2>/dev/null || echo guild)
 
-.PHONY: help start stop status eval lint lint-org lint-claude test check-evals check-monitors check-scripts check-version sync-scripts checks try try-in ship-check readme paths clean release-staging release-production
+.PHONY: try-clean check-contracts fmt check-scheme help start stop status eval lint lint-org lint-claude test check-evals check-monitors check-scripts check-version sync-scripts checks try try-in ship-check readme paths clean release-staging release-production
 
 help:
 	@echo "guile-skills"
@@ -27,6 +27,9 @@ help:
 	@echo "  gmake lint-org     org-lint every tracked .org file"
 	@echo "  gmake lint-claude  claude plugin validate . --strict"
 	@echo "  gmake check-evals  validate every skills/*/evals/evals.json"
+	@echo "  gmake check-scheme every tracked .scm is balanced (the hook, repo-wide)"
+	@echo "  gmake check-contracts  the pinned product contract still holds"
+	@echo "  gmake fmt          reindent every tracked .scm (opt-in; the hook never writes)"
 	@echo "  gmake check-monitors  validate monitors/monitors.json (the CLI does not)"
 	@echo "  gmake sync-scripts  copy scripts/lib/ into each skill that needs it"
 	@echo "  gmake check-scripts verify those copies have not drifted"
@@ -34,6 +37,7 @@ help:
 	@echo "  gmake checks   everything CI runs: lint + check-evals + test"
 	@echo "  gmake try      open Claude Code with this plugin loaded from the working tree"
 	@echo "  gmake try-in DIR=<path>  same, but with the cwd in another project"
+	@echo "  gmake try-clean  same, with a throwaway CLAUDE_CONFIG_DIR and no other plugins"
 	@echo "  gmake ship-check  show exactly which files an install actually delivers"
 	@echo "  gmake readme   regenerate the generated .md docs from their .org sources"
 	@echo "  gmake clean    remove compiled files"
@@ -88,6 +92,32 @@ lint-claude:
 check-evals:
 	@python3 ./tests/validate-evals.py
 
+SCM_FILES := $(shell git ls-files '*.scm' 2>/dev/null)
+
+# The same check hooks/scheme-check.sh runs after an edit, over the whole tree.
+# Hand-editing delimiters is the anti-pattern this plugin was designed around;
+# nothing here caught it until now.
+# contracts/ records what we believe the product requires, isolated from the JSON
+# the product actually reads. This fails when the CLI version moves, when an
+# operational file loses its contracted shape, or when contract metadata leaks
+# into a file Claude Code reads.
+check-contracts:
+	@python3 ./tests/validate-contracts.py
+
+check-scheme:
+	@command -v emacs >/dev/null 2>&1 || { echo "check-scheme: emacs is not on PATH; skipping"; exit 0; }
+	@if [ -n "$(SCM_FILES)" ]; then \
+		emacs --batch -Q -l hooks/scheme-indent.el -- --check $(SCM_FILES) && \
+			echo "$(words $(SCM_FILES)) Scheme file(s) balanced."; \
+	else echo "check-scheme: no tracked .scm files"; fi
+
+# Opt-in, and deliberately not what the hook does: reindenting on every write
+# produces diffs nobody asked for and cannot be right on a file that is already
+# unbalanced.
+fmt:
+	@command -v emacs >/dev/null 2>&1 || { echo "fmt: emacs is not on PATH" >&2; exit 1; }
+	@emacs --batch -Q -l hooks/scheme-indent.el -- --write $(SCM_FILES)
+
 # `claude plugin validate' does not read monitors/monitors.json -- measured
 # 2026-09-29, at the default path and declared explicitly, with and without
 # --strict: an unknown key, a missing description and a bogus `when' all passed.
@@ -112,11 +142,22 @@ check-version:
 # What CI runs, in the order that fails cheapest first. `claude plugin validate'
 # is deliberately not here: it needs the Claude Code CLI, which CI installs and
 # a developer already has running.
-checks: lint lint-org lint-claude check-scripts check-version check-evals check-monitors test
+checks: lint lint-org lint-claude check-scripts check-version check-contracts check-evals check-monitors check-scheme test
 
 # Manual testing. `checks' proves the code is sound; these prove the *plugin*
 # works, which is a different question -- the skills reference scripts by path,
 # and a path that resolves here may resolve nowhere else.
+
+# The cleanest test of all: a throwaway config directory, so nothing this user has
+# installed or configured can explain a result. CLAUDE_CONFIG_DIR is the documented
+# knob for it (verified present in the CLI binary), and the temp directory is made
+# fresh each run so a previous attempt cannot leak into this one. Use it when a
+# skill or hook behaves differently here than it does for someone else.
+try-clean:
+	@command -v claude >/dev/null 2>&1 || { echo "try-clean: the Claude Code CLI is not on PATH" >&2; exit 1; }
+	@d=$$(mktemp -d /tmp/claude-clean.XXXXXX) && \
+		echo "try-clean: CLAUDE_CONFIG_DIR=$$d, plugin from $(CURDIR), cwd $$d" && \
+		cd "$$d" && CLAUDE_CONFIG_DIR="$$d" claude --plugin-dir $(CURDIR)
 
 try:
 	@command -v claude >/dev/null 2>&1 || { echo "try: the Claude Code CLI is not on PATH" >&2; exit 1; }

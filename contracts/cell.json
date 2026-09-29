@@ -1,0 +1,10 @@
+{
+  "_comment": "The environment these contracts were measured on. Not read by Claude Code.",
+  "measured_on": "2026-09-29",
+  "host": "nexus",
+  "os": "FreeBSD 15.1-RELEASE",
+  "claude_cli": "2.1.261",
+  "manifest_reference_fetched": "2026-09-28",
+  "manifest_reference_url": "https://code.claude.com/docs/en/plugins/manifest-reference",
+  "policy": "A differing claude_cli means the contract claims below are unverified on this version. Re-measure, then update this file."
+}

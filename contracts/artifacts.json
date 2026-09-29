@@ -1,0 +1,151 @@
+{
+  "_comment": "What we believe the product requires of each operational file. Never merged into those files.",
+  "artifacts": [
+    {
+      "file": ".claude-plugin/plugin.json",
+      "required_top_level": [
+        "name"
+      ],
+      "root_additional_properties": "stripped at load, and --strict fails on the warning",
+      "cli_validates": "yes",
+      "notes": [
+        "`icon` is not a field; it produced the warning that kept CI off --strict until 0.1.5.",
+        "Component paths must start with './'. `experimental.evals: \"evals\"` was ACCEPTED by the CLI despite the reference requiring the prefix -- a spec-versus-implementation gap, normalized to the documented contract."
+      ],
+      "measured_faults": [
+        {
+          "fault": "unknown top-level key `icon`",
+          "cli_result": "warns; fails --strict"
+        },
+        {
+          "fault": "component path without ./",
+          "cli_result": "accepted (gap)"
+        }
+      ]
+    },
+    {
+      "file": "hooks/hooks.json",
+      "required_top_level": [
+        "hooks"
+      ],
+      "also_accepted_top_level": [
+        "modules"
+      ],
+      "cli_validates": "partial",
+      "notes": [
+        "A bare settings.json-style event map at the root is REJECTED: 'hooks.json must have `hooks` (the hook matchers) or `modules` (hooks modules), or both'. The reference's 'same shape as settings.json' describes the INLINE manifest form, not this file.",
+        "Required fields inside a hook entry are checked; unknown keys inside one are NOT."
+      ],
+      "measured_faults": [
+        {
+          "fault": "bare event map at root",
+          "cli_result": "error: must have `hooks` or `modules`"
+        },
+        {
+          "fault": "hook entry missing `command`",
+          "cli_result": "error: Invalid command hook; entry ignored at runtime"
+        },
+        {
+          "fault": "unknown key inside a hook entry",
+          "cli_result": "PASSED -- no coverage"
+        }
+      ]
+    },
+    {
+      "file": "monitors/monitors.json",
+      "required_top_level": "an array of monitor entries",
+      "entry_required": [
+        "name",
+        "command",
+        "description"
+      ],
+      "entry_optional": [
+        "when"
+      ],
+      "entry_strict": true,
+      "cli_validates": "no",
+      "validated_by": "tests/validate-monitors.py",
+      "notes": [
+        "An unknown key inside an entry stops the plugin loading, per the reference -- and the CLI does not check for one.",
+        "`when` is 'always' or 'on-skill-invoke:<skill>'. Our validator additionally requires the named skill to exist and any ${CLAUDE_PLUGIN_ROOT} path in a command to resolve."
+      ],
+      "measured_faults": [
+        {
+          "fault": "unknown key in entry",
+          "cli_result": "PASSED",
+          "ours": "rejected"
+        },
+        {
+          "fault": "missing description",
+          "cli_result": "PASSED",
+          "ours": "rejected"
+        },
+        {
+          "fault": "when: sometimes",
+          "cli_result": "PASSED",
+          "ours": "rejected"
+        },
+        {
+          "fault": "when names a nonexistent skill",
+          "cli_result": "PASSED",
+          "ours": "rejected"
+        },
+        {
+          "fault": "${user_config.*} in command",
+          "cli_result": "PASSED",
+          "ours": "rejected"
+        },
+        {
+          "fault": "duplicate name",
+          "cli_result": "PASSED",
+          "ours": "rejected"
+        },
+        {
+          "fault": "command path does not exist",
+          "cli_result": "PASSED",
+          "ours": "rejected"
+        },
+        {
+          "fault": "empty name",
+          "cli_result": "PASSED",
+          "ours": "rejected"
+        },
+        {
+          "fault": "empty array",
+          "cli_result": "PASSED",
+          "ours": "rejected"
+        }
+      ]
+    },
+    {
+      "file": "skills/*/evals/evals.json",
+      "required_top_level": [
+        "skill_name",
+        "evals"
+      ],
+      "entry_required": [
+        "id",
+        "prompt",
+        "expected_output",
+        "expectations"
+      ],
+      "entry_strict": true,
+      "cli_validates": "no (claude plugin eval is early-access and has never run here)",
+      "validated_by": "tests/validate-evals.py"
+    },
+    {
+      "file": "skills/*/SKILL.md frontmatter",
+      "required": [
+        "name",
+        "description",
+        "license",
+        "compatibility"
+      ],
+      "cli_validates": "no (skills-ref validate needs a cloned repo and a venv)",
+      "validated_by": "tests/validate-frontmatter.py",
+      "notes": [
+        "StrictYAML rejects flow sequences, so `binaries: [guile3]` fails skills-ref validate."
+      ]
+    }
+  ]
+}
