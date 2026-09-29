@@ -3,6 +3,7 @@ name: guile-repl-eval
 description: Evaluate Scheme in a running Guile REPL over its socket, and use tracing, breakpoints, macro expansion and profiling from it. Use whenever a claim about Guile code should be checked by running it - before asserting an API exists, after editing a module, or when asked what shape a recursion has.
 license: MIT
 allowed-tools: Read
+compatibility: Requires nc and a POSIX shell, plus a Guile 3 socket REPL already listening on loopback. Starts no processes of its own. Designed for Claude Code or a similar product.
 metadata:
   requires:
     binaries:

@@ -3,6 +3,7 @@ name: guile-repl-proxy
 description: Record everything that passes through a Guile socket REPL by routing it via a logging proxy on PORT+1, with per-project rotated transcripts, and connect Emacs with Geiser through the same proxy. Use when you need a reviewable history of what was evaluated, when debugging why a REPL session behaved oddly, or when a human and an agent should share one traced session.
 license: MIT
 allowed-tools: Read
+compatibility: Requires Guile 3 (guile3, guile-3.0 or guile) and a POSIX shell. Binds a loopback TCP port and writes transcripts under the plugin data directory. Designed for Claude Code or a similar product.
 metadata:
   requires:
     binaries:
