@@ -76,6 +76,7 @@ flowchart TB
 | L2 → anything off-host       | nothing is sent: no hostname, repo, cwd, port                          | ~b9600a6~ shipped a =POST /claim= that sent =pwd= |
 | L3 → L4 agent                | stderr yes, transcript no --- the transcript holds other people's input | the monitor's =when= and its choice of files |
 | L4 contention                | one client at a time: the accept loop is serial                        | unresolved; Geiser and the agent cannot both hold it |
+| an editor tool that READS source | opening a file must not RUN it --- measured: scheme-lsp-server executes expand-time and load-time side effects on a single =didOpen= | nothing here does this yet; the row exists because an LSP would |
 | shipped ↔ unshipped          | =skills/=, =.claude-plugin/=, =scripts/lib/=, =monitors/=, =agents/= and the other component dirs ship; =scripts/=, =tests/=, =docs/=, =emacs/= do not | =monitors/= missing until 0.1.6, =agents/= until 0.2.0 |
 
 * The workflow that keeps it honest

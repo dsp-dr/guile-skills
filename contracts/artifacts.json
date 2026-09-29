@@ -226,6 +226,46 @@
         }
       ],
       "independently_reverified": "2026-09-29, claude 2.1.261, throwaway plugin dir"
+    },
+    {
+      "file": ".claude-plugin/plugin.json -- lspServers (inline) vs .lsp.json (file)",
+      "cli_validates": "inline: yes, the STRICTEST surface measured; as a file: no, unread",
+      "notes": [
+        "Inline lspServers entries are the strictest surface measured on 2.1.261: 29 planted faults, 18 rejected. Two rules are stricter than the reference states -- startupTimeout must be a POSITIVE integer, so 0 is rejected and 1.5 is rejected.",
+        "A .lsp.json FILE is never opened. A file containing `{ this is not json' passes --strict, whether or not the manifest names it. That is a fourth distinct enforcement level: channels strict, mcpServers lax, monitors unread-but-declared, .lsp.json unread-and-the-documented-default.",
+        "Convergent consequence: .lsp.json is in neither the deployable globs nor SHIPPED, while .claude-plugin/** is in both. Two independent reasons to declare LSP servers inline rather than in the file."
+      ],
+      "measured_faults": [
+        {
+          "fault": "inline: command containing a space, not absolute",
+          "cli_result": "rejected"
+        },
+        {
+          "fault": "inline: extensionToLanguage key without a leading dot",
+          "cli_result": "rejected"
+        },
+        {
+          "fault": "inline: empty extensionToLanguage",
+          "cli_result": "rejected"
+        },
+        {
+          "fault": "inline: transport other than stdio|socket",
+          "cli_result": "rejected"
+        },
+        {
+          "fault": "inline: startupTimeout 0",
+          "cli_result": "rejected -- positive, not non-negative"
+        },
+        {
+          "fault": "inline: startupTimeout 1.5",
+          "cli_result": "rejected -- integer, not number"
+        },
+        {
+          "fault": ".lsp.json containing invalid JSON",
+          "cli_result": "PASSED -- the file is never opened"
+        }
+      ],
+      "totals": "29 planted faults, 18 rejected, 7 gaps"
     }
   ]
 }

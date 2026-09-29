@@ -213,6 +213,12 @@ decision about the boundaries of the system*, and it is worth exactly as much as
 build: it says where the edges are and why, so the next person does not re-derive
 it.
 
+- [[file:EXPERIMENTS-lsp.org][EXPERIMENTS-lsp.org]] --- L1--L15: should
+  =scheme-lsp-server= become an =lspServers= surface? *Declined for now*, with a
+  named reversal condition. It builds and works here, and the reason to decline is
+  not maturity: for Guile it *vendors Geiser's own files* and wraps the same
+  procedures in a second image populated from disk, so it is not "static versus
+  live" but staler. Close roadmap C5 and the answer changes.
 - [[file:EXPERIMENTS-channels.org][EXPERIMENTS-channels.org]] --- C1--C8: could this
   plugin expose a channel (message-protocol) server? *Declined*, and the four things
   the experiment bought anyway: a channel is an MCP server over stdio and not a
