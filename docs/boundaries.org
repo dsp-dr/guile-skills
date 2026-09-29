@@ -1,0 +1,111 @@
+#+TITLE: Boundaries: the layers of REPL-driven development
+#+DATE: 2026-09-29
+#+AUTHOR: dsp-dr
+
+Interactive development here has more moving parts than it looks: a human in
+Emacs, an agent in a session, two Guile processes, a transcript, and a plugin that
+has to reach all of it without reaching anything else. Most of the failures in
+this repository are boundary failures --- something crossed a line it should not
+have, or failed to cross one it should have.
+
+This file draws the lines and says who may cross each.
+
+* The layers
+
+#+begin_src mermaid
+flowchart TB
+    subgraph L0["L0 · the machine (shared, never assumed)"]
+        Host["host facts: uname, hostname -s, whoami<br/>guile3 3.0.10 here / guile-3.0 / bare guile 2.2.7"]
+        UserEmacs["~/.emacs.d<br/>THE USER'S — off limits"]
+        Info["/usr/local/share/info/guile3/<br/>the manual, version-matched"]
+    end
+
+    subgraph L1["L1 · the checkout (per worktree, disposable)"]
+        Repo["working tree<br/>never holds a transcript"]
+        DxEmacs[".dx-emacs/<br/>project-local Emacs + elpa"]
+        Ports["derived ports<br/>project 37000+cksum%900 · test 39000+cksum%900"]
+    end
+
+    subgraph L2["L2 · the processes (per project, ephemeral)"]
+        REPL["guile3 --debug --listen :PORT<br/>unauthenticated code execution"]
+        Proxy["proxy :PORT+1<br/>byte forwarder + tee"]
+    end
+
+    subgraph L3["L3 · the record (outside the repo, private)"]
+        Log["repl.log — whatever anyone evaluated"]
+        Err["repl.stderr · proxy.stderr<br/>where a dead process confesses"]
+    end
+
+    subgraph L4["L4 · the clients (two, and they contend)"]
+        Human["Emacs + Geiser + keycast"]
+        Agent["agent session: skills, monitor, agent"]
+    end
+
+    Host -->|"probe, never pin"| Ports
+    Info -->|"info -f FILE -n NODE"| Agent
+    Repo --> Ports
+    Ports --> REPL
+    Ports --> Proxy
+    Proxy --> REPL
+    Proxy --> Log
+    REPL --> Err
+    Proxy --> Err
+    Human -->|"geiser-connect PORT+1"| Proxy
+    Agent -->|"nc PORT+1"| Proxy
+    Err -->|"tail -F, on skill invoke"| Agent
+    DxEmacs --> Human
+
+    UserEmacs:::forbidden
+    Log:::sensitive
+    REPL:::dangerous
+
+    classDef forbidden stroke-dasharray: 5 3
+    classDef sensitive stroke-width:3px
+    classDef dangerous stroke-width:3px
+#+end_src
+
+* Who may cross what
+
+| Boundary                     | Rule                                                                 | What broke it                    |
+|------------------------------+----------------------------------------------------------------------+----------------------------------|
+| L0 binary names              | *probe* =guile3= → =guile-3.0= → =guile=, then assert ≥ 3.0; never pin | ~8178314~; =guile-cps-debugger='s =.dir-locals.el= pins =guile3= |
+| L0 user's =~/.emacs.d=       | never read, never written; a project profile is project-local         | this session, see the experience report |
+| L1 working tree ↔ L3 record  | a transcript never lands in the repo; =.gitignore= is belt and braces | nothing yet, deliberately        |
+| L1 ports, across worktrees   | derive per checkout, never fix a constant                             | =tests/test-proxy.sh= fixed at 39140, so one worktree's cleanup killed another's REPL |
+| L2 bind address              | =127.0.0.1= only, always; a socket REPL is arbitrary code execution    | never; eval 4 asserts it         |
+| L2 → anything off-host       | nothing is sent: no hostname, repo, cwd, port                          | ~b9600a6~ shipped a =POST /claim= that sent =pwd= |
+| L3 → L4 agent                | stderr yes, transcript no --- the transcript holds other people's input | the monitor's =when= and its choice of files |
+| L4 contention                | one client at a time: the accept loop is serial                        | unresolved; Geiser and the agent cannot both hold it |
+| shipped ↔ unshipped          | =skills/=, =.claude-plugin/=, =scripts/lib/=, =monitors/=, =agents/= and the other component dirs ship; =scripts/=, =tests/=, =docs/=, =emacs/= do not | =monitors/= missing until 0.1.6, =agents/= until 0.2.0 |
+
+* The workflow that keeps it honest
+
+Development boundaries are only real if crossing one is *noticed*. Four
+mechanisms, in the order they fire:
+
+1. =gmake dx= --- the session where work happens: editor, REPL, validators on a
+   loop, shell. The harness re-runs the metadata checks on every save, so a
+   boundary broken in a =SKILL.md= or a manifest is caught seconds later rather
+   than in CI.
+2. =gmake checks= --- the local gate: lint, generated-doc sync, script drift,
+   version bump, frontmatter, eval suites, monitor entries, proxy regressions.
+3. =scripts/check-version-bump.sh= --- answers one question: did this change cross
+   the shipped boundary, and if so did =version= move? It reads the *working
+   tree*, and it now also looks at untracked files, because a brand-new shipped
+   component was previously invisible to it.
+4. =gmake wip= --- answers the other question: is anything held only on this
+   machine? Uncommitted changes, unpushed branches, a notes ref ahead of origin,
+   =notes.rewrite*= unset, and per commit its file list and whether it carries a
+   note.
+
+The last one exists because the failure mode is not forgetting to commit; it is
+committing *part* of the work and pushing a message that describes the rest.
+
+* What is deliberately not a boundary
+
+- *The debugger is not a separate channel.* =,bt=, =,trace=, =,break= travel the
+  same socket as ordinary evaluation, which is why one proxy records both.
+- *The agent is not privileged over the human.* Both connect to the proxy, both
+  appear in the same transcript, and the transcript is the shared record.
+- *Nothing here is a reservation.* A derived port is a convention; two projects
+  can still collide, and the only correct response is to check what is listening.

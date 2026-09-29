@@ -12,7 +12,7 @@ PROXY_SCRIPTS  := skills/guile-repl-proxy/scripts
 GUILE ?= $(shell command -v guile3 2>/dev/null || command -v guile-3.0 2>/dev/null || echo guile)
 GUILD ?= $(shell command -v guild3 2>/dev/null || command -v guild-3.0 2>/dev/null || echo guild)
 
-.PHONY: help start stop status eval lint lint-org lint-claude test check-evals check-scripts check-version sync-scripts checks try try-in ship-check readme paths clean release-staging release-production
+.PHONY: dx dx-kill wip help start stop status eval lint lint-org lint-claude test check-evals check-scripts check-version sync-scripts checks try try-in ship-check readme paths clean release-staging release-production
 
 help:
 	@echo "guile-skills"
@@ -36,6 +36,10 @@ help:
 	@echo "  gmake ship-check  show exactly which files an install actually delivers"
 	@echo "  gmake readme   regenerate the generated .md docs from their .org sources"
 	@echo "  gmake clean    remove compiled files"
+	@echo ""
+	@echo "  gmake dx       tmux session: emacs -nw, the REPL, a validator harness"
+	@echo "  gmake dx-kill  tear that session down, REPL and proxy included"
+	@echo "  gmake wip      what is uncommitted, unpushed or unnoted, every worktree"
 	@echo "  gmake release-staging              regression tests + validation, no publish"
 	@echo "  gmake release-production TAG=vX.Y.Z   same gate, then gh skill publish --tag"
 
@@ -108,6 +112,19 @@ checks: lint lint-org lint-claude check-scripts check-version check-evals test
 # Manual testing. `checks' proves the code is sound; these prove the *plugin*
 # works, which is a different question -- the skills reference scripts by path,
 # and a path that resolves here may resolve nowhere else.
+
+# One session holding the four things you actually do: edit, a REPL, the metadata
+# checks on a loop, and a shell. Emacs runs on a PROJECT-LOCAL profile, so the
+# user's own ~/.emacs.d is never read or written.
+dx:
+	@./scripts/dx.sh
+
+dx-kill:
+	@./scripts/dx.sh --kill
+
+# Answers one question: is anything being held back? Across every worktree.
+wip:
+	@./scripts/wip.sh
 
 try:
 	@command -v claude >/dev/null 2>&1 || { echo "try: the Claude Code CLI is not on PATH" >&2; exit 1; }
