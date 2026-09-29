@@ -19,6 +19,51 @@ Two jobs, and the second is the one that protects future agents.
    failure instead of a field report.
 
 Neither job needs the network.
+
+WIP: this belongs in Guile, and here is what stands in the way
+------------------------------------------------------------
+Python is the right choice for the FIRST version of a tool -- it is already a
+dependency of this repo's checks and it has the JSON reader built in. But a plugin
+for driving Guile projects whose own tooling is Python is not dogfooding anything,
+and these validators are exactly the kind of small, pure, well-specified job that
+should be written in the language the plugin exists to support.
+
+The blocker is concrete, measured on nexus 2026-09-29:
+
+    guile3 -c '(use-modules (json))'
+    => no code for module (json)
+
+Guile 3.0.10's core has no JSON reader, checked exhaustively: (json), (json parser),
+(ice-9 json), (web json), (sxml json) and (guile-json) are all absent, nothing under
+/usr/local/share/guile or /usr/local/lib/guile is named for JSON, and GUILE_LOAD_PATH
+is unset. `ls /usr/local/share/guile/3.0/' offers `web' and `sxml' and nothing else
+relevant.
+
+Worse for option 1 below: guile-json is not merely uninstalled, it is not in the
+FreeBSD package list at all. `pkg search guile' returns guile-lib, guile-cairo,
+g-golf, slib and the interpreters -- no guile-json -- so depending on it means
+building from source on this platform, and CI installs guile-3.0 only.
+
+Three options, none free:
+
+  1. Depend on guile-json. Cleanest code, but it is not packaged for FreeBSD, so it
+     means building from source on the machine this repo is developed on.
+  2. Write a small reader for the subset we need. These files are machine-generated
+     and shallow: objects, arrays, strings, numbers, booleans, null, no exotic
+     escapes. A reader for that is perhaps 80 lines of Scheme and needs no
+     dependency -- but it is a JSON parser we now maintain, and a wrong one would
+     make every contract claim suspect.
+  3. Keep the readers in Python and port only the RULES to Scheme, with Python
+     handing over an s-expression. Splits the tool in two for no obvious gain.
+
+Option 2 is the most likely, and it should arrive with its own planted-fault
+calibration before anything depends on it -- a JSON reader that silently
+mis-parses is worse than no validator, because every `ok' it prints is a lie.
+
+Scope for v0 when it comes: keep the schemas SIMPLE. Only the keys these files
+actually use, with the shapes already recorded in contracts/artifacts.json. Not a
+general JSON Schema engine, and not a transcription of every optional field in the
+manifest reference -- the contract we can check is the one we can also calibrate.
 """
 import json
 import pathlib
