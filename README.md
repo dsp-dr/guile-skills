@@ -26,7 +26,7 @@ Guile 3.x. The binary is `guile3` on FreeBSD, `guile-3.0` on Debian and Ubuntu, 
 
 ```bash
 # as skills, pinned
-gh skill install dsp-dr/guile-skills --pin v0.1.2
+gh skill install dsp-dr/guile-skills --pin v0.3.0
 
 # or as a plugin, for one session
 claude --plugin-dir /path/to/guile-skills

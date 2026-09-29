@@ -28,7 +28,8 @@ that a reader knows where they came from:
   ~--keep-data~.
 - *~bin/~ is a reserved directory.* Files in it are on the Bash tool's ~PATH~
   while the plugin is enabled, and "claude.ai and Cowork don't install a plugin
-  that has this directory". This repository still has one; see issue #2.
+  that has this directory". This repository had one; ~8d71a62~ removed it, and
+  ~gmake lint~ now fails if a shipped script names a ~bin/~ path again.
 
 ~claude plugin validate --strict~ turns warnings into failures, and CI uses it:
 the manifest is warning-free as of 0.1.5, when the inert ~icon~ key moved under
@@ -89,8 +90,8 @@ CI runs the same set on every push to =main= and every PR (=.github/workflows/ch
 =gmake test= starts real listeners on derived ports and cleans them up. If a run is interrupted, check for survivors --- a stale listener is indistinguishable from a broken new one, which is the failure that cost the most time building this repo:
 
 #+begin_src sh
-${CLAUDE_SKILL_DIR}/scripts/guile-repl-server.sh --status
-pgrep -fl repl-proxy
+skills/repl-server/scripts/guile-repl-server.sh --status
+pgrep -fl guile-repl-proxy
 #+end_src
 
 ** Testing a change
@@ -107,11 +108,30 @@ Individually, when you want to know which one is complaining:
 |--------+-----------------|
 | ~gmake lint~ | shell syntax across =scripts/=, =scripts/lib/= and =skills/*/scripts/=, plus Scheme warnings when =guild= is present |
 | ~gmake lint-org~ | =org-lint= over every tracked =.org=; fails only on a =high= trust finding |
-| ~gmake lint-claude~ | =claude plugin validate .= |
+| ~gmake lint-claude~ | =claude plugin validate . --strict= --- warnings are failures |
 | ~gmake check-scripts~ | the copies under =skills/*/scripts/= have not drifted from =scripts/lib/= |
 | ~gmake check-version~ | a change to a shipped path raised =version= in =plugin.json= |
+| ~gmake check-contracts~ | the installed CLI still matches =contracts/cell.json=, each operational file keeps its contracted shape, and no contract metadata leaked into one |
+| ~gmake check-frontmatter~ | every =skills/*/SKILL.md= frontmatter: name matching its directory, an explicit "Use when" trigger, SPDX licence, no flow-style YAML |
 | ~gmake check-evals~ | every =skills/*/evals/evals.json= against the skill-creator schema |
+| ~gmake check-monitors~ | =monitors/monitors.json= --- which =claude plugin validate= does not read at all |
+| ~gmake check-scheme~ | every tracked =.scm= is balanced; the same check the edit hook runs |
 | ~gmake test~ | the seven proxy regressions, one per failure in [[file:EXPERIMENTS.org][EXPERIMENTS.org]] |
+
+That table is the whole of ~gmake checks~, in the order it runs them. Four of
+the nine exist because the CLI does not cover them: monitors are not validated
+at all, skill frontmatter needs a cloned repo and a venv, contract drift is
+invisible until something breaks, and there is no Scheme linter.
+
+Two targets are deliberately *not* in ~checks~:
+
+| ~gmake audit~ | a model-graded convention review, PASS/FAIL. Manual: it costs tokens, two runs can disagree, and CI has no credentials |
+| ~gmake wip~ | what is uncommitted, unpushed, or missing a git note, across every worktree |
+
+And two are for working, not checking:
+
+| ~gmake dx~ | a tmux session: =emacs -nw= on a project-local profile, the REPL and proxy, the validators on a loop, a shell. =gmake dx-kill= tears it down |
+| ~gmake fmt~ | reindent every tracked =.scm=. Opt-in, because the edit hook checks and never rewrites |
 
 Two of those exist because duplication and versioning go wrong silently.
 =scripts/lib/= is the canonical copy of the scripts more than one skill needs,

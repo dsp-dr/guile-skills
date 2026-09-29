@@ -79,6 +79,16 @@ lint:
 		echo "lint: no guild on PATH; skipping Scheme warnings (shell checks still run)"; \
 	fi
 	@for s in scripts/*.sh scripts/lib/*.sh skills/*/scripts/*.sh; do sh -n "$$s" || exit 1; done
+# bin/ was removed in 8d71a62 and must stay removed: files there join the Bash
+# tool's PATH, and claude.ai and Cowork refuse a plugin that has one. The stale
+# hint it left behind survived three releases because nothing looked for it.
+# ${CLAUDE_SKILL_DIR} deliberately has NO guard. It is legitimate in a shipped
+# script -- it is set for a skill at runtime -- and ship-check.sh exists to
+# verify exactly that usage. The defect it caused was in CONTRIBUTING.org, which
+# told a human to paste it into a shell where it is unset; that is a prose
+# problem, and a grep broad enough to catch it flagged three correct files.
+	@if grep -rn "bin/guile-repl" skills/ scripts/ 2>/dev/null | grep -v -- "-workspace/"; then \
+		echo "lint: a shipped path names bin/, which was removed in 8d71a62" >&2; exit 1; fi
 	@echo "Lint complete."
 
 test:
