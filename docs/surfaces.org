@@ -173,7 +173,7 @@ connection, logs in a known place, and a working debugger. Where each stands:
 | logs in a known place     | *done*: =${CLAUDE_PLUGIN_DATA}/projects/<slug>/{repl.log,repl.stderr,proxy.stderr}=, never in the repo |
 | a debugger over the socket | *done*: =,break=, =,bt=, =,trace=, =,expand=, =,optimize=, =,profile=, =,time= all verified over =--listen= (E1) |
 | logs surfaced when a process dies | *new in 0.1.6*: the =guile-repl-health= monitor          |
-| Geiser on the same REPL   | *works, with a caveat*: the accept loop is serial, so Emacs and the agent cannot both hold it |
+| Geiser on the same REPL   | *works, with a caveat*: the accept loop is serial, so Emacs and the agent cannot both hold it. Geiser documents connecting to an external Scheme started with =--listen=, optional port and all, in [[https://www.nongnu.org/geiser/The-REPL.html#Starting-the-REPL][Starting the REPL]] --- this arrangement is the documented path, not a trick |
 | Geiser configured per project | *not built*: no =.dir-locals.el=, no =geiser-guile-binary=, no load-path derivation, nothing that tells Emacs which port this project uses |
 | =,locals= at a live frame | *not established*: reports no variables where an argument is in scope, unexplained, inherited from =guile-sicp= |
 

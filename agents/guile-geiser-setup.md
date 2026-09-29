@@ -201,6 +201,22 @@ the distinction that matters is:
 - `geiser-connect` attaches to an *already running* socket REPL. That is what you
   want, pointed at the proxy port so the session is logged.
 
+Geiser documents this path explicitly, and it is worth quoting because it is the
+whole basis of the arrangement here — *Starting the REPL*
+(https://www.nongnu.org/geiser/The-REPL.html#Starting-the-REPL):
+
+> There's an alternative way of starting a Geiser REPL: you can connect to an
+> external Scheme process, provided it's running a REPL server at some known port.
+> […] If you use Guile, you just need to start your Guile process (possibly outside
+> Emacs) passing to it the flag `--listen`. This flag accepts an optional port as
+> argument (as in `--listen=1969`), if you don't want to use the default.
+
+Two things follow. The optional-port form is what makes a *derived* per-project port
+possible at all — `--listen=PORT` rather than Guile's default — so the port you
+measured is the port Emacs must be told. And "possibly outside Emacs" is the
+permission slip for this entire design: the REPL is started by the skill, the proxy
+records it, and Emacs is one of two clients attaching to something it did not spawn.
+
 `geiser-guile-load-path` is what makes `(use-modules ...)` resolve, and it is the
 Emacs-side twin of the `-L` flags. `geiser-guile-binary` should be left unset or
 probed — pinning it is the `guile-cps-debugger` mistake. Useful bindings once
