@@ -46,6 +46,102 @@ after the merge, tagged =v<version>=.
   production=, which is tests, manifest validation, eval suites and
   =gh skill publish --dry-run= before the real publish.
 
+* Branching and pushing
+
+Publishing is automatic, so the /shape/ of a branch decides what ships. Four
+rules, each here because it was gotten wrong at least once.
+
+** One branch, one side of the deployable line
+
+Never mix a change under =skills/=, =.claude-plugin/= or =scripts/lib/= with one
+outside it. Merging the first kind publishes a release; merging the second kind
+should be free. A change that has both halves is two branches, and the
+non-deployable half can merge whenever.
+
+The line is not intuition: =scripts/check-version-bump.sh main= names the shipped
+files a branch touches, and answers with the label the PR will get. Run it before
+opening anything.
+
+** Pick the version against the published tags, not against =main=
+
+=main='s version is the last one published. The next one is *not* simply
+=main= plus a patch, because another open branch may already be holding that
+number:
+
+#+begin_src sh
+git fetch --tags
+git tag -l 'v*' | sort -V | tail -1     # the highest number that already exists
+gh pr list --state open --label deployable \
+  --json number,headRefName             # and the numbers being held
+#+end_src
+
+Choose strictly greater than both. A skipped number costs nothing --- nothing
+reads the sequence for contiguity. A *colliding* number costs a failed publish
+after merge: =publish.yml= stops rather than moving a tag, tags are immutable by
+ruleset, and the fix is another bump and another merge.
+
+=check-version-bump.sh= will not catch this. It only greps the diff for an added
+=version= line, so two branches can both claim one number and both pass review.
+
+** Rebase on =origin/main= before pushing, then check the version again
+
+#+begin_src sh
+git fetch origin
+git rebase origin/main
+git tag -l 'v*' | sort -V | tail -1     # did the number move while you worked?
+gmake checks
+scripts/check-version-bump.sh origin/main
+#+end_src
+
+The second version check is the point. A branch written against one =main= can be
+rebased onto a =main= that published the number it was going to use.
+
+** Push the notes; nothing else does
+
+A =git note= is the repo's record of context, deviations and timeline, and it
+lives on =refs/notes/commits=, which is *not* carried by =git push=, =--all=, or
+=--follow-tags=:
+
+#+begin_src sh
+git push origin HEAD
+git push origin refs/notes/commits      # separate, always
+#+end_src
+
+Two related traps, both real:
+
+- *A rebase leaves the note behind*, attached to the pre-rebase sha, so the
+  commit you push has none. Fix it once per checkout:
+
+  #+begin_src sh
+  git config notes.rewriteRef refs/notes/commits
+  git config notes.rewrite.rebase true
+  git config notes.rewrite.amend true
+  #+end_src
+
+  If a note is already stranded, =git notes copy <old-sha> HEAD= recovers it ---
+  the old commit survives in the reflog.
+
+- *Notes drift silently.* Nothing warns that the local ref is ahead:
+
+  #+begin_src sh
+  git ls-remote origin refs/notes/commits
+  git rev-parse refs/notes/commits
+  #+end_src
+
+** After the merge, confirm the release happened
+
+Merging a =deployable= PR starts =publish.yml=; it is not proof the release
+landed. Check all three, because they can disagree:
+
+#+begin_src sh
+git fetch --tags && git tag -l 'v*' | sort -V | tail -1
+gh release list --limit 3
+#+end_src
+
+and the version the directory reports as live. A tag with no release, or a
+release the directory has not picked up, is a real state --- not a delay to
+assume away.
+
 * Cutting one by hand
 =gh skill= is a preview command that landed in *gh v2.90.0*. FreeBSD's ports tree lagged well behind it --- =pkg= offered 2.83.2 on 2026-09-28, which has no =gh skill= at all --- so v0.1.1 was cut by hand before the newer =gh= was built from source. [[file:CONTRIBUTING.org][CONTRIBUTING.org]] has the upgrade; once =gh skill --help= answers, =gmake release-production TAG=vX.Y.Z= is the supported path and this section is the fallback.
 

@@ -1,0 +1,431 @@
+#+TITLE: Experience report: one review session, 2026-09-29
+#+DATE: 2026-09-29
+#+AUTHOR: dsp-dr
+
+Everything that went wrong, or was found wrong, in a single session that started
+as "mine the git log for tasks" and ended with five branches, a new agent, a
+monitor, a DX session and four validators.
+
+Written so the requirements can be sealed and the work rebuilt from a spec rather
+than from this transcript. Each finding carries an *oracle* --- the command that
+decides whether it is fixed --- and a *label*: =measured= here, =inherited= from
+the record, or =not established=.
+
+*The cell.* nexus, FreeBSD 15.1-RELEASE, =guile3= 3.0.10 (bare =guile= is 2.2.7),
+GNU Emacs 30.2, tmux 3.6a, direnv 2.35.0, git with =notes.rewriteRef= initially
+unset, as =dsp-dr=. A second checkout of the same repository existed as a sibling
+worktree for part of the session, which is how several of these were found.
+
+* Where everything lives, and what ships
+
+Orientation first, because more than one mistake in this session came from not
+knowing which side of a line a file was on.
+
+| Path                     | What                                          | Ships? |
+|--------------------------+-----------------------------------------------+--------|
+| =.claude-plugin/plugin.json= | the manifest                              | *yes*  |
+| =skills/<name>/=         | SKILL.md, =scripts/= copies, =evals/=         | *yes*  |
+| =scripts/lib/=           | canonical scripts synced into each skill      | *yes*  |
+| =monitors/=              | =monitors.json= + what it runs                | *yes*  |
+| =agents/=                | the Geiser setup agent                        | *yes*  |
+| =hooks/=                 | =hooks.json=, the Scheme check, the shared Emacs style, the log baseline | *yes* |
+| =commands/= =output-styles/= =themes/= =workflows/= | none yet, but reserved   | *yes*  |
+| =scripts/= (top level)   | release and dev tooling                       | no     |
+| =tests/=                 | the four validators and the proxy regressions | no     |
+| =contracts/=             | what we believe the product requires          | no     |
+| =docs/= =emacs/=         | prose; the DX Emacs profile                   | no     |
+| =.dx-emacs/=             | generated: the DX profile's ELPA tree          | gitignored |
+
+"Ships" means a *plugin* install delivers it. A single-skill =gh skill install=
+copies only =skills/<name>/**=, which is why scripts are duplicated into each skill
+--- and why =monitors/=, =agents/= and =hooks/= reach plugin users but not
+skill-only ones.
+
+The four shipped-path lists must stay in step: =SHIPPED= in
+=scripts/check-version-bump.sh=, the =deployable= globs in =.github/labeler.yml=,
+=scripts/ship-check.sh=, and this table. =monitors/= was missing from the first two
+until 0.1.6 and =agents/= until 0.2.0.
+
+*Logs and transcripts live in none of the above.* They are under
+=${CLAUDE_PLUGIN_DATA}/projects/<slug>/=, never in the working tree, and the
+session baseline (=.baseline=) sits beside them for the same reason.
+
+* A. Silent success: the repository's own genre, found in five new places
+
+** A1 =gmake lint= cannot fail on Scheme
+=measured=. =guild3 compile= exits 1 on a broken file, but =Makefile:64-69= pipes
+it through =grep -iE 'warning|error' || true=, so the target exits 0. CI's "Shell
+and Scheme lint" step is decorative for Scheme.
+
+*Oracle*: append =(this-is-not-balanced (= to a tracked =.scm=; =gmake lint= must
+exit non-zero.
+
+** A2 =gmake start= reports a proxy it never checked
+=measured=. =start= polls 25 times for the REPL and does not wait for the proxy at
+all, yet prints =proxy PORT -> PORT, logging to ...= unconditionally. Running the
+documented =gmake start && gmake status= produced =proxy 37497 down=; a moment
+later it was listening and answered =$1 = 2=. So the sequence in the README emits
+a false negative, and the start path emits a false positive.
+
+*Oracle*: with =PATH= stripped of every guile, =guile-repl-server.sh= must exit
+non-zero and name the stderr file.
+
+** A3 Eleven orphaned proxies, nine of them proxying a corpse
+=measured=. =pgrep= found eleven =guile-repl-proxy.scm= processes owned by another
+login, oldest =1-00:58=, all still invoking the =./bin/= path deleted in
+~8d71a62~. Nine had *dead* targets: the REPL children were =-c '(sleep 86400)'=
+and had aged out while the proxies had not. A client connecting to such a proxy
+gets a successful connection, an empty reply, and =nc= exits *0*.
+
+*Oracle*: kill a REPL, leave its proxy; =--status= must report the target dead
+rather than the listener up.
+
+** A4 A new shipped file was invisible to the version gate
+=measured=. =check-version-bump.sh= used =git diff=, which ignores untracked
+paths, so =agents/guile-geiser-setup.md= --- an entirely new shipped component ---
+reported nothing until it was staged. In CI the tree is clean so it never
+mattered; locally it defeated the script's stated purpose of warning before the
+commit.
+
+*Oracle*: create a new file under =skills/= and, without staging it, the gate must
+demand a version bump.
+
+** A5 =claude plugin validate= does not read =monitors/monitors.json=
+=measured=. With the file at its default path *and* declared as
+=experimental.monitors=, with and without =--strict=, nine planted faults all
+passed: an unknown key, a missing =description=, =when: "sometimes"=, a =when=
+naming a nonexistent skill, =${user_config.*}= in a command, a duplicate name, a
+command pointing at a missing file, an empty name, an empty array. The reference
+says an unknown key inside an entry stops the plugin loading, so the CLI's silence
+is not reassurance.
+
+*Oracle*: =tests/validate-monitors.py= must reject all nine and accept the real
+file. It does.
+
+* B. Boundaries crossed
+
+** B1 An internal address sat in a public repository
+=measured=. The repository is public (=private=false=). Committed benchmark
+artifacts carried a LAN host and port, the registry's service name, and a =/24=
+subnet. ~b9600a6~ had removed the endpoint from the shipped skill but deliberately
+left the generated evidence, reasoning that rewriting a record falsifies it.
+
+Redacted to =<port-registry>= with the substitutions recorded in
+=skills/guile-repl-server-workspace/REDACTIONS.org= rather than quietly. *The
+address remains in published history* --- five commits on =main= --- which
+redaction does not touch and which only a history rewrite would.
+
+*Oracle*: =grep -rE '192\.168\.' .= over the tree is empty; =git log --all -S=
+still finds it, and that is a separate, unmade decision.
+
+** B2 Component directories that ship, but no gate knew it
+=measured=. =monitors/= reached users from 0.1.6 and =agents/= from 0.2.0, while
+=SHIPPED= in =check-version-bump.sh= and the =deployable= globs in =labeler.yml=
+named only =skills/=, =.claude-plugin/= and =scripts/lib/=. A change to either
+would have shipped with no version bump and no publish. Both lists now name every
+plugin-level component directory rather than being extended one at a time.
+
+** B3 A fixed test port made two worktrees fight
+=measured=. =tests/test-proxy.sh= pinned =39140= and cleaned up with =pkill -f
+"listen=$PORT"=, so a run in one worktree killed the REPL of a run in another. Seen
+once as =6 passed, 1 failed= that then passed alone. Now derived from the checkout
+path, base 39000; the two worktrees get 39496 and 39328 and run concurrently at
+=7 passed, 0 failed= each.
+
+** B4 A project profile installed into the user's real Emacs directory
+=measured=, and the worst of these because it was asserted not to happen.
+=package-user-dir= is a defcustom whose default is computed when =package.el=
+loads, and =package-activate-all= runs during startup *before* an init file gets
+control. So setting =user-emacs-directory= inside =init.el= was too late:
+=keycast=, =compat-31.1.0.0= and =cond-let= were installed into
+=~/.emacs.d/elpa/=, alongside packages dated more than a year earlier.
+
+Fixed by pinning =package-user-dir= and =package-gnupghome-dir= explicitly. Stronger
+isolation --- a scoped =HOME=, or the profile under =${CLAUDE_PLUGIN_DATA}= --- was
+considered and judged unnecessary in this context.
+
+*Oracle*: after loading the profile, =package-user-dir= must be inside the
+checkout, and =~/.emacs.d/elpa= must gain nothing.
+
+* C. Assumptions that the corpus refutes
+
+** C1 =src/= is not where Guile modules live
+=measured= across *48* checkouts holding =.scm= files, including
+=rekado/guile-irc= fetched as a third-party reference:
+
+| primary module directory | projects |
+|--------------------------+----------|
+| =src/=                   |       21 |
+| no modules (scripts)     |       12 |
+| named for the project    |        5 |
+| repository root          |        2 |
+| =tests/=                 |        2 |
+| =lib/=, =modules/=, =experiments/=, =scripts/=, vendored | 1 each |
+
+=src/= is 43%. The "named for the project" group is the Guile and Guix idiom
+(=guile-irc= → =irc/=, =guile-cps-debugger= → =cps-debugger/=). Meanwhile
+=guile-repl-server.sh= has =SRC_DIR=${SRC_DIR:-src}=, so the majority of this
+corpus starts a REPL with load path =none= and fails =(use-modules ...)= with no
+hint. =make= (40/48) and =tests/= (32/48) *are* conventional; =.dir-locals.el=
+exists in 7.
+
+*Oracle*: =scripts/guile-project-detect.sh= in =guile-irc= must report =irc=, and
+in =guile-morse-bst= must report that there are no modules.
+
+** C2 Pinning the Guile binary in Emacs is the same bug as pinning it in shell
+=inherited=, and visible in the corpus. =guile-cps-debugger='s =.dir-locals.el=
+sets =geiser-guile-binary "guile3"=; =guile-sicp='s deliberately does not, with
+the comment that it is =guile3= on FreeBSD and =guile= on macOS. ~8178314~ is the
+shell version of the same mistake.
+
+* D. Tooling facts worth keeping
+
+** D1 direnv's dotenv is not a shell
+=measured= on 2.35.0: =${HOME}= and =$HOME= expand; =${VAR:-default}= does *not*
+--- it is silently mangled, =${XDG_CACHE_HOME:-${HOME}/.cache}/k= becoming
+=${HOME/.cache}/k=. Declared values belong in =.env=; anything needing a fallback
+belongs in =.envrc=, which is real shell.
+
+** D2 The Guile manual is installed but unreachable by name
+=measured=. =/usr/local/share/info/guile3/guile.info*= is present and
+version-matched, but the package registers no =dir= entry, so =info guile
+"Interactive Debugging"= returns nothing. =info -f <path> -n "<Node>"= works.
+Fetching the HTML from the web would also risk a version mismatch with the
+installed interpreter, and the manual is GFDL --- a reason not to vendor it into an
+MIT plugin.
+
+** D3 git notes are not pushed, and a rebase strands them
+=measured=. =refs/notes/commits= is carried by neither =git push=, =--all= nor
+=--follow-tags=; the local ref was found *three commits ahead* of origin with
+nothing warning about it. A rebase moved a commit and left its note on the old
+sha, recoverable only with =git notes copy=. =notes.rewriteRef=,
+=notes.rewrite.rebase= and =notes.rewrite.amend= are now set in this checkout.
+
+** D4 A stale ELPA archive list reports a package unavailable
+=measured=. =keycast= requires =compat 31.0=. With a cached
+=package-archive-contents= from an earlier run, =package-install= failed with
+"Package ‘compat’ (version 31.0) is unavailable"; a =package-refresh-contents= then
+showed =compat 31.1.0.0= present. A bootstrap that refreshes only when the list is
+*empty* therefore treats staleness as freshness. Refresh once on failure, then
+retry, then record.
+
+** D5 An interactive Emacs blocking on the network is indistinguishable from a
+broken profile
+=measured=. A pane showing only =Contacting host: melpa.org:443= looks exactly
+like a profile that failed to load. Package resolution belongs in a batch step
+*before* the interactive session opens, where it also fails loudly.
+
+** D6 =emacs --batch= does not load init files
+=measured=, and it wasted time: =emacs --batch --init-directory=DIR --eval '...'=
+reported =user-emacs-directory= correctly while never loading =init.el=, which
+looked like evidence that the profile was fine. Inspecting a profile requires
+=-l <init file>=.
+
+** D7 keycast belongs in the header line
+=inherited= from the package's own description --- =keycast-header-line-mode= shows
+the current binding at the top of the selected window --- and =measured= as the
+right choice here: the mode-line variant competes with buffer name, position and
+minor modes and truncates first in a narrow pane, and truncated defeats the
+purpose. The startup screen sets its own header line, which hides keycast on the
+first buffer a session shows; =inhibit-startup-screen= is therefore part of the
+setup rather than a preference.
+
+** D8 Geiser diverts the debugger into its own buffer
+=inherited= from Geiser's manual, and it corrects a wrong expectation in the first
+draft of the setup agent: when the REPL would enter debug mode with a
+=scheme@(guile-user) [1]>= prompt, Geiser instead opens =*Geiser Dbg*=, where =,=
+opens the command menu. =geiser-guile-warning-level= tunes error detail. So a
+verification that greps a pane for =[1]>= would fail on a working setup.
+
+* E. Tramp, for a remote Guile
+
+=not established= --- written from the constraints, not yet exercised.
+
+The binding rule decides the shape. The REPL and proxy bind =127.0.0.1= only and
+must keep doing so, so a remote Emacs cannot simply =geiser-connect= to the far
+host: there is nothing to connect to from outside. Two consequences:
+
+1. *The socket must be tunnelled, not exposed.* =ssh -L
+   37497:127.0.0.1:37497 host= makes the remote proxy reachable at
+   =127.0.0.1:37497= locally, and =geiser-connect= then points at localhost as
+   usual. Nothing about the remote binding changes. The derived port is a function
+   of the remote checkout's *path*, so it must be read from
+   =guile-repl-paths.sh= on the remote side, not guessed locally.
+2. *Tramp alone is not enough, and can mislead.* Visiting
+   =/ssh:host:/path/project/src/x.scm= gives editing and a remote
+   =default-directory=, and Geiser will then look for its binary with
+   =executable-find= *in that remote context* --- which is right --- but the REPL
+   connection is a TCP socket, not a Tramp channel. With only Tramp and no tunnel
+   you get remote files and a local REPL, which is the worst combination: forms
+   evaluate against the wrong tree while looking correct.
+
+Open questions to settle before this is written as instruction: whether
+=geiser-guile-load-path= entries must be local paths for a tunnelled REPL (the
+REPL resolves them on the remote filesystem, so they must be *remote* absolute
+paths, which a Tramp-visited buffer does not naturally produce); and whether the
+transcript path reported to the user should be the remote one.
+
+* F. Process failures, mine
+
+Recorded because the disciplines in this repository exist to catch exactly these,
+and they did not.
+
+** F1 Pushed a branch whose tests had failed
+=gmake checks= reported =6 passed, 1 failed=. I had piped it through =tail= and
+did not gate the commit on its exit status, so the branch was committed and pushed
+anyway. The underlying flake was real (B3) and is fixed; the process failure was
+mine. Later commits gate on =$?= explicitly.
+
+** F2 Pushed a commit whose message described work it did not contain
+The commit announced a version bump to 0.2.0, a labeler change and a docs update.
+Only two of five files were staged, because each =git add= named files explicitly
+and three edits made afterwards were never re-added. The message was accurate about
+the intent and wrong about the content. Fixed by amend and =--force-with-lease=
+before any PR existed.
+
+This is the failure =git add -A= is banned to prevent, arriving from the other
+direction, and it is why =scripts/wip.sh= prints each commit's file list: it cannot
+be detected mechanically.
+
+*Oracle*: =git show --stat= every commit before pushing, and read it against the
+message.
+
+** F3 Wrote a polling loop with no delay and believed its answer
+=for i in $(seq 1 40); do [ -f marker ] && break; done= completes in microseconds.
+It "proved" that an Emacs profile was not loading when Emacs had not yet started.
+Earlier loops had accidentally worked because =tmux capture-pane= is slow enough to
+pace them. Poll on something that costs time, or bound the wait explicitly.
+
+** F4 Asserted isolation I had not verified
+See B4. The claim "your =~/.emacs.d= is untouched" was written into a commit
+message and a script header before anything checked it.
+
+* G. Rebuild notes
+
+For rebuilding this environment from a spec rather than from this session.
+
+*FreeBSD specifics.* =guile3=/=guild3= are the binary names; Debian and Ubuntu use
+=guile-3.0=/=guild-3.0= and Homebrew uses bare =guile= --- probe all three, in that
+order, and assert the version. =gmake=, not =make=. No =inotify=, so a file watcher
+polls. The Guile manual is at =/usr/local/share/info/guile3/= with no =dir= entry.
+=guild compile -o /dev/null= always fails because guild renames into place; compile
+to a real path.
+
+*Emacs 30.2.* =--init-directory= sets =user-emacs-directory= but not
+=package-user-dir=; pin both. =--batch= does not load init files. =-Q -l FILE= is
+the reliable way to load a profile explicitly, and requires the profile to set its
+own paths.
+
+*ELPA dependency chain, as resolved on this cell.* =geiser= and =geiser-guile= from
+NonGNU ELPA, =paredit= from GNU ELPA, =keycast= from MELPA, pulling =compat
+31.1.0.0= from GNU ELPA (signed) and =cond-let= from MELPA. All three archives are
+required; two would not have been enough. Refresh before concluding a dependency is
+missing.
+
+*Ports.* Project REPL =37000 + cksum(slug) mod 900=, proxy =+1=, tests =39000 +
+cksum(checkout path) mod 900=. Slug is the absolute path with =/= and =.= replaced
+by =-=, matching the =~/.claude/projects= convention. None of these is a
+reservation.
+
+* H. The second half of the session
+
+Found after the first draft of this report, and each one changed a decision.
+
+** H1 =validate= reads =hooks.json= but only partly, and needs a wrapper
+=measured=. Unlike =monitors.json= (A5), =claude plugin validate= *does* read
+=hooks/hooks.json= --- and it requires a top-level =hooks= key. A bare
+settings.json-style event map at the root is rejected: "hooks.json must have
+=hooks= (the hook matchers) or =modules= (hooks modules), or both". The manifest
+reference's "same shape as =hooks= in settings.json" describes the *inline manifest*
+form, not this file, and following it produced a plugin that would not validate.
+
+The coverage is partial: a hook entry missing =command= is caught
+("Invalid command hook ... entry ignored at runtime"), an *unknown key* inside a
+hook entry passes.
+
+*Oracle*: both faults, planted, against =--strict=.
+
+** H2 Two environment variables, one of which does not exist
+=measured= against the CLI binary. =CLAUDE_PROJECT_DIR= is real;
+*=CLAUDE_PROJECT_ROOT= is not* --- it appears nowhere in the binary, and a hook
+written against it would silently fall back to the working directory.
+=CLAUDE_CONFIG_DIR= is real, which is what makes =gmake try-clean= possible.
+
+The binary also carries =SessionStart=, and =PostToolUseFailure= and =PostCompact=,
+neither of which appears in the reference's hook table.
+
+** H3 There is no standalone Scheme formatter, and Emacs is a good one
+=measured=. =scmindent=, =lispindent= and =schemefmt= are all absent here and
+=guild= compiles without formatting. =emacs --batch= in =scheme-mode= with
+=indent-region= produces correct indentation on a deliberately messy Guile file, and
+=guild3= compiles the result --- but =indent-tabs-mode= defaults to *on*, so the
+first attempt inserted a tab. =check-parens= is the balance oracle and reports the
+line.
+
+** H4 =require= searches by feature name, not file name
+=measured=, and it broke every caller. A shared style file named =scheme-style.el=
+that ends with =(provide 'guile-scheme-style)= cannot be found by
+=(require 'guile-scheme-style)=: Emacs looks on =load-path= for a file named after
+the *feature*. Renaming the file fixed it. Worth knowing because the natural
+instinct is to name the file after its subject.
+
+** H5 Guile has no JSON reader --- and that does not block a Scheme port
+=measured=, twice, and the second measurement reversed the first conclusion.
+
+Guile 3.0.10 has no JSON: =(json)=, =(json parser)=, =(ice-9 json)=, =(web json)=,
+=(sxml json)= and =(guile-json)= are all absent, nothing under the Guile load path
+is named for JSON, and =guile-json= is not in the FreeBSD package list. Written up
+as a blocker.
+
+Then =guile-json= 4.7.3 was cloned and checked: it is *pure Scheme*, eleven =.scm=
+files and no C, so it needs no build and no install. =guile3 -L <checkout>= is
+enough. It round-trips (=({"a":[1,2,{"b":true}]}= parses to
+=(("a" . #(1 2 (("b" . #t)))))=, objects as alists and arrays as vectors) and parses
+all three operational files.
+
+So the dependency is a vendored directory plus one =-L= flag, and writing our own
+reader --- attractive only while the dependency looked costly --- becomes the
+liability instead. Tracked as issue #15.
+
+*The lesson is the shape of the error, not the fact.* "Unpackaged" was allowed to
+imply "expensive" without checking, and one command settled it.
+
+** H6 The deployable gate works end to end
+=measured=. PR #6 carried no =deployable= label; merging it ran "Publish on merge",
+which *skipped*, and the tags stayed at =v0.1.4=. The first real confirmation that
+the label genuinely governs publishing rather than merely describing a diff.
+
+** H7 Specs must not live in the files the product reads
+=inherited= as a requirement, and it arrived just in time --- a contract version was
+about to go into =plugin.json='s =metadata=. It must not, because an unknown key in
+a strict entry stops the plugin loading and an unknown top-level manifest key fails
+=--strict=. So =contracts/= is a separate tree, its README opens with the isolation
+rule, and =tests/validate-contracts.py= fails if contract vocabulary appears in an
+operational file. Calibrated against a =contract_version= in a monitor entry and a
+=$schema= in the manifest.
+
+*Oracle*: both, planted, must fail =gmake check-contracts=.
+
+* What is still open
+
+- The internal address in published history (B1) --- needs a rewrite decision.
+- The serial accept loop: Geiser and an agent cannot hold the proxy at once.
+- =,locals= reporting no variables at a live frame --- =not established=, inherited.
+- Whether =${CLAUDE_PLUGIN_ROOT}= and =${CLAUDE_PLUGIN_DATA}= are substituted into
+  a monitor =command= --- the design follows the documented contract and the
+  unsubstituted-literal branch exists because it is unverified.
+- Whether =claude plugin validate= reads =agents/= at all. Given A5, assume not.
+- The end-to-end Geiser path: =geiser-connect= reaching the proxy port has *not*
+  been verified on this machine. Only the tmux mechanics and an Emacs minibuffer
+  round-trip were.
+- Tramp (section E) in its entirety.
+- Whether a =SessionStart= hook actually fires with this plugin loaded. The event
+  exists in the binary and =validate= accepts the entry; observing it needs a real
+  session.
+- Whether =claude plugin validate= reads =agents/= at all. Given A5 and H1, assume
+  partial at best until measured.
+- Whether Anthropic publishes machine-readable schemas for any of the ecosystem's
+  JSON files. A search is in flight; =ListToolsRequestSchema= in the channels
+  reference suggests Zod schemas exist at least for MCP.
+- The plugin's own name. =/guile-skills:guile-repl-server= says "guile" twice;
+  =/guile:repl= would not. Breaking, and cheapest now --- issue #13.

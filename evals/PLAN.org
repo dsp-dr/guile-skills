@@ -211,8 +211,7 @@ Note the Python version constraint: ports packages ~py312-orjson~ only, no py311
 
 *** hydra was not testable
 
-hydra (~hydra.lan~) is reachable -- ssh/22 open, its port registry answering,
-six services claimed from ~aygp-dr/hydra-setup~ -- but there is
+hydra is reachable -- ssh/22 open, its services answering -- but there is
 no SSH credential for it on nexus: only ~id_ed25519_github.pub~ exists and no
 agent is running. Both ~dsp-dr@~ and ~jwalsh@~ are refused with
 ~Permission denied (publickey,keyboard-interactive)~.

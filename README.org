@@ -158,3 +158,4 @@ everything here binds ~127.0.0.1~ only, and why the skills decline to bind
 - [[file:EXPERIMENTS.org][EXPERIMENTS.org]] --- six real failures, four of them silent
 - [[file:CONTRIBUTING.org][CONTRIBUTING.org]] --- tooling versions, the four testing layers, conventions
 - [[file:RELEASING.org][RELEASING.org]] --- what counts as patch, minor, major, and how to cut one
+- [[file:docs/roadmap.org][Roadmap]] --- what the history says is still missing, and what to do first

@@ -12,7 +12,7 @@ PROXY_SCRIPTS  := skills/repl-proxy/scripts
 GUILE ?= $(shell command -v guile3 2>/dev/null || command -v guile-3.0 2>/dev/null || echo guile)
 GUILD ?= $(shell command -v guild3 2>/dev/null || command -v guild-3.0 2>/dev/null || echo guild)
 
-.PHONY: try-clean check-contracts fmt check-scheme help start stop status eval lint lint-org lint-claude test check-evals check-monitors check-scripts check-version sync-scripts checks try try-in ship-check readme paths clean release-staging release-production
+.PHONY: dx dx-kill wip try-clean check-contracts fmt check-scheme help start stop status eval lint lint-org lint-claude test check-evals check-frontmatter check-monitors check-scripts check-version sync-scripts checks try try-in ship-check readme paths clean release-staging release-production
 
 help:
 	@echo "guile-skills"
@@ -27,10 +27,11 @@ help:
 	@echo "  gmake lint-org     org-lint every tracked .org file"
 	@echo "  gmake lint-claude  claude plugin validate . --strict"
 	@echo "  gmake check-evals  validate every skills/*/evals/evals.json"
-	@echo "  gmake check-scheme every tracked .scm is balanced (the hook, repo-wide)"
-	@echo "  gmake check-contracts  the pinned product contract still holds"
-	@echo "  gmake fmt          reindent every tracked .scm (opt-in; the hook never writes)"
+	@echo "  gmake check-frontmatter  validate every skills/*/SKILL.md frontmatter"
 	@echo "  gmake check-monitors  validate monitors/monitors.json (the CLI does not)"
+	@echo "  gmake check-contracts  the pinned product contract still holds"
+	@echo "  gmake check-scheme every tracked .scm is balanced (the hook, repo-wide)"
+	@echo "  gmake fmt          reindent every tracked .scm (opt-in; the hook never writes)"
 	@echo "  gmake sync-scripts  copy scripts/lib/ into each skill that needs it"
 	@echo "  gmake check-scripts verify those copies have not drifted"
 	@echo "  gmake check-version verify a shipped change raised plugin.json version"
@@ -41,6 +42,10 @@ help:
 	@echo "  gmake ship-check  show exactly which files an install actually delivers"
 	@echo "  gmake readme   regenerate the generated .md docs from their .org sources"
 	@echo "  gmake clean    remove compiled files"
+	@echo ""
+	@echo "  gmake dx       tmux session: emacs -nw, the REPL, a validator harness"
+	@echo "  gmake dx-kill  tear that session down, REPL and proxy included"
+	@echo "  gmake wip      what is uncommitted, unpushed or unnoted, every worktree"
 	@echo "  gmake release-staging              regression tests + validation, no publish"
 	@echo "  gmake release-production TAG=vX.Y.Z   same gate, then gh skill publish --tag"
 
@@ -125,6 +130,11 @@ fmt:
 # this is the check that can actually fail.
 check-monitors:
 	@python3 ./tests/validate-monitors.py
+# `claude plugin validate' checks the manifest, not a skill's frontmatter, and
+# `skills-ref validate' needs a cloned repo and a venv (a23284b). This is the
+# part that runs offline, so it can gate a PR before anything expensive starts.
+check-frontmatter:
+	@python3 ./tests/validate-frontmatter.py
 
 # scripts/lib/ is canonical; skills/*/scripts/ copies are generated, because a
 # skill installed on its own must carry everything it runs.
@@ -142,7 +152,7 @@ check-version:
 # What CI runs, in the order that fails cheapest first. `claude plugin validate'
 # is deliberately not here: it needs the Claude Code CLI, which CI installs and
 # a developer already has running.
-checks: lint lint-org lint-claude check-scripts check-version check-contracts check-evals check-monitors check-scheme test
+checks: lint lint-org lint-claude check-scripts check-version check-contracts check-frontmatter check-evals check-monitors check-scheme test
 
 # Manual testing. `checks' proves the code is sound; these prove the *plugin*
 # works, which is a different question -- the skills reference scripts by path,
@@ -158,6 +168,18 @@ try-clean:
 	@d=$$(mktemp -d /tmp/claude-clean.XXXXXX) && \
 		echo "try-clean: CLAUDE_CONFIG_DIR=$$d, plugin from $(CURDIR), cwd $$d" && \
 		cd "$$d" && CLAUDE_CONFIG_DIR="$$d" claude --plugin-dir $(CURDIR)
+# One session holding the four things you actually do: edit, a REPL, the metadata
+# checks on a loop, and a shell. Emacs runs on a PROJECT-LOCAL profile, so the
+# user's own ~/.emacs.d is never read or written.
+dx:
+	@./scripts/dx.sh
+
+dx-kill:
+	@./scripts/dx.sh --kill
+
+# Answers one question: is anything being held back? Across every worktree.
+wip:
+	@./scripts/wip.sh
 
 try:
 	@command -v claude >/dev/null 2>&1 || { echo "try: the Claude Code CLI is not on PATH" >&2; exit 1; }

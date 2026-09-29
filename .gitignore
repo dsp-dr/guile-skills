@@ -18,3 +18,13 @@
 *.core
 core
 core.*
+
+# Environment: .env may acquire host-local values or, by accident, a secret.
+# Track the template only.
+.env
+.env.local
+!.env.example
+
+# The DX session's project-local Emacs profile (scripts/dx.sh). Generated, holds
+# an ELPA tree and a written project.el; never the source of either.
+.dx-emacs/
