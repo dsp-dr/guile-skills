@@ -1,0 +1,184 @@
+#+TITLE: Surfaces: what this plugin can expose, and how to add one
+#+DATE: 2026-09-29
+#+AUTHOR: dsp-dr
+
+A Claude Code plugin has about a dozen ways to reach an agent, an editor or a
+user. This repository uses one of them heavily and most of them not at all. That
+is a defensible position, but only if it is a /chosen/ one, so this file is the
+inventory, the way each surface communicates, and the process for adding the
+next one.
+
+Measured on *nexus*, FreeBSD 15.1-RELEASE, 2026-09-29, against the manifest
+reference fetched 2026-09-28.
+
+* What we have, and what we do not
+
+| Surface           | Lives in                    | Have one?                     |
+|-------------------+-----------------------------+-------------------------------|
+| skills            | =skills/<name>/SKILL.md=    | *yes* --- three               |
+| monitors          | =monitors/monitors.json=    | *yes* --- one, new in 0.1.6   |
+| evals             | =skills/*/evals/evals.json= | *yes* --- 12, unscored        |
+| commands          | =commands/*.md=             | no                            |
+| agents            | =agents/*.md=               | *no* --- see below            |
+| hooks             | =hooks/hooks.json=          | no                            |
+| MCP servers       | =.mcp.json=                 | no --- blocked, issue #1      |
+| channels          | manifest =channels=         | no --- needs an MCP server    |
+| LSP servers       | =.lsp.json=                 | no --- maturity not established |
+| output styles     | =output-styles/*.md=        | no                            |
+| themes            | =themes/*.json=             | no                            |
+| workflows         | =workflows/*.js=            | no                            |
+| =bin/=            | ---                         | *must not exist* (~8d71a62~)  |
+
+Two of those rows are the interesting ones.
+
+*There is no Guile debugging agent here.* Nothing in this repository declares
+=agents=, and the manifest names none. A session may well offer a =debugger=
+agent --- that is a personal agent in =~/.claude/agents/=, general-purpose, and
+nothing to do with this plugin. The closest thing this repository has is
+=guile-repl-server='s =,break= / =,bt= instructions, reached through the same
+socket as ordinary evaluation. Whether the triage ladder should become a *skill*
+or an *agent* is an open question, tracked as =guile-repl-triage= in
+=docs/roadmap.org= (on its own branch as of this commit); the honest answer today is that it is prose
+spread across three =SKILL.md= files.
+
+*=bin/= is a reserved directory*, not an unused one. Files in it join the Bash
+tool's =PATH= while the plugin is enabled, and claude.ai and Cowork refuse to
+install a plugin that has one. It was removed in ~8d71a62~ and must stay removed.
+
+* How the pieces actually talk
+
+#+begin_src mermaid
+flowchart LR
+    subgraph editor["Human's editor"]
+        Geiser["Emacs + Geiser"]
+    end
+
+    subgraph agent["Agent session"]
+        Skill["skills/\nmodel decides to read one"]
+        Mon["monitors/\nbackground, pushes notifications"]
+        Agents["agents/\nNOT BUILT"]
+        Cmd["commands/\nNOT BUILT"]
+        Hooks["hooks/\nNOT BUILT"]
+        MCP["mcpServers + channels\nNOT BUILT, issue #1"]
+        LSP["lspServers\nNOT BUILT, unestablished"]
+    end
+
+    subgraph proc["This project's processes"]
+        Proxy["proxy :PORT+1\nbyte forwarder + tee"]
+        REPL["guile3 --debug --listen :PORT"]
+    end
+
+    subgraph data["${CLAUDE_PLUGIN_DATA}/projects/&lt;slug&gt;/"]
+        Tx["repl.log\ntranscript"]
+        Err["repl.stderr\nproxy.stderr"]
+    end
+
+    Skill -->|"sh scripts/*.sh"| Proxy
+    Skill -->|"start / stop / status"| REPL
+    Proxy --> REPL
+    Proxy --> Tx
+    REPL --> Err
+    Proxy --> Err
+    Err -->|"tail -F"| Mon
+    Mon -->|"notification"| Skill
+    Geiser -.->|"same socket, one client at a time"| Proxy
+
+    style Agents stroke-dasharray: 4 4
+    style Cmd stroke-dasharray: 4 4
+    style Hooks stroke-dasharray: 4 4
+    style MCP stroke-dasharray: 4 4
+    style LSP stroke-dasharray: 4 4
+#+end_src
+
+The dashed boxes are not built. The dashed *edge* is built but constrained: the
+proxy's accept loop is serial, so Emacs and the agent cannot hold it at once ---
+one gets the socket and the other waits (=EXPERIMENTS.org:215=). Two proxies, or
+a threaded rewrite, is the fix, and neither is done.
+
+* Communication styles
+
+Choosing a surface is mostly choosing /who starts the conversation/ and /what it
+may carry/.
+
+| Surface     | Who starts it                   | Shape              | Can it block? |
+|-------------+---------------------------------+--------------------+---------------|
+| skill       | the model, by deciding to read it | instructions + Bash | no           |
+| command     | the *user*, typing =/name=       | one prompt          | no            |
+| agent       | the model, delegating            | own context window  | no            |
+| hook        | an *event*, deterministically    | process in, exit code out | *yes* |
+| monitor     | the *session*, in the background | stdout → notifications | no        |
+| MCP server  | the model, calling a tool        | request / response  | no            |
+| channel     | a *person*, from outside         | MCP server + per-channel config | no |
+| LSP server  | the *editor*                     | diagnostics         | no            |
+
+Three consequences worth stating, because each is a mistake waiting to happen:
+
+- *A hook is the only surface that can refuse.* Anything that must be prevented,
+  not merely advised, is a hook. Anything that needs judgment is not.
+- *A monitor's output lands in the agent's context whether or not it is wanted.*
+  That is why =guile-repl-health= tails the two stderr streams and deliberately
+  not =repl.log=: the transcript contains whatever anyone evaluated, including a
+  human in Geiser who never asked for an agent to read along.
+- *A channel is a person reaching in*, so it presupposes an MCP server and a
+  credential. That is the whole of issue #1, and why the row is empty.
+
+* Adding a surface: the process
+
+Six steps, each of which exists because skipping it broke something here.
+
+1. *Pick the surface from the table above, not from enthusiasm.* Who starts the
+   conversation, and does it need to refuse? If the answer is "the model should
+   know how to do X", it is a skill, and the cheapest correct answer is usually
+   to extend an existing one.
+
+2. *Check what actually validates it.* =claude plugin validate --strict= is
+   authoritative for the manifest and worth very little elsewhere. Measured on
+   2026-09-29: with =monitors/monitors.json= both at its default path and
+   declared as =experimental.monitors=, an unknown key, a missing =description=
+   and a =when= of ="sometimes"= /all passed/ --- and the reference says an
+   unknown key inside an entry stops the plugin loading. So:
+   =tests/validate-monitors.py= exists, and it is calibrated against nine
+   planted faults, because a check that cannot fail is decoration.
+
+3. *Work out whether it ships.* An install delivers =skills/**=,
+   =.claude-plugin/**=, =scripts/lib/**= and now =monitors/**=. Those four paths
+   are the definition of =deployable= in =.github/labeler.yml= and of =SHIPPED=
+   in =scripts/check-version-bump.sh= --- and they must stay in step, because a
+   surface missing from both ships without a version bump and without publishing.
+   =monitors/= was missing from both until 0.1.6.
+
+4. *Decide what reaches the agent, and default to less.* See the monitor above.
+
+5. *Hand over what the environment will not.* =${CLAUDE_PLUGIN_DATA}= is
+   substituted into plugin configuration and skill Markdown and does *not* reach
+   a Bash environment (~2dc20e9~). A surface that needs it must be passed it ---
+   which is why =monitors.json= passes it as an argument, and why the script
+   treats an unsubstituted literal as absent.
+
+6. *Write the eval that fails without it.* Twelve exist and none has been scored,
+   so this step is currently aspirational; =roadmap.org='s D-series is the plan
+   for making it real.
+
+* The Emacs, logs and debugging requirement
+
+The standing goal is that *any* Guile project gets three things: a Geiser
+connection, logs in a known place, and a working debugger. Where each stands:
+
+| Piece                     | State                                                                 |
+|---------------------------+-----------------------------------------------------------------------|
+| logs in a known place     | *done*: =${CLAUDE_PLUGIN_DATA}/projects/<slug>/{repl.log,repl.stderr,proxy.stderr}=, never in the repo |
+| a debugger over the socket | *done*: =,break=, =,bt=, =,trace=, =,expand=, =,optimize=, =,profile=, =,time= all verified over =--listen= (E1) |
+| logs surfaced when a process dies | *new in 0.1.6*: the =guile-repl-health= monitor          |
+| Geiser on the same REPL   | *works, with a caveat*: the accept loop is serial, so Emacs and the agent cannot both hold it |
+| Geiser configured per project | *not built*: no =.dir-locals.el=, no =geiser-guile-binary=, no load-path derivation, nothing that tells Emacs which port this project uses |
+| =,locals= at a live frame | *not established*: reports no variables where an argument is in scope, unexplained, inherited from =guile-sicp= |
+
+The gap is the second-to-last row, and it is the same gap as
+=roadmap.org='s C5: the load path is assumed to be =src/=
+(=guile-repl-server.sh:20,76=), so a project laid out any other way starts with
+load path =none=. An Emacs integration that guesses wrong is worse than none.
+
+Which is why the scaffold --- a shared shape for a Guile project's Makefile,
+sources, tests and Emacs setup --- is being built against the local corpus of
+30-plus checkouts rather than designed in the abstract. It is deliberately not
+in this commit.

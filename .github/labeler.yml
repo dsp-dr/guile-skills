@@ -17,6 +17,7 @@ deployable:
           - "skills/**"
           - ".claude-plugin/**"
           - "scripts/lib/**"
+          - "monitors/**"
 
 plugin:
   - changed-files:

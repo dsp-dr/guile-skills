@@ -16,7 +16,8 @@
 # Shipped means: what an install actually delivers. skills/** is copied by
 # `gh skill install'; .claude-plugin/ is the manifest; scripts/lib/ is the
 # canonical source of the files synced into each skill, so a change there
-# reaches users through the copies.
+# reaches users through the copies; monitors/ is plugin-level, delivered by a
+# plugin install (not by a single-skill install) and started in the session.
 
 set -u
 
@@ -25,7 +26,7 @@ BASE=${1:-}
 git rev-parse --verify --quiet "$BASE" >/dev/null || {
     echo "check-version-bump: cannot resolve base ref '$BASE'" >&2; exit 2; }
 
-SHIPPED="skills/ .claude-plugin/ scripts/lib/"
+SHIPPED="skills/ .claude-plugin/ scripts/lib/ monitors/"
 
 # shellcheck disable=SC2086
 changed=$(git diff --name-only "$BASE" -- $SHIPPED)

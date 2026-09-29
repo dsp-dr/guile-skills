@@ -73,6 +73,9 @@ jobs:
       - name: Validate every eval suite
         run: make check-evals
 
+      - name: Validate monitor entries
+        run: make check-monitors
+
       - name: Proxy regression tests
         run: make test
 

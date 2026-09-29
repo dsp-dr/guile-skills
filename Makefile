@@ -12,7 +12,7 @@ PROXY_SCRIPTS  := skills/guile-repl-proxy/scripts
 GUILE ?= $(shell command -v guile3 2>/dev/null || command -v guile-3.0 2>/dev/null || echo guile)
 GUILD ?= $(shell command -v guild3 2>/dev/null || command -v guild-3.0 2>/dev/null || echo guild)
 
-.PHONY: help start stop status eval lint lint-org lint-claude test check-evals check-scripts check-version sync-scripts checks try try-in ship-check readme paths clean release-staging release-production
+.PHONY: help start stop status eval lint lint-org lint-claude test check-evals check-monitors check-scripts check-version sync-scripts checks try try-in ship-check readme paths clean release-staging release-production
 
 help:
 	@echo "guile-skills"
@@ -27,6 +27,7 @@ help:
 	@echo "  gmake lint-org     org-lint every tracked .org file"
 	@echo "  gmake lint-claude  claude plugin validate . --strict"
 	@echo "  gmake check-evals  validate every skills/*/evals/evals.json"
+	@echo "  gmake check-monitors  validate monitors/monitors.json (the CLI does not)"
 	@echo "  gmake sync-scripts  copy scripts/lib/ into each skill that needs it"
 	@echo "  gmake check-scripts verify those copies have not drifted"
 	@echo "  gmake check-version verify a shipped change raised plugin.json version"
@@ -87,6 +88,14 @@ lint-claude:
 check-evals:
 	@python3 ./tests/validate-evals.py
 
+# `claude plugin validate' does not read monitors/monitors.json -- measured
+# 2026-09-29, at the default path and declared explicitly, with and without
+# --strict: an unknown key, a missing description and a bogus `when' all passed.
+# The reference says an unknown key inside an entry stops the plugin loading, so
+# this is the check that can actually fail.
+check-monitors:
+	@python3 ./tests/validate-monitors.py
+
 # scripts/lib/ is canonical; skills/*/scripts/ copies are generated, because a
 # skill installed on its own must carry everything it runs.
 sync-scripts:
@@ -103,7 +112,7 @@ check-version:
 # What CI runs, in the order that fails cheapest first. `claude plugin validate'
 # is deliberately not here: it needs the Claude Code CLI, which CI installs and
 # a developer already has running.
-checks: lint lint-org lint-claude check-scripts check-version check-evals test
+checks: lint lint-org lint-claude check-scripts check-version check-evals check-monitors test
 
 # Manual testing. `checks' proves the code is sound; these prove the *plugin*
 # works, which is a different question -- the skills reference scripts by path,
