@@ -1,0 +1,778 @@
+#+TITLE: Experiments: could this plugin expose an LSP server (scheme-lsp-server)?
+#+DATE: 2026-09-29
+#+AUTHOR: dsp-dr
+
+An exploration, not a plan. =docs/surfaces.org= records =lspServers= as "no ---
+maturity not established". This file asks what would fill that row, measures the
+one candidate that exists for Guile, and works out what it would cross.
+
+Run on *nexus*, FreeBSD 15.1-RELEASE, ~guile3~ 3.0.10, ~claude~ 2.1.261, as
+~dsp-dr~, 2026-09-29 --- the same cell as =contracts/cell.json=, so the contract
+claims below are measured against the pinned version rather than inherited from a
+different one.
+
+Subject: =scheme-lsp-server= at
+https://codeberg.org/rgherdt/scheme-lsp-server, commit ~5266fb6~ ("add reference
+to AUR package for Guile", 2026-09-27), =VERSION= 0.2.0, whose Guile package
+reports =AC_INIT([guile-lsp-server], [0.4.8])= and whose running server reports
+=lsp-server-version= *0.4.10*. Three different version numbers in one tree; the
+one on the wire is 0.4.10.
+
+Each experiment carries an epistemic label: *measured* (I ran it and watched it),
+*inherited* (I read it in the reference or upstream and did not run it), *not
+established* (I could not settle it and am saying so).
+
+A build sandbox was used throughout: =/tmp/lsp-eval/= holds the prefix, the
+sources, a PATH shim, and the five probe scripts. Nothing was installed system
+wide, and nothing was written into any repository --- see L8.
+
+* L1 --- What is it, and what does it advertise?
+
+*Question.* Which Schemes, at what completeness, over what transport, offering
+which LSP capabilities?
+
+*Result.* One codebase, R7RS where it can be, per-implementation directories
+where it cannot. The README's own feature matrix:
+
+| Feature                 | CHICKEN | Gambit | Guile |
+|-------------------------+---------+--------+-------|
+| Find signature          | X       | X      | X     |
+| Find documentation      | X       |        | X     |
+| Autocomplete identifier | X       | X      | X     |
+| Jump to definition      | X       | X      | X     |
+| Diagnostics             | X       | X      | X     |
+
+Guile is a first-class target: "CHICKEN 5, Gambit 4.9.4+ and Guile 3.0.9+ are
+supported", and Guile is the only one with a Guix package and an AUR package. The
+README also says, in capitals, *EXPERIMENTAL*, and "this code is still in an early
+development stage and the API may change".
+
+Transport is both: =lsp-server-start/stdio= and =lsp-server-start/tcp=, selected
+by =--stdio= (the default) or =--socket PORT=.
+
+What it actually advertises, read off the wire rather than the README
+(=/tmp/lsp-eval/drive.py=, =initialize= response):
+
+#+begin_src json
+{"capabilities":
+  {"textDocumentSync": {"save": true, "openClose": true, "change": 2},
+   "hoverProvider": true,
+   "completionProvider": {"resolveProvider": true},
+   "signatureHelpProvider": {},
+   "definitionProvider": {},
+   "diagnosticsProvider": {"interFileDiagnostics": true,
+                           "workspaceDiagnostics": true}},
+ "serverInfo": {"name": "Guile LSP server", "version": "0.4.10"}}
+#+end_src
+
+*No =referencesProvider=*, and the omission is honest: =textDocument/references=
+answers ~-32601 Method not found~. The handler table
+(=lsp-server-impl.scm:339-352=) is definition, didChange, didClose, didOpen,
+didSave, completion, hover, signatureHelp, plus =codeAction= and
+=workspace/didChangeConfiguration= wired to =ignore-request=. Note
+=textDocument/diagnostic= is registered but returns "not implemented" --- pull
+diagnostics are absent; diagnostics arrive only as *pushed*
+=textDocument/publishDiagnostics=.
+
+*Label:* measured (the wire capabilities and the =references= rejection);
+inherited (the feature matrix, from the upstream README).
+
+* L2 --- What does it depend on, and under what licence?
+
+*Question.* The obvious worry was =guile-json=: GPL-3 against this repository's
+MIT, unpackaged on FreeBSD, and the reason =EXPERIMENTS-channels.org= C8 closed a
+door. Does the LSP server need it?
+
+*Result.* *No.* It does not use =guile-json= at all. It speaks JSON through
+=scheme-json-rpc=, which on Guile uses *SRFI 180* --- pure Scheme, from the same
+author. =guile/configure.ac= states the requirement set exactly:
+
+#+begin_src
+GUILE_MODULE_REQUIRED(json-rpc)
+GUILE_MODULE_REQUIRED((srfi srfi-145))
+GUILE_MODULE_REQUIRED((srfi srfi-180))
+GUILE_MODULE_REQUIRED((rx irregex))
+#+end_src
+
+Measured on this box, all four absent and nothing in ports supplies them:
+
+#+begin_src sh
+guile3 --no-auto-compile -s probe.scm
+#   (srfi srfi-145) -> MISSING   (srfi srfi-180) -> MISSING
+#   (rx irregex)    -> MISSING   (json-rpc)      -> MISSING
+#   (json)          -> MISSING   (srfi srfi-18)  -> OK
+pkg search -q guile      # ten ports, none of them these
+pkg search -q irregex    # nothing
+pkg search -q json-rpc   # nothing
+#+end_src
+
+Licences, all permissive and all compatible with MIT:
+
+| Component           | Licence     | Source                                      |
+|---------------------+-------------+---------------------------------------------|
+| scheme-lsp-server   | MIT         | =LICENSE=                                   |
+| scheme-json-rpc     | MIT         | =LICENSE=                                   |
+| rgherdt/srfi (145, 180) | MIT     | its =LICENSE=                               |
+| Geiser scheme files | BSD-3       | =geiser/guile/license=                      |
+| irregex 0.9.10      | BSD-style   | =irregex.scm:3-4= (Alex Shinn)              |
+
+So the C8 answer does not apply here. This is the rare case where a Scheme
+dependency chain is both pure Scheme and permissively licensed --- and it is
+*still* four hand-built dependencies with no port, which is the actual cost.
+
+Footprint after a full install: 34 =.scm=/=.sld=, 26 =.go=, 1.4 MB.
+
+*Label:* measured (every module probe, the port searches, the installed census,
+each licence header read from the fetched source).
+
+* L3 --- Can it be built here? Three FreeBSD traps.
+
+*Question.* Does =./guile/scripts/install-deps.sh= then =./configure && make &&
+make install= work on nexus?
+
+*Result.* Yes, but only after working around three portability faults. Each is a
+measured failure, not a guess.
+
+*Trap 1: bare =guild= is Guile 2.2.7 on this box.* The first run of
+=install-deps.sh= died at the first compile:
+
+#+begin_src sh
+sh guile/scripts/install-deps.sh --prefix=/tmp/lsp-eval/prefix
+# ...
+# r7rs: unrecognized option
+guild --version   # guild (GNU Guile) 2.2.7
+guild3 --version  # guild (GNU Guile) 3.0.10
+guild compile --help  | grep r7rs   # nothing
+guild3 compile --help | grep r7rs   # --r6rs, --r7rs
+#+end_src
+
+=install-deps.sh= and =guile.am= call bare =guild=; =/usr/local/bin/guild= is the
+=guile2= port's. This is exactly =boundaries.org='s L0 rule --- "probe =guile3= →
+=guile-3.0= → =guile=, then assert ≥ 3.0; never pin" --- broken upstream, and the
+same class as ~8178314~ here.
+
+*Trap 1b, and this one ships.* The installed launcher's shebang is
+
+#+begin_src sh
+#!/usr/bin/env sh
+exec guile -x ".scm" -e  main -s "$0" "$@"
+#+end_src
+
+Bare =guile=. Run without a shim, on the stock PATH:
+
+#+begin_src sh
+env PATH=/usr/local/bin:/usr/bin:/bin .../bin/guile-lsp-server --version
+# ice-9/boot-9.scm:3356:22: Syntax error:
+# define-module: unknown keyword or bad argument in form #:declarative?
+#+end_src
+
+An =lspServers= entry with ="command": "guile-lsp-server"= would therefore be
+dead on this machine, and would fail with a syntax error rather than with
+"wrong interpreter". Compare =skills/repl-proxy/scripts/guile-repl-proxy.scm=,
+whose trampoline exists for precisely this reason and does it right.
+
+*Trap 2: BSD =cp -R src/ dst= flattens.* =install-deps.sh= does
+=cp -R srfi/srfi-180/ ${site_dir}/srfi=. GNU =cp= creates
+=srfi/srfi-180/=; BSD =cp= copied the *contents* into =srfi/=, so the next line's
+=guild compile .../srfi/srfi-180/helpers.scm= failed with =No such file or
+directory=. Measured by =find= on the prefix afterwards: =body.scm=,
+=checks.scm=, =helpers.scm= sitting directly in =srfi/=. Repaired by hand.
+=srfi-180.scm= additionally =include=s =body.scm= by a *relative* path, so it
+only compiles with the site directory as cwd.
+
+*Trap 3: automake timestamp skew.* After copying the tree, =gmake= tried to
+re-run =automake-1.17= (absent). =configure= and =Makefile.in= are checked in, so
+=touch=-ing in dependency order (=configure.ac= → =aclocal.m4= → =configure=,
+=Makefile.in= → =config.status=, =Makefile=) is enough; no autotools needed. Also
+=make= must be =gmake=: the generated Makefile is GNU.
+
+With those three handled, the build is clean and the binary runs:
+
+#+begin_src sh
+.../bin/guile-lsp-server --version
+# Guile LSP Server / Version 0.4.10
+#+end_src
+
+*Label:* measured (all three failures observed, all three worked around, the
+built binary exercised in L4--L10).
+
+* L4 --- Does it work against a real project?
+
+*Question.* Point it at =~/ghq/github.com/dsp-dr/guile-sicp=, modules under
+=src/= in the =(sicp ...)= namespace, and drive a full LSP session over stdio.
+
+*Result.* It works. =/tmp/lsp-eval/drive.py= does =initialize= →
+=initialized= → =didOpen(src/sicp/ch1.scm)= → hover / completion / definition /
+references on =good-enough?=. Hover:
+
+#+begin_src json
+{"contents": {"kind": "plaintext", "value": "((sicp ch1):good-enough? guess x)"}}
+#+end_src
+
+Definition resolved to =src/sicp/ch1.scm= line 50, the correct line. Completion
+returned two items for =good-enough?=, one carrying =module: "(#f)"= and one
+=module: "(sicp ch1)"= --- a duplicate, since =$apropos-list= unions the
+current-module result with the hinted-module result without de-duplicating by
+label. Cosmetic, but a completion popup would show every identifier twice.
+
+Diagnostics for =ch1.scm= came back empty, which is correct: the file compiles
+clean.
+
+*Label:* measured. Read-only: the file was sent as =didOpen= text, and
+=git -C guile-sicp status --porcelain= was empty afterwards.
+
+* L5 --- The load-path gap, and it is the same gap we already have
+
+*Question.* The first run of L4 returned ~"result": null~ for
+=textDocument/definition= and =module: "(#f)"= for every completion. Why?
+
+*Result.* Because the server does not derive a load path from the project. The
+whole of Guile's initialisation is:
+
+#+begin_src scheme
+(define ($initialize-lsp-server! root-path)
+  (when (not (eq? root-path 'null))
+    (add-to-load-path root-path))
+  #f)
+#+end_src
+
+(=lsp-server/private/compat-guile-impl.scm:19-24=.) It adds the *project root*.
+=guile-sicp= keeps its modules in =src/=, so =(sicp ch1)= is unresolvable,
+=resolve-module= returns =#f=, and =$get-definition-locations= has nothing to ask.
+
+Proved by changing one variable. Same probe, same file, only
+=GUILE_LOAD_PATH= extended with =<root>/src=:
+
+| =GUILE_LOAD_PATH= includes =src/= | hover                                 | definition      | completion items |
+|-----------------------------------+---------------------------------------+-----------------+------------------|
+| no                                | ="(good-enough? guess x)"=            | =null=          | 1, module =(#f)= |
+| yes                               | ="((sicp ch1):good-enough? guess x)"= | correct line 50 | 2, one =(sicp ch1)= |
+
+This is =roadmap.org='s C5 arriving from the other direction. The plugin's own
+=guile-repl-server.sh:20,76= assumes =src/=; the LSP server assumes the root. Two
+different wrong guesses about the same thing. An =lspServers= entry could pass
+=GUILE_LOAD_PATH= in =env=, but only by guessing the layout again --- and
+=surfaces.org= already says "an Emacs integration that guesses wrong is worse
+than none". The same sentence applies here.
+
+*Label:* measured (both columns of the table, one variable changed between them).
+
+* L6 --- Diagnostics, with a planted fault
+
+*Question.* Does =diagnostics= work, and how does it compute them?
+
+*Result.* Yes, and it computes them by *running the compiler in process*.
+=$compute-diagnostics= calls =(compile-file path)= inside
+=with-output-to-string= with =current-warning-port= redirected, then parses
+Guile's warning text with =string-split= on =#\:=
+(=compat-guile-impl.scm:291-352=).
+
+A throwaway project with a planted unbound variable
+(=/tmp/lsp-eval/proj/src/demo/broken.scm=, =(+ x undefined-thing)= at line 5):
+
+#+begin_src json
+{"method": "textDocument/publishDiagnostics",
+ "params": {"uri": "file:///tmp/lsp-eval/proj/src/demo/broken.scm",
+            "diagnostics": [
+              {"message": " warning:  possibly unbound variable `undefined-thing'",
+               "source": "guile",
+               "range": {"start": {"line": 4, "character": 7},
+                         "end":   {"line": 4, "character": 79}}}]}}
+#+end_src
+
+Correct line, useful message, and =end.character: 79= --- the range end is
+fabricated, so the squiggle runs to a fixed column rather than to the end of the
+symbol. Diagnostics fire on both =didOpen= and =didSave=, identically.
+
+Worth being precise about what this *is*: it is =guild compile -Wunbound-variable=
+output, reformatted. Nothing in it needs a long-lived process.
+
+*Label:* measured.
+
+* L7 --- Opening a file executes the file
+
+*Question.* =boundaries.org= marks L2 --- the socket REPL --- as "unauthenticated
+code execution", and that is accepted because someone has to deliberately send a
+form. Does an LSP server preserve that deliberateness?
+
+*Result.* *No.* Opening a file in the editor runs the file's code, at both
+expansion time and load time, in the LSP server's process. =$open-file!= calls
+=compile-and-import-if-needed=, which calls =lsp-geiser-compile-file= (→
+=compile-file=, which runs =eval-when (expand)=) and then
+=(eval `(import ,mod-name) (interaction-environment))= (which runs the module
+body). =$save-file!= additionally calls =reload-module=.
+
+Planted two faults in one file and watched for the artefacts
+(=/tmp/lsp-eval/proj2/src/demo/sideeffect.scm=, driven by =drive3.py=):
+
+#+begin_src scheme
+(eval-when (expand)
+  (call-with-output-file "/tmp/lsp-eval/PROOF-expand" ...))   ; N1: expansion time
+(call-with-output-file "/tmp/lsp-eval/PROOF-load" ...)        ; N2: load time
+#+end_src
+
+#+begin_src sh
+rm -f /tmp/lsp-eval/PROOF-*; python3 drive3.py error; ls -l /tmp/lsp-eval/PROOF-*
+# -rw-r--r--  21 PROOF-expand
+# -rw-r--r--  19 PROOF-load
+#+end_src
+
+Both ran. One =textDocument/didOpen= --- which a client sends because a file
+appeared in a buffer, not because anyone asked for anything --- executed both.
+
+This is not a bug in =scheme-lsp-server=; it is the consequence of implementing
+Scheme intelligence by loading Scheme, and every REPL-backed tool has it, Geiser
+included. It matters here because it *inverts* the property that makes L2
+acceptable. The REPL is dangerous and gated by intent. This is equally dangerous
+and gated by a file being opened.
+
+*Label:* measured.
+
+* L8 --- What it writes, and where
+
+*Question.* Does it drop artefacts in the working tree? =boundaries.org=: "a
+transcript never lands in the repo".
+
+*Result.* Clean. =compile-file= writes to Guile's own cache, keyed by absolute
+source path:
+
+#+begin_src sh
+find ~/.cache/guile/ccache -name '*.go' -mmin -30
+# .../3.0-LE-8-4.7/tmp/lsp-eval/proj/src/demo/broken.scm.go
+# .../3.0-LE-8-4.7/home/dsp-dr/ghq/github.com/dsp-dr/guile-sicp/src/sicp/ch1.scm.go
+find ~/ghq/github.com/dsp-dr/guile-sicp -name '*.go' -mmin -30   # nothing
+git -C ~/ghq/github.com/dsp-dr/guile-sicp status --porcelain     # nothing
+#+end_src
+
+And it does *not* walk the workspace. For Guile, =$initialize-lsp-server!= does
+no scan; =generate-meta-data!= parses only the files it is handed. The debug log
+confirms one file per =didOpen=:
+="generate-meta-data! for files (/tmp/lsp-eval/proj/src/demo/broken.scm)"=. So it
+does not read =.env=, =notes/=, or anything else unprompted --- unlike the CHICKEN
+backend, which the README says scans the project for definitions.
+
+*Label:* measured.
+
+* L9 --- Does it bind a port? Does it phone home?
+
+*Question.* Both, and the answer to the first changes depending on who spawns it.
+
+*Result.* *Socket mode binds loopback only, and Claude Code never uses it.*
+
+#+begin_src scheme
+(define ($tcp-listen port-number)
+  (define sock (socket PF_INET SOCK_STREAM 0))
+  (setsockopt sock SOL_SOCKET SO_REUSEADDR 1)
+  (bind sock (make-socket-address AF_INET INADDR_LOOPBACK port-number))
+  (listen sock 20) sock)
+#+end_src
+
+Verified live:
+
+#+begin_src sh
+guile-lsp-server --socket 39777 &
+sockstat -4l | grep 39777
+# dsp-dr guile-3.0 67148 11 tcp4 127.0.0.1:39777 *:*
+netstat -an -p tcp | grep 39777
+# tcp4 0 0 127.0.0.1.39777 *.* LISTEN
+#+end_src
+
+=INADDR_LOOPBACK=, hard-coded, no configuration to change it. That satisfies
+=boundaries.org='s L2 bind rule without our having to enforce anything.
+
+It is also moot: the manifest reference says of =transport=, "Claude Code accepts
+=socket= but *runs every server over stdio*, so the stdout protocol rules apply to
+all servers." So under this plugin, an LSP server binds nothing and there is no
+port to derive, reserve, or collide.
+
+*Phone home: no.* A census of every network primitive in the Guile sources turns
+up =$tcp-listen=, =$tcp-accept=, =$tcp-connect=, =$tcp-close= and nothing else ---
+no HTTP client, no =curl=, no =getaddrinfo= against a remote name, no telemetry:
+
+#+begin_src sh
+grep -rn 'http\|curl\|socket\|connect\|getaddrinfo\|bind' \
+     lsp-server/private/*.scm lsp-server-impl.scm
+#+end_src
+
+=$tcp-connect= is dead code for the server role. The one network fetch in the
+whole project is =install-deps.sh=, at *build* time, from =codeberg.org= and
+=synthcode.com= --- three tarballs over =curl=, no checksums and no signatures.
+That is a supply-chain note, not a runtime egress.
+
+*Label:* measured (the bind address, the listener, the grep census); inherited
+(that Claude Code forces stdio --- from the manifest reference, fetched
+2026-09-29; not exercised, because nothing here installs an LSP surface).
+
+* L10 --- Three protocol-conformance faults, one of which is ours to care about
+
+*Question.* The reference's warning is blunt: the stdout protocol rules apply to
+every LSP server. Does this one keep stdout clean?
+
+*Result.* Three faults, measured with =/tmp/lsp-eval/corrupt.py=.
+
+*Fault 1 --- every error response spells the protocol key wrong.* The
+=references= rejection in L1 came back as:
+
+#+begin_src json
+{"id": 5, "json-rpc": "2.0", "error": {"message": "Method not found: ...", "code": -32601}}
+#+end_src
+
+=json-rpc=, not =jsonrpc=. Not a rendering artefact: it is the constructor.
+=scheme-json-rpc= 0.6.1, =json-rpc/lolevel-impl.scm:236= and =:273=:
+
+#+begin_src scheme
+(res `((json-rpc . ,json-rpc-version)
+       (error . ((message . ,message) (code . ,(alist-ref error-symbol (error-codes)))))))
+#+end_src
+
+Successful responses use the right key; only the error path is wrong. A client
+that validates =jsonrpc= will reject every error the server sends.
+=make-json-rpc-custom-error= at =:273= has a second bug on the same lines --- a
+nested quasiquote that emits a literal =quasiquote= form as the error body.
+
+*Fault 2 --- the usage banner is printed on stdout at exit.*
+
+#+begin_src sh
+guile-lsp-server --stdio < /dev/null 2>/dev/null
+# usage: guile-lsp-server [--log-level <log-level>] [--socket <port-num>] ...
+#+end_src
+
+=main= runs *twice*. The launcher is =guile -e main -s "$0" "$@"=, and =main.scm=
+*also* ends with =(main (cdr (command-line)))= at line 139. The trailing call runs
+the server; when it returns, =-e main= invokes =main= again with the full argv,
+whose first element is the script path, which matches no clause in
+=process-args=, so =print-usage= writes to =current-output-port= and exits 0.
+Unframed bytes on the protocol channel, on every single run. It happens after
+the session ends, so a client that has stopped reading is unaffected --- but it is
+the exact hazard =EXPERIMENTS-channels.org= C5 and E2/E3 name, present in the
+shipped launcher.
+
+*Fault 3 --- internal errors and log noise go to the client, not to stderr.*
+At the *default* =--log-level error=, stderr carried one line all session (a
+compile warning) while the protocol channel carried =window/logMessage= with
+=type: 1= (Error) for each internal failure --- including a raw Guile condition
+object printed into the message string, and the same
+="line/char->pos: line (9999) exceeds number of newlines (8)"= emitted *five
+times* for one request. At =--log-level debug= it is worse: the log messages
+include ="text read: <the entire file>"=, so the file's contents are pushed back
+to the client.
+
+So this server has *no stderr trail at all*. =monitors/monitors.json= tails
+=repl.stderr= and =proxy.stderr= because that is where a dying process confesses;
+an LSP server backed by this code confesses into the agent's context instead.
+
+*Label:* measured (all three; fault 1 and 2 traced to the exact source lines).
+
+* L11 --- The manifest contract: 29 planted faults
+
+*Question.* =docs/surfaces.org= step 2 --- check what actually validates it.
+Working claims: =command= required, no spaces unless absolute; =extensionToLanguage=
+required with ≥1 entry whose keys start with =.=; =transport= stdio|socket;
+timeouts positive integers. Which does the CLI enforce?
+
+*Result.* Inline =lspServers= is the *strictest* surface measured in this
+repository. 29 faults planted in a throwaway plugin
+(=/tmp/lsp-eval/tp=, =/tmp/lsp-eval/faults.py=), each run through
+=claude plugin validate <dir> --strict=:
+
+| # | Fault                                               | =validate --strict=                                                     |
+|---+-----------------------------------------------------+-------------------------------------------------------------------------|
+| N0 | baseline, valid inline entry                       | passed (correct)                                                        |
+| N1 | =command= missing                                  | *error*: =lspServers: Invalid input=                                    |
+| N2 | =command= has spaces, not absolute                 | *error*: =lspServers.guile.command: Command should not contain spaces. Use args array for arguments.= |
+| N3 | =command= has spaces, starts with =/=              | passed (legal per the reference)                                        |
+| N4 | =extensionToLanguage= missing                      | *error*: =lspServers: Invalid input=                                    |
+| N5 | =extensionToLanguage= = ={}=                       | *error*: =...extensionToLanguage: extensionToLanguage must have at least one mapping= |
+| N6 | key without leading dot (="scm"=)                  | *error*: =lspServers: Invalid input=                                    |
+| N7 | =transport: "tcp"=                                 | *error*: =lspServers: Invalid input=                                    |
+| N8 | =transport: "socket"=                              | passed (legal)                                                          |
+| N9 | unknown key in the entry                           | *error*: =lspServers: Invalid input=                                    |
+| N10 | =startupTimeout: -1=                              | *error*: =lspServers.guile.startupTimeout: Invalid input=               |
+| N11 | =startupTimeout: 0=                               | *error*: =...startupTimeout: Invalid input= (so "positive" is strict)   |
+| N12 | =startupTimeout: "5000"=                          | *error*: =lspServers: Invalid input=                                    |
+| N13 | =startupTimeout: 1.5=                             | *error*: =lspServers: Invalid input= (integer, not just number)         |
+| N14 | =maxRestarts: -1=                                 | *error*: =lspServers.guile.maxRestarts: Invalid input=                  |
+| N15 | =command= names a binary that does not exist      | *PASSED --- gap*                                                       |
+| N16 | =lspServers: "./missing-lsp.json"=                | *PASSED --- gap* (reference: path checks need ≥ 2.1.283)               |
+| N17 | =lspServers: ".lsp.json"= (no =./=)               | *error*: =lspServers: Invalid input=                                    |
+| N18 | =lspServers: "../outside.json"=                   | *error*: =lspServers: Invalid input=                                    |
+| N19 | default =.lsp.json= with an unknown key           | *PASSED --- gap*                                                       |
+| N20 | default =.lsp.json= missing =extensionToLanguage= | *PASSED --- gap*                                                       |
+| N21 | =diagnostics: false=                              | passed (legal)                                                          |
+| N22 | =diagnostics: "no"=                               | *error*: =lspServers: Invalid input=                                    |
+| N23 | =env= an array, not an object                     | *error*: =lspServers: Invalid input=                                    |
+| N24 | =extensionToLanguage= value not a string          | *error*: =lspServers: Invalid input=                                    |
+| N25 | server name key is the empty string               | *PASSED --- gap*                                                       |
+| N26 | =args= a string, not an array                     | *error*: =lspServers: Invalid input=                                    |
+| N27 | =${user_config.lsp_path}= in =command=, option undeclared | *PASSED --- gap*                                                 |
+| N28 | =workspaceFolder: "../../etc"=                    | *PASSED --- gap*                                                       |
+
+Tally: 18 rejected, 4 legal-and-passed, 7 gaps. Every one of the four working
+claims above is *confirmed enforced*, and two are stricter than stated: a timeout
+of =0= is rejected (positive, not non-negative) and =1.5= is rejected (integer,
+not number). Two named field paths appear in messages (=command=,
+=extensionToLanguage=, =startupTimeout=, =maxRestarts=); everything else collapses
+to =lspServers: Invalid input=, so a fault in a large config gives no key.
+
+*Label:* measured, =claude= 2.1.261, =/tmp/lsp-eval/faults.py=, 29 runs.
+
+* L12 --- =.lsp.json= is not validated at all. That is a fourth enforcement level.
+
+*Question.* N19 and N20 suggest the default file is unchecked. Is the file
+unchecked, or merely unread?
+
+*Result.* *Unread.* Six follow-ups (=/tmp/lsp-eval/faults2.py=), every one
+=Validation passed=:
+
+| #  | Case                                                               | Result   |
+|----+--------------------------------------------------------------------+----------|
+| M1 | =.lsp.json= is not valid JSON at all, manifest silent              | *passed* |
+| M2 | manifest says ="./.lsp.json"=, unknown key inside the file         | *passed* |
+| M3 | manifest says ="./.lsp.json"=, entry missing =extensionToLanguage= | *passed* |
+| M4 | manifest says ="./.lsp.json"=, file well-formed                    | passed   |
+| M5 | manifest says ="./.lsp.json"=, file is not valid JSON              | *passed* |
+| M6 | inline entry and a faulty =.lsp.json= both present                 | *passed* |
+
+M1 and M5 settle it: a file containing =“{ this is not json”= passes
+=--strict=, whether or not the manifest names it. The validator checks the
+*inline* object and never opens the file.
+
+This is a new row for =contracts/artifacts.json=, and it is a *fourth*
+enforcement level alongside the three already recorded:
+
+| Surface                                | What the CLI checks                                        |
+|----------------------------------------+------------------------------------------------------------|
+| =plugin.json= root                     | recognised keys; unknown key warns and fails =--strict=     |
+| =channels= entries                     | strict --- unknown key is an error                          |
+| =mcpServers= entries                   | barely --- unknown key passes, no cross-check with =channels= |
+| =monitors/monitors.json=               | *nothing* --- nine faults all passed                        |
+| =lspServers= *inline*                  | *strictest measured* --- 18 of 29, including semantic rules  |
+| =lspServers= *as a file*               | *nothing* --- not even JSON syntax                          |
+
+And the same asymmetry as =monitors=: the default-path file is invisible.
+=docs/surfaces.org= lists =.lsp.json= as where LSP servers live --- which is
+exactly the form with zero coverage.
+
+One convergent consequence, worth stating because it decides a design question
+for free. =.github/labeler.yml='s =deployable= globs and
+=scripts/check-version-bump.sh='s =SHIPPED= list are:
+
+#+begin_src
+skills/ .claude-plugin/ scripts/lib/ monitors/ agents/ commands/ hooks/
+output-styles/ themes/ workflows/
+#+end_src
+
+Neither includes =.lsp.json= (nor =.mcp.json=). So a =.lsp.json= would ship to
+users while being invisible to both the version-bump gate and the release label
+--- =surfaces.org= step 3, the failure that cost 0.1.6. An *inline* =lspServers=
+in =plugin.json= is covered by =.claude-plugin/**= in both lists, and is the only
+form =validate= checks. Both arguments point the same way: if this surface is ever
+built, it goes inline, and =tests/validate-lsp.py= exists from day one, calibrated
+against the seven gaps above.
+
+*Label:* measured.
+
+* L13 --- The overlap: where is the genuine seam?
+
+*Question.* This plugin can already do =,trace=, =,bt=, =,break=, =,expand=,
+=,optimize=, =,profile=, =,time= over a socket, and Geiser gives completion and
+documentation from the live image. What does an LSP server add that is not already
+there?
+
+*Result.* For Guile, *almost nothing, because it is Geiser*. Not "like Geiser":
+the repository vendors Geiser's own Scheme files
+(=geiser/guile/src/geiser/{completion,doc,xref,modules,evaluation,utils}.scm=,
+Geiser commit ~c641fcc~, BSD-3) and =lsp-server/private/adapter-impl.scm= is a
+thin wrapper over them:
+
+| LSP request                  | What answers it                                      |
+|------------------------------+------------------------------------------------------|
+| =textDocument/hover=         | =geiser:symbol-documentation=, then =geiser:autodoc=  |
+| =textDocument/signatureHelp= | =geiser:autodoc=                                     |
+| =textDocument/completion=    | =geiser:completions= (+ =module-defined?= sweep)      |
+| =textDocument/definition=    | =geiser:symbol-location= / =geiser:module-path=       |
+| =textDocument/publishDiagnostics= | =compile-file= warnings, parsed as text         |
+
+So the first four answers are the *same procedure calls* Geiser already makes over
+the REPL socket. The fifth is the only one that is new, and it is
+=guild compile -Wunbound-variable= output reformatted.
+
+The seam is therefore not "static versus live". It is worse than that: *it is a
+second, staler image*. The LSP server has its own Guile heap, which it populates
+by compiling and importing files as they are opened (L7). It has no connection to
+the project REPL. So when a developer redefines a procedure at the REPL --- the
+entire premise of this plugin, and the reason =guile-sicp= sets
+=#:declarative? #f= --- the LSP server still reports what it last read from disk.
+Two images, two answers, and the one the editor shows is the one that has not seen
+your work.
+
+Laid against what exists:
+
+| Capability                        | Over the existing socket      | Via this LSP server        |
+|-----------------------------------+-------------------------------+----------------------------|
+| signature / arity                 | yes (=procedure-arguments=, Geiser autodoc) | yes (same code, staler image) |
+| documentation                     | yes (=,describe=, Geiser doc) | yes (same code)            |
+| completion                        | yes (=,apropos=, Geiser)      | yes (duplicated entries, L4) |
+| jump to definition                | yes (=,locate=, Geiser xref)  | yes, if the load path is guessed right (L5) |
+| =compile-file= warnings, pushed unasked | no                      | *yes --- the one new thing* |
+| backtrace at a live frame (=,bt=) | yes                           | no --- LSP cannot express it |
+| tracing (=,trace=)                | yes                           | no                         |
+| macro expansion (=,expand=)       | yes                           | no                         |
+| profiling (=,profile=, =,time=)   | yes                           | no                         |
+| the transcript                    | yes (the proxy tees it)       | no --- a second process nobody records |
+
+*Label:* measured (the adapter mapping read from source; the duplication and the
+load-path dependence measured in L4/L5); inherited (Geiser's own behaviour in
+Emacs, from =docs/surfaces.org= and the Geiser manual, not re-run here).
+
+* L14 --- Latency
+
+*Question.* Would =startupTimeout= need tuning?
+
+*Result.* No. =/tmp/lsp-eval/timing.py=:
+
+| Measurement                              | Warm  | Cold (=.go= cache cleared) |
+|------------------------------------------+-------+----------------------------|
+| spawn → =initialize= response            | 0.10s | 0.10s                      |
+| =didOpen= → first =publishDiagnostics=   | 0.28s | 0.68s                      |
+
+Sub-second both ways on a 200-line module. Fast, because Guile is already
+resident and the work is a =compile-file=. Nothing here argues against adoption.
+
+*Label:* measured.
+
+* L15 --- Which boundaries would this cross?
+
+Checked against =docs/boundaries.org= row by row. Three clean, two moot, one
+satisfied by accident, two violated.
+
+| Boundary rule                               | Under an =lspServers= surface                                   |
+|---------------------------------------------+-----------------------------------------------------------------|
+| L0: probe the binary, never pin             | *violated upstream*: the launcher shebang is bare =guile=, which is 2.2.7 here (L3) |
+| L0: never touch the user's =~/.emacs.d=     | clean --- it is editor-agnostic by construction                  |
+| L1: no transcript in the working tree       | *clean, measured* --- =.go= goes to =~/.cache/guile/ccache= (L8) |
+| L1: derive ports per checkout               | moot --- Claude Code forces stdio, so there is no port (L9)      |
+| L2: bind =127.0.0.1= only                   | *satisfied* --- =INADDR_LOOPBACK= hard-coded (L9); and moot      |
+| L2: nothing is sent off-host                | *clean, measured* --- no HTTP client anywhere (L9)               |
+| L3 → L4: stderr yes, transcript no          | *violated*: there is no stderr trail; internal errors and, at debug level, whole file contents are pushed to the client as =window/logMessage= (L10), and =diagnostics= defaults to =true=, which pushes into context after every edit |
+| L4: one client at a time                    | no socket contention --- but a *second Guile image of the same project*, which disagrees with the REPL the moment anything is redefined (L13) |
+| shipped ↔ unshipped                         | =.lsp.json= is in neither =deployable= nor =SHIPPED= (L12)       |
+| --- new, not in =boundaries.org= ---        | *opening a file executes the file*, at expansion and load time, with no intent required (L7) |
+
+The last row is the one that matters. =boundaries.org= accepts an unauthenticated
+code-execution socket because crossing it takes a deliberate act. This surface
+keeps the execution and removes the deliberateness.
+
+*Label:* measured, except the =diagnostics: true= default, which is inherited from
+the manifest reference.
+
+* Recommendation: decline for now, and say which measurement would change it
+
+Not "defer" in the sense of "we ran out of time". Three of the four reasons are
+properties of the thing, and the fourth is a property of the CLI.
+
+1. *It is Geiser, in a second image that is wrong.* L13 is the whole argument.
+   Four of the five capabilities are literally Geiser's own procedures, already
+   reachable over the socket this plugin exists to stand up, and the LSP copy
+   answers from a heap that has not seen anything the developer redefined. A
+   REPL-driven workflow is the one workflow where a stale second image is worst.
+   The single genuinely new capability is =compile-file= warnings --- which is
+   =guild compile -W= and does not need a long-lived process at all. If pushed
+   diagnostics are wanted, the cheap correct answer is a few lines in
+   =repl-eval='s =SKILL.md=, not a fifth surface.
+
+2. *The one form the CLI validates is not the form the surface ships in.* L11 and
+   L12: inline =lspServers= is the strictest thing measured here, and =.lsp.json=
+   is not even parsed. =surfaces.org= step 2 exists because "a check that cannot
+   fail is decoration", and the default path has no check whatsoever --- the same
+   hole as =monitors=, which cost a hand-written validator and nine planted faults
+   to close.
+
+3. *It reintroduces exactly the leak the monitor was designed around.*
+   =surfaces.org= is explicit that =guile-repl-health= tails stderr and
+   deliberately not =repl.log=, "because the transcript contains whatever anyone
+   evaluated, including a human in Geiser who never asked for an agent to read
+   along". An LSP server backed by this code has *no* stderr (L10), pushes its
+   internal errors into context, echoes file text at debug level, and defaults
+   =diagnostics= to =true=. That is the same leak with a different valve.
+
+4. *It would have to guess the load path, and guessing is the open bug.* L5 is
+   =roadmap.org= C5 in a new place. The repository's standing position, in
+   =surfaces.org=, is that an integration which guesses the layout wrong is worse
+   than none. That position was taken about Emacs; it applies unchanged here, and
+   =lspServers= offers no way to avoid the guess --- only an =env= in which to
+   write it down.
+
+*What the experiment buys, and it is not nothing:*
+
+- *L11 and L12 are a contract we can bank without building anything.*
+  =contracts/artifacts.json= gains an =lspServers= row with 35 measured faults, a
+  fourth enforcement level, and the fact --- surprising, and the opposite of what
+  the field's strictness suggests --- that the file form is unread. Anyone who
+  later adds =.mcp.json= should read L12 first, because it is the same shape of
+  hole.
+- *L12's convergence settles a design question in advance.* Inline, not a file:
+  it is the only validated form *and* the only one the =deployable= label and the
+  version-bump gate can see. Two independent reasons, same answer.
+- *L3 is a reusable portability warning.* Bare =guild= is 2.2.7 on nexus and bare
+  =guile= is 2.2.7 on nexus, and the second one is baked into a *shipped*
+  launcher. Any =command= this repository ever writes into a manifest must go
+  through a trampoline like =guile-repl-proxy.scm='s, and L3 is the measurement
+  that proves why.
+- *L7 is a boundary =boundaries.org= does not yet have a row for.* "Opening a file
+  executes the file" is true of Geiser too, and is worth writing down whether or
+  not an LSP server is ever adopted, because the next tool that offers Scheme
+  intelligence will have it as well.
+- *L10 fault 2 is the C5 hazard caught in the wild.* =EXPERIMENTS-channels.org=
+  predicted that a Guile process whose stdout is a protocol would eventually print
+  something non-protocol there. Here it is, in a shipped launcher, from a
+  double-invoked =main=.
+
+*What would change the answer.* One measurement, and it is not about
+=scheme-lsp-server=:
+
+- *If =roadmap.org= C5 is closed* --- if the plugin can determine a project's load
+  path rather than assuming =src/= --- then L5 stops being a guess, and an
+  =lspServers= entry becomes a five-line =env= away. That is the gating
+  dependency, and it is already on the roadmap for other reasons.
+
+And one that would change it upstream:
+
+- *If the LSP server connected to the project REPL* rather than maintaining its
+  own image --- =$tcp-connect= already exists in the compat layer, unused for the
+  server role --- then L13's staleness argument collapses and the surface becomes
+  a genuine second window onto the one image this plugin already records. That is
+  an upstream design change, not a configuration, and upstream's README still says
+  EXPERIMENTAL.
+
+*If the row is ever filled*, the order is: C5 first; then =lspServers= *inline* in
+=plugin.json=, never =.lsp.json=; =command= pointing at a trampoline we own, not
+at =guile-lsp-server=; =transport= omitted, since it is ignored; =diagnostics=
+set explicitly to =false= until someone argues for the context cost;
+=tests/validate-lsp.py= calibrated against L11's seven gaps before the entry is
+committed; and the four hand-built dependencies vendored or declined, because
+"three tarballs over curl with no checksums" is not an install story this
+repository should ship.
+
+* Reproducing this
+
+Everything is in =/tmp/lsp-eval/=, outside any repository, and nothing was
+installed system wide.
+
+| File                  | What it produced |
+|-----------------------+------------------|
+| =probe.scm=           | L2 dependency census |
+| =shim/{guild,guile,make}= | L3 --- symlinks to =guild3=, =guile3=, =gmake= |
+| =drive.py=            | L4, L5 --- full LSP session against =guile-sicp= |
+| =drive2.py=           | L6 --- planted unbound variable, diagnostics |
+| =drive3.py=           | L7 --- expansion-time and load-time execution proofs |
+| =corrupt.py=          | L10 --- the three conformance faults |
+| =timing.py=           | L14 --- latency, warm and cold |
+| =faults.py=           | L11 --- 29 manifest faults |
+| =faults2.py=          | L12 --- 6 follow-ups proving =.lsp.json= is unread |
+| =tp/=                 | the throwaway plugin the faults were planted in |
+
+Build, in order: =install-deps.sh --prefix=$PFX= with the shim on =PATH= and the
+three L3 repairs; then =scheme-json-rpc/guile/{configure,gmake,gmake install}=;
+then =scheme-lsp-server/guile/{configure,gmake,gmake install}= after the
+=touch= sequence.
