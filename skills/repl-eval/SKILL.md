@@ -77,3 +77,9 @@ read back is the value.
   warnings, and that is the whole story — no clj-kondo equivalent exists. Never
   instruct anyone to "run the linter". (`-o /dev/null` always fails: `guild`
   renames a temp file into place.)
+
+## Documentation
+
+Full write-up, including the three binary names this probes across FreeBSD,
+Debian/Ubuntu and Homebrew: <https://wal.sh/tools/plugins/guile-skills/>
+Source and issues: <https://github.com/dsp-dr/guile-skills>

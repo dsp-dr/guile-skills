@@ -241,3 +241,7 @@ The interpreter and version, and the host they were measured on. The module
 directories found and the load path derived from them. The two ports. The
 `.dir-locals.el` you wrote and what it probes. The Geiser and Paredit status.
 The verification output. And anything you could not do, stated as such.
+
+## Documentation
+
+<https://wal.sh/tools/plugins/guile-skills/>
