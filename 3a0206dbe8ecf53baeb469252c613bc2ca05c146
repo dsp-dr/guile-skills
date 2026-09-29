@@ -1,0 +1,26 @@
+Context
+  Decided to keep the core name after surveying claude-plugins-official: the -skills
+  suffix is a live vendor convention there (18 of 314 entries keep it), so the suffix
+  was never the problem -- the doubling in /guile-skills:guile-repl-server was. The
+  user's reason for keeping the core name is the stronger one I had missed: gh skill,
+  the plugin and the marketplace are three distribution channels that all key off it.
+
+Deviations
+  Script filenames and the workspace artifacts were left alone, both deliberately and
+  for different reasons -- blast radius in the first case, not falsifying a record in
+  the second.
+
+  The cost accepted: a standalone `gh skill install dsp-dr/guile-skills repl-server'
+  lands a skill whose NAME no longer says Guile. Mitigated only by the repo being
+  named in the command and by every skill's description and compatibility fields
+  stating it. Recorded in issue #16 rather than left implicit.
+
+Considerations
+  The validators are what made this safe to do mechanically. Three cross-checks over
+  four identities meant the sweep could not be half-finished silently, and that is the
+  first time the calibration work paid for itself on a change of this size.
+
+Timeline
+  2026-09-29, nexus, FreeBSD 15.1-RELEASE, guile3 3.0.10, Claude Code 2.1.261, as
+  dsp-dr. 23 files swept, 4 renamed, 64 workspace files untouched. gmake checks green;
+  ship-check green; 3 labels created.
