@@ -85,9 +85,23 @@ import subprocess
 import sys
 
 # Vocabulary that belongs in contracts/ and nowhere else.
+#
+# `$schema' is deliberately NOT in this list, and the first version of it was wrong
+# to include it. Measured on 2.1.261: a manifest carrying
+# "$schema": "https://www.schemastore.org/claude-code-plugin-manifest.json" passes
+# `validate --strict' clean, and the binary describes the field as "JSON Schema
+# reference for editor autocomplete/validation; ignored at load time". Anthropic's
+# own .claude-plugin/marketplace.json sets it. So it is a first-class optional field
+# whose whole purpose is editor validation -- forbidding it made this check reject a
+# legal, useful file, which is a worse failure than the one it was guarding against.
+#
+# What remains forbidden is metadata about OUR process: a contract version, when we
+# measured it, what we concluded. That belongs in contracts/ because an unknown key
+# in a strict entry stops the plugin loading and an unknown top-level manifest key
+# fails --strict.
 CONTRACT_KEYS = re.compile(
     r'"(?:_comment|contract|contract_version|contractVersion|schema_version|'
-    r'schemaVersion|\$schema|measured_on|measured_faults|cli_validates|'
+    r'schemaVersion|measured_on|measured_faults|cli_validates|'
     r'validated_by|manifest_reference\w*)"'
 )
 

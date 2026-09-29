@@ -10,7 +10,9 @@
       "cli_validates": "yes",
       "notes": [
         "`icon` is not a field; it produced the warning that kept CI off --strict until 0.1.5.",
-        "Component paths must start with './'. `experimental.evals: \"evals\"` was ACCEPTED by the CLI despite the reference requiring the prefix -- a spec-versus-implementation gap, normalized to the documented contract."
+        "`$schema` IS a recognized optional field -- 'JSON Schema reference for editor autocomplete/validation; ignored at load time' -- and passes --strict. An earlier contract claim that it would fail --strict was wrong.",
+        "Component paths must start with './'. ENFORCED for `skills` (skills.0: Invalid input) but NOT for `experimental.evals`, which is accepted bare -- so the gap is narrower than first recorded.",
+        "`version` is not checked against semver: 'not-semver' passes."
       ],
       "measured_faults": [
         {
@@ -18,8 +20,28 @@
           "cli_result": "warns; fails --strict"
         },
         {
-          "fault": "component path without ./",
+          "fault": "$schema present",
+          "cli_result": "passes clean -- legal field"
+        },
+        {
+          "fault": "skills entry without ./",
+          "cli_result": "error: skills.0: Invalid input"
+        },
+        {
+          "fault": "experimental.evals without ./",
           "cli_result": "accepted (gap)"
+        },
+        {
+          "fault": "version not semver",
+          "cli_result": "accepted (no semver check)"
+        },
+        {
+          "fault": "name with a space",
+          "cli_result": "error: cannot contain spaces, use kebab-case"
+        },
+        {
+          "fault": "missing name",
+          "cli_result": "error: name: Invalid input"
         }
       ]
     },
@@ -48,6 +70,10 @@
         {
           "fault": "unknown key inside a hook entry",
           "cli_result": "PASSED -- no coverage"
+        },
+        {
+          "fault": "{\"modules\": []} only",
+          "cli_result": "error: must have `hooks` or `modules`"
         }
       ]
     },
@@ -146,6 +172,35 @@
       "notes": [
         "StrictYAML rejects flow sequences, so `binaries: [guile3]` fails skills-ref validate."
       ]
+    },
+    {
+      "file": ".claude-plugin/marketplace.json",
+      "required_top_level": [
+        "name",
+        "owner",
+        "plugins"
+      ],
+      "cli_validates": "yes",
+      "notes": [
+        "Anthropic's own anthropics/claude-code marketplace.json sets $schema to https://json.schemastore.org/claude-code-marketplace.json -- there is no Anthropic-published schema, and issues asking for one were closed by adopting the community mirror.",
+        "An unknown key in a plugin entry WARNS ('Claude Code ignores it at load time') rather than erroring.",
+        "With marketplace.json present, `validate` checks BOTH: a plugin.json fault is reported as `plugins[0] plugin.json -> ...`, so adding a marketplace costs no manifest coverage."
+      ],
+      "measured_faults": [
+        {
+          "fault": "missing owner",
+          "cli_result": "error: owner: Invalid input"
+        },
+        {
+          "fault": "unknown key in a plugin entry",
+          "cli_result": "warns"
+        },
+        {
+          "fault": "plugin.json fault while marketplace.json exists",
+          "cli_result": "reported as plugins[0] plugin.json -> ...; still fails --strict"
+        }
+      ],
+      "verified_end_to_end": "marketplace add (local dir) -> marketplace list -> plugin install -> plugin list, in a throwaway CLAUDE_CONFIG_DIR; installed 0.3.0 at user scope, enabled"
     }
   ]
 }

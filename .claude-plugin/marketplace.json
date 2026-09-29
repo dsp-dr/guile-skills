@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "guile-skills",
+  "owner": {
+    "name": "dsp-dr",
+    "url": "https://github.com/dsp-dr"
+  },
+  "metadata": {
+    "description": "Agent skills and tooling for Guile Scheme projects.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "guile-skills",
+      "source": "./",
+      "description": "Stand up and drive a Guile socket REPL from an agent: guile3 --debug --listen on a per-project port, a transcript-logging proxy on PORT+1, an Emacs/Geiser setup agent, and the eval bridge that makes \"verified\" mean something.",
+      "author": {
+        "name": "dsp-dr"
+      },
+      "homepage": "https://github.com/dsp-dr/guile-skills",
+      "license": "MIT",
+      "keywords": ["guile", "scheme", "repl", "geiser", "emacs", "debugging"],
+      "category": "development"
+    }
+  ]
+}
