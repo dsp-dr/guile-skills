@@ -45,20 +45,21 @@ fi
 
 # --- the project-local Emacs profile --------------------------------------
 #
-# --init-directory landed in Emacs 29. Without it, emacs would silently load the
-# user's real configuration, which is the opposite of what a project profile is
-# for -- so assert rather than fall back.
+# `emacs -q -l <profile>/init.el', NOT --init-directory.
+#
+# --init-directory sets user-emacs-directory but does NOT load init.el from it on
+# this build: measured 2026-09-29 on GNU Emacs 30.2, where a profile launched that
+# way kept its menu bar (the profile disables it), re-prompted for .dir-locals.el
+# safety (the profile answers it), and never wrote a marker the profile writes. The
+# symptom looked like a dozen different Emacs problems before the marker test settled it.
+#
+# -q skips the user's own init, and init.el anchors user-emacs-directory and
+# package-user-dir to its own location, so the profile is self-contained either way.
 EMACS_OK=1
-if command -v emacs >/dev/null 2>&1; then
-    EMACS_MAJOR=$(emacs --version 2>/dev/null | sed -n '1s/[^0-9]*\([0-9]*\).*/\1/p')
-    if [ -z "$EMACS_MAJOR" ] || [ "$EMACS_MAJOR" -lt 29 ]; then
-        echo "dx: emacs $EMACS_MAJOR has no --init-directory; the edit window will be bare" >&2
-        EMACS_OK=0
-    fi
-else
+command -v emacs >/dev/null 2>&1 || {
     echo "dx: emacs is not on PATH; the edit window will be a shell" >&2
     EMACS_OK=0
-fi
+}
 
 mkdir -p "$EMACS_DIR"
 [ -f "$ROOT/emacs/init.el" ] && cp "$ROOT/emacs/init.el" "$EMACS_DIR/init.el"
@@ -69,7 +70,7 @@ mkdir -p "$EMACS_DIR"
 # capture from a profile that failed to load. Batch also fails loudly.
 if [ "$EMACS_OK" = 1 ] && [ -f "$EMACS_DIR/init.el" ]; then
     echo "dx: resolving emacs packages (batch; first run downloads)..."
-    if DX_INSTALL_PACKAGES=1 emacs --batch -l "$EMACS_DIR/init.el" \
+    if DX_INSTALL_PACKAGES=1 emacs --batch -q -l "$EMACS_DIR/init.el" \
             --eval '(princ (format "dx: geiser=%s paredit=%s keycast=%s missing=%S\n"
                                    (featurep (quote geiser-guile))
                                    (fboundp (quote paredit-mode))
@@ -119,7 +120,7 @@ fi
 tmux new-session -d -s "$SESSION" -c "$ROOT" -n edit -x 200 -y 50
 if [ "$EMACS_OK" = 1 ]; then
     tmux send-keys -t "$SESSION:edit" \
-        "emacs -nw --init-directory=$EMACS_DIR" Enter
+        "emacs -nw -q -l $EMACS_DIR/init.el" Enter
 else
     tmux send-keys -t "$SESSION:edit" "echo 'emacs unavailable; see dx output'" Enter
 fi

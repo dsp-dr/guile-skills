@@ -111,6 +111,21 @@ derives the load path, and not `guile-cps-debugger`'s, which pins `guile3`.
 Preserve anything already in an existing `.dir-locals.el`; merge rather than
 overwrite, and say what you changed.
 
+**Two things that will otherwise waste an afternoon**, both measured on GNU Emacs
+30.2 while verifying this agent's own instructions against `guile-sicp`:
+
+- A `.dir-locals.el` containing `eval:` forms — which is every one worth writing,
+  including the one you are about to write — makes Emacs **prompt** on first visit:
+  *"The local variables list ... contains values that may not be safe"*. That prompt
+  is governed by `enable-local-eval` (default `maybe`), which `enable-local-variables
+  :all` does **not** cover. In an automated or headless run it is indistinguishable
+  from a hang. Say so when you hand the file over, and set both if you are also
+  writing the profile that loads it.
+- `emacs --init-directory=DIR` sets `user-emacs-directory` but does **not** load
+  `init.el` from it on this build. Use `emacs -q -l DIR/init.el` and have the profile
+  anchor its own `user-emacs-directory` and `package-user-dir`. Verified by a marker
+  file the profile writes: absent under `--init-directory`, present under `-q -l`.
+
 ## 5. Check Emacs can actually do this
 
 Geiser and Paredit may not be installed. Check before promising anything:

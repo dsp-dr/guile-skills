@@ -36,7 +36,14 @@
       ring-bell-function 'ignore
       make-backup-files nil
       auto-save-default nil
-      enable-local-variables :all)   ; .dir-locals.el is the point of this profile
+      enable-local-variables :all    ; .dir-locals.el is the point of this profile
+      ;; ...and :all is not enough. `eval:' forms in a .dir-locals.el are governed
+      ;; separately by `enable-local-eval', whose default `maybe' PROMPTS. Measured
+      ;; 2026-09-29 against guile-sicp: a GUI Emacs on a headless display sat on
+      ;; "Please type y, n, !, i, +" forever, which in a screenshot or a scripted
+      ;; run is indistinguishable from a hang. Every .dir-locals.el this plugin
+      ;; writes uses eval: forms, so this profile would trip over its own output.
+      enable-local-eval t)
 
 ;; In a tmux pane every row counts, and the menu bar costs one while telling a
 ;; capture nothing. The startup screen costs the whole window and sets its own
