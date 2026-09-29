@@ -1,0 +1,50 @@
+Context
+  Asked to remove portclaim from public reference in this repo unless needed, on
+  the grounds that the skill needs local plugin data and not an external service,
+  and to convert anything referencing 192.168 into a concept. Then asked to check
+  the plugin manifest against the manifest-reference spec.
+
+  The repository is PUBLIC (gh repo view: private=false), which is what makes the
+  address in the committed artifacts worth acting on rather than tidying. The
+  shipped skill was already clean: eval 4 asserts nothing is sent off-box, and
+  SKILL.md named no endpoint. What remained was generated evidence plus one line
+  of guidance recommending the operator record a port somewhere.
+
+Deviations
+  Redacted rather than deleted, and recorded the redaction. b9600a6's note
+  reasoned that scrubbing a transcript falsifies evidence; that reasoning is not
+  wrong, so REDACTIONS.org states what was substituted and why. The consequence
+  is honest but slightly odd reading: the with_skill arm's real GET against a
+  real service now appears to probe a placeholder.
+
+  evals/PLAN.org's remaining hydra.lan references are on the other branch and
+  were left in place: no address, the IP is already recorded as operator-held and
+  absent, and the FQDN-vs-short-name distinction IS the known_hosts finding.
+  PLAN.org also publishes an SSH host-key fingerprint -- a public key, not a
+  secret, and load-bearing to "this is not a key mismatch" -- flagged rather than
+  removed, because that is a judgement call for the operator.
+
+Considerations
+  This branch carries skills/ and .claude-plugin/ changes, so it is `deployable':
+  merging it publishes a release. That is why it is separate from the roadmap and
+  direnv work, which touches nothing shipped.
+
+  0.1.5 skips 0.1.4 on purpose. PR #4 (feat/skill-compatibility) already sets
+  0.1.4 and is unmerged; two branches claiming one version is exactly the failure
+  docs/roadmap.org files as C7 -- check-version-bump.sh only greps for an added
+  "version" line, so a collision passes review and fails publish.yml on "tag
+  already exists" after merge. Skipping a number is free.
+
+  Adopting --strict in three places is a small ratchet: any future manifest
+  warning now fails gmake checks, CI and release staging. That was the documented
+  intent (CONTRIBUTING.org:33), and the manifest only just became warning-free.
+
+Clarifications
+  `icon' was referenced nowhere else in the tree -- the only mention was the key
+  itself -- so moving it under metadata keeps the asset recorded without
+  pretending Claude Code reads it. assets/icon.svg is untouched.
+
+Timeline
+  2026-09-28, nexus, FreeBSD 15.1-RELEASE, guile3 3.0.10, Claude Code CLI as
+  installed, as dsp-dr. Branched from main. gmake checks green: 3 eval suites
+  valid, 7/7 proxy regressions, validate --strict passing.
