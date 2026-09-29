@@ -1,0 +1,113 @@
+Context
+-------
+Low-priority exploration, framed as an experiment: what would it take for this
+plugin to expose a message-protocol server of the shape Anthropic's `fakechat`
+external plugin demonstrates, and what would its boundaries and contracts be.
+Requested explicitly as "a well-argued decline is a perfectly good outcome".
+
+Cell
+----
+nexus, FreeBSD 15.1-RELEASE, guile3 3.0.10, claude 2.1.261, dsp-dr, 2026-09-29.
+Worktree branch; not pushed, no PR, no existing file modified.
+
+Measured (I ran it and watched the output)
+------------------------------------------
+- No JSON anywhere in Guile 3 on this box: (json) unbound; nothing matching
+  *json* under /usr/local/share/guile/3.0/; `pkg search -x '^guile'` lists ten
+  ports and no guile-json.
+- guile-json 4.7.3 (configure.ac:22) is pure Scheme and works uninstalled off
+  `guile3 -L <clone>`; round-tripped a tools/call frame including é.
+- A 64-line Guile channel server: newline-delimited JSON-RPC on stdin/stdout,
+  initialize + tools/list + tools/call(reply), and notifications/claude/channel
+  pushed from a (web server) run-server thread with a mutex on stdout. All four
+  frames emitted correctly and in order. sockstat confirmed 127.0.0.1:39802 only.
+- The stdout hazard, found accidentally: a missing (web uri) import made
+  uri-path unbound inside the request handler, and Guile printed the backtrace
+  TO STDOUT, interleaved between two JSON-RPC responses. On an MCP stdio pipe
+  that is transport corruption, not a 500. Same class as E2/E3.
+- 25 planted faults against `claude plugin validate --strict` in a throwaway
+  plugin dir. Headline results: `channels` is a recognised (non-experimental)
+  manifest field; it is an ARRAY; each entry requires a non-empty string
+  `server`, accepts `displayName`, and REJECTS every other key tested
+  (description, type, tool, id, name, and an unknown key) -- so entry
+  strictness is genuinely ENFORCED here, unlike monitors/monitors.json where
+  the reference claims it and the CLI does not check. `mcpServers` is accepted
+  inline or as a "./path" string with no --strict cost, and is barely checked:
+  an unknown key in an entry, a nonexistent command, a missing referenced file,
+  a duplicate channels entry, and a channels entry naming a server absent from
+  mcpServers ALL pass. There is no cross-check between channels and mcpServers.
+- Licences: guile-json COPYING is GPL-3 ("or any later"); this repo's LICENSE is
+  MIT. Vendoring it into the shipped tree is a licence question, not packaging.
+
+Inherited (read, not run)
+-------------------------
+- The channel contract, from https://code.claude.com/docs/en/channels-reference
+  fetched 2026-09-29: stdio MCP transport, capabilities.experimental
+  ['claude/channel'] = {}, notifications/claude/channel with content + meta,
+  meta keys silently dropped unless [A-Za-z0-9_]+, no acknowledgement, reply as
+  an ordinary MCP tool, no session id in the protocol (chat_id is a meta key the
+  server invents), and the permission-relay pair permission_request /
+  permission with its five-letter a-z-minus-l request_id that the local dialog
+  never displays.
+- fakechat's .mcp.json and .claude-plugin/plugin.json verbatim. The manifest
+  carries NO `channels` key -- registration is .mcp.json plus a launch flag.
+  Its own description: "No tokens, no access control."
+- The repository's own model: docs/boundaries.org (the five layers, L2 loopback
+  only, "L2 -> anything off-host: nothing is sent"), docs/surfaces.org (the
+  surface inventory, the communication-styles table, "a channel is a person
+  reaching in"), contracts/README.org + artifacts.json (the isolation rule and
+  the measured-faults format this file's C6 imitates).
+- fakechat's route and WS frame inventory came via a summarising WebFetch of
+  server.ts rather than the raw file, and C2 labels it as read rather than run.
+
+Not established
+---------------
+- That Claude Code accepts the prototype. I exercised the wire shape, not the
+  host: no `claude --dangerously-load-development-channels` run was attempted.
+  A locally-built channel is off the research-preview allowlist and needs that
+  flag plus a full-screen warning dialog.
+- Whether the packaged guile-lib-guile30 0.2.8.1 contains a JSON module. It is
+  not installed here so `pkg info -l` had nothing to list. Does not change the
+  answer: it is not installed here either.
+- That a hand-rolled JSON reader is a good idea. Argued smaller than it sounds
+  (a one-way channel needs only `id` and `method` out of inbound frames) but not
+  written, and so not claimed.
+
+Deviations
+----------
+- docs/surfaces.org, contracts/README.org and contracts/artifacts.json were
+  named as required reading but exist in NEITHER main nor any branch reachable
+  from this worktree -- they are uncommitted work in the primary checkout. Read
+  them read-only from that checkout's working tree via cat, because the task
+  said not to contradict them. Nothing outside this worktree was written.
+- Filed as EXPERIMENTS-channels.org rather than appended to EXPERIMENTS.org, to
+  leave every existing file untouched as instructed. Uses a C-prefix for the
+  experiment numbers so it cannot collide with E1-E10. If this is ever merged
+  into the main sequence the numbering will need reconciling.
+- Experiment C6 duplicates contracts/ material by design: it is written in that
+  directory's style so it can be lifted into artifacts.json if issue #1 is ever
+  taken up, and it deliberately does NOT touch any operational JSON, per the
+  isolation rule.
+- The prototype and the fault-planting scripts live in the session scratchpad
+  and are not committed. They are throwaway evidence, and shipping a channel
+  prototype into a tree that just declined the surface would be misleading.
+
+Recommendation as committed
+---------------------------
+Decline, not defer -- the blocker is not time. C7: the two consistent shapes are
+a credentialled bridge (contradicts "nothing is sent off-host", adds a token on
+disk, a sender allowlist, and potentially remote approval of Bash in a session
+whose L2 is already unauthenticated code execution) or fakechat's tokenless
+localhost demo, which exists to test channels rather than to drive a REPL. Four
+results are kept regardless: the protocol correction for surfaces.org, the C6
+contract table, the C5 stdout warning for any future Guile process whose stdout
+is a protocol, and C8's closed door on guile-json for any JSON-speaking surface
+here -- .mcp.json included, which is worth knowing before issue #1 is scoped as
+though only the MCP server were missing.
+
+Timeline
+--------
+Single session, roughly one hour: reference fetch, repo model read, guile-json
+verification, prototype written and driven end to end, two fixes (missing
+(web uri), then the FIFO driver), 25 validate faults across four probe scripts,
+then the write-up.
