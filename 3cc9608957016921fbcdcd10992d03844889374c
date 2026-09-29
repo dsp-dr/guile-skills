@@ -1,0 +1,24 @@
+Context
+  Asked for a local-only pass-through giving a binary outcome from a plugin-validator
+  style review, and explicitly NOT in CI.
+
+Deviations
+  plugin-dev is not among the six plugins installed here, so plugin-validator is not
+  actually available. The script prefers it when present and asks the same question
+  directly when absent, rather than failing on a missing dependency.
+
+  Exit 2 for 'could not run' is deliberate and distinct from FAIL. A missing CLI or
+  absent credentials is not a failing audit, and collapsing the two would make the
+  target useless the first time someone ran it without credentials.
+
+Considerations
+  Not verified: an actual end-to-end run. It needs credentials and costs tokens, and
+  the structure was checked with gmake -n. The verdict contract -- a final line that
+  is exactly PASS or FAIL -- is the part most likely to need tightening once a real
+  run happens, because models drift toward adding a closing sentence.
+
+  Tools are limited to Read, Grep, Glob under --permission-mode plan, so an audit
+  cannot modify the tree it audits.
+
+Timeline
+  2026-09-29, nexus, claude 2.1.261, as dsp-dr.
