@@ -1,0 +1,372 @@
+#+TITLE: Experiments: could this plugin expose a channel (message-protocol) server?
+#+DATE: 2026-09-29
+#+AUTHOR: dsp-dr
+
+An exploration, not a plan. =docs/surfaces.org= records =channels= as "no ---
+needs an MCP server", and issue #1 as the whole of why. This file asks whether
+that row could be filled *in Guile*, what it would cost, and what it would cross.
+
+Run on *nexus*, FreeBSD 15.1-RELEASE, ~guile3~ 3.0.10, ~claude~ 2.1.261, as
+~dsp-dr~, 2026-09-29. Every =measured= result below was produced on that cell;
+every =inherited= result was read and not run here.
+
+Each experiment carries an epistemic label: *measured* (I ran it and watched it),
+*inherited* (I read it in the reference or a sibling document), *not established*
+(I could not settle it and am saying so).
+
+* C1 -- What is the channel protocol, actually?
+
+*Question.* =fakechat= is described as a message-protocol server. What is the
+transport, the framing, and who initiates?
+
+*Result.* It is *not a listener that Claude Code connects to*. A channel is an
+*MCP server over stdio*, spawned by Claude Code as a subprocess. There is no
+socket between the plugin and the host at all --- the host owns stdin/stdout of
+the process. Concretely:
+
+| Aspect          | What it is                                                              |
+|-----------------+-------------------------------------------------------------------------|
+| transport       | MCP stdio: Claude Code spawns the process, JSON-RPC 2.0 over stdin/stdout |
+| framing         | newline-delimited JSON, one message per line (not LSP =Content-Length=)  |
+| who initiates   | *both*: the host sends =initialize=, =tools/list=, =tools/call=; the server pushes notifications unsolicited |
+| declaration     | =capabilities.experimental['claude/channel'] = {}= --- presence is what registers the listener |
+| inbound event   | =notifications/claude/channel= with =params.content= (string) and =params.meta= (=Record<string,string>=) |
+| how it surfaces | as =<channel source="NAME" k="v">content</channel>= in the model's context; =source= is set by the host from the server name |
+| =meta= keys     | identifiers only --- letters, digits, underscore. A hyphenated key is *silently dropped* |
+| reply path      | an ordinary MCP tool (conventionally =reply=, taking =chat_id= and =text=) plus =capabilities.tools = {}= |
+| session id      | there is none in the protocol. "Which conversation" is carried by a =meta= key the server invents (=chat_id=) and the model is told, in =instructions=, to pass back |
+| acknowledgement | *none*. =mcp.notification()= resolves when the bytes hit the transport, not when Claude sees them. If channels are not enabled for the session the host drops events silently and returns no error |
+| ordering        | events queue and are delivered in order; several arriving during a turn are delivered together as a group |
+| permission relay | optional: =capabilities.experimental['claude/channel/permission'] = {}=. The host then sends =notifications/claude/channel/permission_request= (=request_id=, =tool_name=, =description=, =input_preview=) and accepts =notifications/claude/channel/permission= (=request_id=, =behavior: 'allow'|'deny'=) back |
+| =request_id=    | five lowercase letters from =a-z= minus =l=. The *local terminal dialog never displays it* --- the channel server is the only way to learn it |
+
+The host provides: process lifecycle, the =<channel>= wrapping, the =source=
+attribute, the allowlist gate, and the terminal's one-line =← name: text=
+rendering. The server provides: everything else, including its own ingress.
+
+*Label:* inherited. Fetched
+https://code.claude.com/docs/en/channels-reference, 2026-09-29.
+
+* C2 -- What does =fakechat= add on top of that?
+
+*Question.* If the channel contract is only stdio JSON-RPC, what is =fakechat='s
+extra machinery for?
+
+*Result.* Its own *external* side, which the contract says nothing about.
+=fakechat= runs a Bun HTTP server on =127.0.0.1:${FAKECHAT_PORT}= (default 8787)
+serving =GET /= (an HTML chat UI), =WS /ws= (broadcast of ={type:'msg',...}= and
+={type:'edit',...}= frames), =POST /upload= (multipart), and =GET /files/{name}=.
+Its =.mcp.json= is four lines --- ={"mcpServers":{"fakechat":{"command":"bun",
+"args":["run","--cwd","${CLAUDE_PLUGIN_ROOT}","--shell=bun","--silent","start"]}}}=
+--- and its =.claude-plugin/plugin.json= carries *no =channels= key at all*: only
+=name=, =description=, =version=, =keywords=. Its own description states the
+security posture outright: "No tokens, no access control."
+
+So the split is: ~20 lines of channel contract, and everything else is a web app
+that happens to be the thing a person reaches in through. That is the honest
+shape of the work.
+
+*Label:* inherited (the =.mcp.json= and =plugin.json= verbatim; the route and
+frame inventory via a summarising fetch of =server.ts=, so treat the route list
+as read rather than run).
+
+* C3 -- Is there any JSON in Guile 3 on this box?
+
+*Question.* The protocol is JSON-RPC. Guile core has =(web server)=,
+=(web request)=, =(web response)=, =(ice-9 threads)= and sockets. Does it have
+JSON?
+
+*Result.* No, three ways over.
+
+#+begin_src sh
+guile3 -c '(use-modules (json))'     # Unbound / no such module
+find /usr/local/share/guile/3.0 -iname '*json*'
+pkg search -x '^guile'
+#+end_src
+
+The module tree under =/usr/local/share/guile/3.0/= is
+=ice-9 language oop rnrs scheme scripts srfi sxml system texinfo web= and
+contains no file matching =json=. =pkg search -x '^guile'= lists ten ports ---
+=guile1=, =guile2=, =guile3=, =guile-aclocal=, =guile-cairo-*=,
+=guile-gnome-platform-*=, =guile-lib-*=, =guile-meta= --- and *no =guile-json=*.
+Guile ships an XML/SXML stack and no JSON at all, which is a 1999 library set
+meeting a 2026 protocol.
+
+Whether the packaged =guile-lib-guile30-0.2.8.1= contains a JSON module is *not
+established*: it is not installed here, so =pkg info -l= had nothing to list. It
+does not change the answer, because it is not installed here either.
+
+*Label:* measured.
+
+* C4 -- Does =guile-json= 4.7.3 work off =-L=, and can a channel server be written?
+
+*Question.* The fresh clone at =~/ghq/github.com/aconchillo/guile-json= is pure
+Scheme. Does it work uninstalled, and is 64 lines of Guile enough for a channel?
+
+*Result.* Yes to both. =configure.ac:22= reads =AC_INIT([guile-json], [4.7.3],
+...)=; the four modules are =json/{builder,parser,record,goops}.scm= plus
+=json.scm=, all Scheme. Round-tripping a =tools/call= frame including a =\u00e9=
+escape works with nothing installed:
+
+#+begin_src sh
+guile3 -L ~/ghq/github.com/aconchillo/guile-json -c \
+  '(use-modules (json)) (write (json-string->scm "{\"id\":1,\"m\":\"hi \\u00e9\"}"))'
+#+end_src
+
+#+begin_example
+((m . "hi é") (id . 1))
+#+end_example
+
+I then wrote a *64-line* channel server --- =(json)=, =(ice-9 threads)=,
+=(ice-9 rdelim)=, =(web server)=, =(web request)=, =(web response)=, =(web uri)=
+--- that reads newline-delimited JSON-RPC from stdin, answers =initialize= and
+=tools/list=, handles a =tools/call= of =reply=, and runs =run-server= in a
+=call-with-new-thread= which pushes =notifications/claude/channel= on every POST.
+One =make-mutex= serialises writes to stdout so the notification thread cannot
+interleave into a response. Driven with a FIFO on stdin and =curl= on the side:
+
+#+begin_example
+### listener
+dsp-dr  guile-3.0  33748  10 tcp4  127.0.0.1:39802  *:*
+### curl -d 'build failed on main' http://127.0.0.1:39802/hook
+ok
+### stdout, in order
+{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05", ...
+  "capabilities":{"experimental":{"claude/channel":{}},"tools":{}}, ...}}
+{"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"reply", ...}]}}
+{"jsonrpc":"2.0","method":"notifications/claude/channel",
+ "params":{"content":"build failed on main",
+           "meta":{"chat_id":"web","path":"/hook"}}}
+{"jsonrpc":"2.0","id":3,"result":{"content":[{"type":"text","text":"sent"}]}}
+### stderr
+REPLY to="web" text="on it"
+#+end_example
+
+The third line is the whole protocol. =sockstat= confirms =run-server= with
+=#:host "127.0.0.1"= binds loopback only, as =boundaries.org='s L2 rule demands.
+
+*Not established:* that Claude Code accepts this server. I exercised the *wire
+shape*, not the host. No =claude --dangerously-load-development-channels= run was
+made, and the research-preview allowlist means a locally-built channel needs that
+flag and a full-screen warning dialog to load at all.
+
+*Label:* measured for the protocol, not established for the integration.
+
+* C5 -- The failure mode that makes this dangerous in Guile specifically
+
+*Question.* stdout *is* the protocol. What writes to stdout that we did not
+intend?
+
+*Result.* Guile does. The first run of C4's prototype had an unbound
+=uri-path= (I had forgotten =(web uri)=). The error surfaced *inside the
+=run-server= handler thread*, and Guile printed the backtrace **to stdout**,
+directly into the JSON-RPC stream:
+
+#+begin_example
+{"jsonrpc":"2.0","id":2,"result":{"tools":[ ... ]}}
+In .../chan.scm:
+    50:45  1 (web-handler #<<request> method: POST uri: #<<uri> ...
+In ice-9/boot-9.scm:
+  1676:22  0 (raise-exception _ #:continuable? _)
+{"jsonrpc":"2.0","id":3,"result": ... }
+#+end_example
+
+A typo in a request handler is thus not a 500 --- it is *transport corruption*,
+and the host's reaction to a non-JSON line on an MCP stdio pipe is not something
+this repository controls. This is E2/E3's lesson relocated: the failure is
+silent-ish, looks like something else, and is caused by the default behaviour of
+a primitive (there, =get-bytevector-some=; here, Guile's backtrace port).
+
+A server built on this would have to, unconditionally and before anything else:
+rebind =current-output-port= to a duplicate fd and hand the *real* stdout only to
+the emitter, wrap every handler in =with-exception-handler=, and route
+=current-warning-port= and the backtrace port to stderr. None of that is
+optional, and none of it is a thing =fakechat= has to think about.
+
+*Label:* measured.
+
+* C6 -- What does the CLI actually validate about =channels= and =mcpServers=?
+
+*Question.* In =contracts/= style: required top-level shape, which keys are
+strict, what =claude plugin validate --strict= checks and what it does not.
+
+*Result.* Measured against =claude= 2.1.261 in a throwaway plugin dir, 25 planted
+faults. =channels= *is* a recognised manifest field --- it is not =experimental=
+--- and its entries are *strict*.
+
+** =.claude-plugin/plugin.json= --- =channels=
+
+Required shape: *an array*. Each entry an *object*. Entry required: =server= (a
+non-empty string). Entry optional: =displayName=. Entry additional properties:
+*rejected*.
+
+| Fault                                        | Result                                    |
+|----------------------------------------------+-------------------------------------------|
+| ="channels": {"guile-chan": {}}= (object)     | error =channels: Invalid input=            |
+| ="channels": "./channels.json"= (path string) | error =channels: Invalid input=            |
+| ="channels": ["guile-chan"]= (bare strings)   | error =channels.0: Invalid input=          |
+| ="channels": []=                              | *passes*                                  |
+| =[{"server":"x"}]=                            | *passes* --- the minimal legal entry       |
+| =[{"server":"x","displayName":"Guile"}]=      | *passes*                                  |
+| =[{"name":"x"}]= (no =server=)                | error =channels.0.server: Invalid input=   |
+| =[{"server":""}]=                             | error =channels.0.server: Invalid input=   |
+| =[{"server":1}]=                              | error =channels.0.server: Invalid input=   |
+| =[{"server":{"command":"guile3"}}]=           | error =channels.0.server: Invalid input=   |
+| =[{"server":"x","description":"d"}]=          | error =channels.0: Invalid input=          |
+| =[{"server":"x","type":"chat"}]=              | error =channels.0: Invalid input=          |
+| =[{"server":"x","tool":"reply"}]=             | error =channels.0: Invalid input=          |
+| =[{"server":"x","id":"c1"}]=                  | error =channels.0: Invalid input=          |
+| =[{"server":"x","name":"n","type":"chat"}]=   | error =channels.0: Invalid input=          |
+| =[{"server":"x","zzz":1}]=                    | error =channels.0: Invalid input=          |
+| =experimental.channels= instead               | warns =Unknown field 'channels'=; fails =--strict= |
+
+Note the asymmetry with =monitors/monitors.json=: there, entry strictness is
+*claimed by the reference and unenforced by the CLI*, which is why
+=tests/validate-monitors.py= exists. Here strictness is *enforced*, including on
+an unknown key. A =channels= entry cannot carry a description, a display name
+aside, or any provenance --- which is the manifest-side restatement of
+=contracts/README.org='s isolation rule, and this time the product enforces it.
+
+** =.claude-plugin/plugin.json= --- =mcpServers=
+
+Accepted as an inline object *or* as a =./path= string. No warning either way, so
+no =--strict= cost. What it does *not* check is the whole of what matters:
+
+| Fault                                           | Result             |
+|-------------------------------------------------+--------------------|
+| entry missing =command=                          | error =mcpServers: Invalid input= |
+| entry with an unknown key                        | *PASSED* --- no coverage |
+| =command= naming a binary that does not exist    | *PASSED* --- no coverage |
+| ="mcpServers": "./nope.json"= (file absent)      | *PASSED* --- no coverage |
+| =channels= naming a server absent from =mcpServers= | *PASSED* --- no cross-check |
+| =channels= with *no =mcpServers= at all*          | *PASSED* --- no cross-check |
+| two =channels= entries with the same =server=     | *PASSED* --- no duplicate check |
+
+So =tests/validate-channels.py= would have to own, at minimum: that every
+=channels[].server= resolves to a key in =mcpServers= (inline or in the
+referenced file); that the referenced file exists and parses; that no =server= is
+duplicated; that the =command= is one =guile-repl-paths.sh= would actually find;
+and --- the one no schema can express --- that the *notification* =meta= keys the
+server emits are =[A-Za-z0-9_]+=, because a hyphen is dropped silently at the
+host and that is a data-loss bug with no error anywhere.
+
+*Label:* measured.
+
+* C7 -- What boundaries does it cross?
+
+*Question.* =boundaries.org= says L2 binds =127.0.0.1= only, and "L2 → anything
+off-host: nothing is sent: no hostname, repo, cwd, port". Can a channel honour
+that?
+
+*Result.* It depends entirely on the ingress, and the two cases differ in kind.
+
+1. *A local-ingress channel can honour both rules, and adds no listener at all.*
+   The plugin↔host link is stdio, not a socket --- C1. A channel whose events
+   come from the *filesystem* (=proxy.stderr= grew a backtrace; =repl.log=
+   rotated; the REPL process died) needs no bind whatsoever. It would be a
+   *third process* but not a third listener, and nothing leaves the host.
+   =boundaries.org= survives intact. But note what such a thing *is*: it is the
+   =guile-repl-health= monitor with a different delivery mechanism, and
+   =surfaces.org= already chose the monitor for exactly this and deliberately
+   scoped it to the two stderr streams.
+
+2. *A person-reaching-in channel cannot honour it, by construction.* This is the
+   case =surfaces.org= names --- "a channel is a person reaching in, so it
+   presupposes an MCP server and a credential". A chat bridge polls a platform
+   API, which means egress to a third party, a token on disk, and a sender
+   allowlist. The reference is blunt that an ungated channel *is* a prompt
+   injection vector, and =fakechat= resolves that by having no access control and
+   no tokens and being a localhost demo. Those are the only two consistent
+   positions: no credential and no reach, or a credential and a policy.
+
+Two further crossings that are specific to this repository:
+
+- *A channel inverts =L3 → L4=.* The rule is "stderr yes, transcript no --- the
+  transcript holds other people's input". A =reply= tool is an *outbound* path
+  for text the model composes, and the natural thing for the model to reply with
+  is what it just read. =repl.log= holds whatever a human in Geiser evaluated.
+  The monitor's discipline (tail stderr, never the transcript) has no analogue on
+  the reply side, because the reply side is the model's judgement, and
+  =surfaces.org='s own rule is that anything needing judgement is not the
+  surface that can refuse. Only a hook can refuse.
+- *Permission relay is a boundary this repository has never had.* It hands
+  approval of =Bash= and =Write= in the session to whoever can send a message
+  through the channel. The docs are explicit: declare it only if you authenticate
+  the sender. A plugin whose L2 is described as "unauthenticated code execution,
+  loopback only" acquiring a remote =allow= path is not a small step.
+
+*Label:* inherited (the rules, from =docs/boundaries.org= and
+=docs/surfaces.org=) plus measured (that =#:host "127.0.0.1"= binds loopback,
+C4).
+
+* C8 -- The licence collision
+
+*Question.* Could =guile-json= ship?
+
+*Result.* No, not as-is. =guile-json='s =COPYING= is the *GNU General Public
+License, Version 3*, and its =README= confirms "either version 3 of the License,
+or (at your option) any later version". This repository's =LICENSE= is *MIT*, and
+=skills/*/SKILL.md= frontmatter carries =license= as a *required* field
+(=contracts/artifacts.json=). Vendoring GPL-3 Scheme modules into the shipped
+tree of an MIT plugin is a licence question, not a packaging one --- and
+=deployable= in =.github/labeler.yml= means "this ships to users".
+
+The alternatives are all bad in a different way: depend on an unpackaged library
+at a path that exists only on this machine (contradicts E9's whole lesson, and
+C3 shows there is no FreeBSD port to depend on instead); or hand-roll a reader.
+The hand-rolled reader is smaller than it sounds --- a one-way channel only needs
+to pull =id= and =method= out of inbound frames, and *emitting* JSON is trivial
+--- but it is new attack surface on a protocol boundary, written by us, for a
+surface we do not need. That it is *feasible* is not established here; I did not
+write it.
+
+*Label:* measured (both licences, and the absence of a port).
+
+* Recommendation: decline, and record why
+
+Not "defer". Deferring implies the blocker is time. It is not.
+
+*The reason is C7 and C2 together.* A channel is a person reaching in. The two
+legitimate shapes are (a) a credentialled bridge to an outside platform, which
+contradicts =boundaries.org='s "nothing is sent off-host" and adds a sender
+allowlist, a token on disk, and --- if relay is ever declared --- remote approval
+of =Bash= in a session whose L2 is already unauthenticated code execution; or
+(b) a localhost web UI, which is =fakechat=, whose own manifest says "No tokens,
+no access control", and which exists so that people can *test channels*, not so
+that a Guile REPL can be driven. This repository has no user who wants to text
+their REPL. It has a user who wants a transcript, a debugger, and to be told when
+a process dies --- and =surfaces.org= already routes that third one through
+=monitors/=, deliberately scoped to stderr and deliberately away from the
+transcript.
+
+*What the experiment does buy, and it is not nothing:*
+
+1. *C1 corrects the inventory.* =surfaces.org= reads "channels --- no, needs an
+   MCP server", which is right, but the sentence invites the wrong mental model:
+   the channel is not a listener. It is stdio, and the *socket* is whatever
+   ingress you choose. That reframing is what makes the local-ingress variant in
+   C7.1 visible at all --- and makes it obvious that it is a monitor wearing a
+   hat.
+2. *C6 is a contract we can bank without building anything.* =channels= entries
+   are strict and enforced (unlike =monitors=), =mcpServers= is barely checked,
+   and there is *no cross-check* between the two. If issue #1 is ever taken up,
+   =tests/validate-channels.py= starts from that table, and the =meta= key
+   =[A-Za-z0-9_]+= rule is the kind of silent data loss this repository exists to
+   catch.
+3. *C5 is a reusable warning.* Any future Guile process whose stdout is a
+   protocol must relocate stdout before it does anything else, because Guile
+   prints backtraces there by default. That is the same class as E2 and E3 and
+   deserves to be written down whether or not a channel is ever built.
+4. *C8 closes a door cleanly.* "No JSON in Guile, no FreeBSD port, and the
+   obvious library is GPL-3 against our MIT" is a complete answer to "why not
+   just use guile-json", and it applies to any future JSON-speaking surface here,
+   =.mcp.json= included --- which is worth knowing before issue #1 is scoped as
+   though only the MCP server were missing.
+
+*If the row is ever filled*, the order is: a bare one-way channel over local
+ingress (no credential, no bind, filesystem events only), measured against
+=claude --dangerously-load-development-channels= before a line of it is
+committed, with a hand-rolled emitter and the smallest possible reader; and
+=claude/channel/permission= declined explicitly and in writing. Not before
+=roadmap.org='s D-series makes a single eval score, because a surface nobody can
+measure is the thing this repository has the most of already.
