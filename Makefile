@@ -5,9 +5,9 @@
 # FreeBSD ports give guile3/guild3; Debian and Ubuntu give guile-3.0/guild-3.0.
 # Probe rather than assume -- gate.yml's first run would otherwise fail on a
 # binary name (EXPERIMENTS.org E9 is the same class of mistake).
-SERVER_SCRIPTS := skills/guile-repl-server/scripts
-EVAL_SCRIPTS   := skills/guile-repl-eval/scripts
-PROXY_SCRIPTS  := skills/guile-repl-proxy/scripts
+SERVER_SCRIPTS := skills/repl-server/scripts
+EVAL_SCRIPTS   := skills/repl-eval/scripts
+PROXY_SCRIPTS  := skills/repl-proxy/scripts
 
 GUILE ?= $(shell command -v guile3 2>/dev/null || command -v guile-3.0 2>/dev/null || echo guile)
 GUILD ?= $(shell command -v guild3 2>/dev/null || command -v guild-3.0 2>/dev/null || echo guild)

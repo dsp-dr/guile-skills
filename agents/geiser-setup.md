@@ -1,5 +1,5 @@
 ---
-name: guile-geiser-setup
+name: geiser-setup
 description: Set a Guile project up for interactive debugging from Emacs - detect where its modules actually live, write a .dir-locals.el that probes for the Guile 3 binary rather than hard-coding one, start the logged socket REPL, and verify Geiser connects and the debugger meta-commands answer. Use when asked to set up Emacs, Geiser or interactive debugging for a Guile or Scheme project, when (use-modules ...) fails in a REPL because the load path is wrong, or when a project needs the same interactive setup every other Guile project here has.
 tools: Read, Write, Edit, Bash, Grep, Glob
 ---
@@ -78,7 +78,7 @@ not invent a load path.
 ## 3. Start the logged REPL
 
 Use the skills already in this plugin rather than reinventing them: the
-`guile-repl-server` skill starts `guile3 --debug --listen` on a per-project port
+`repl-server` skill starts `guile3 --debug --listen` on a per-project port
 with a transcript-logging proxy on `PORT+1`. Read its SKILL.md and follow it. Two
 things matter for this task:
 

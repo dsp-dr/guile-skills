@@ -29,7 +29,7 @@ PROJECT=${CLAUDE_PROJECT_DIR:-$(pwd)}
 cd "$PROJECT" 2>/dev/null || exit 0     # a hook must never fail a session
 
 for c in "$PLUGIN_ROOT/scripts/lib/guile-repl-paths.sh" \
-         "$PLUGIN_ROOT/skills/guile-repl-server/scripts/guile-repl-paths.sh"; do
+         "$PLUGIN_ROOT/skills/repl-server/scripts/guile-repl-paths.sh"; do
     if [ -r "$c" ]; then
         # shellcheck source=/dev/null
         . "$c"

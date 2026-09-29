@@ -37,7 +37,7 @@ SHIPPED="skills/ .claude-plugin/ scripts/lib/ monitors/ agents/ commands/ hooks/
 # component -- a new skill directory, a new agent, a new monitor -- was invisible
 # here until it was staged. In CI the tree is clean and it never mattered; locally
 # it defeated the whole point, which is to warn before the commit. Measured
-# 2026-09-29 with agents/guile-geiser-setup.md: reported nothing until `git add'.
+# 2026-09-29 with agents/geiser-setup.md: reported nothing until `git add'.
 # So ask about untracked-but-not-ignored paths too.
 #
 # shellcheck disable=SC2086

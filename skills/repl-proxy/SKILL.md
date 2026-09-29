@@ -1,5 +1,5 @@
 ---
-name: guile-repl-proxy
+name: repl-proxy
 description: Record everything that passes through a Guile socket REPL by routing it via a logging proxy on PORT+1, with per-project rotated transcripts, and connect Emacs with Geiser through the same proxy. Use when you need a reviewable history of what was evaluated, when debugging why a REPL session behaved oddly, or when a human and an agent should share one traced session.
 license: MIT
 allowed-tools: Read
@@ -97,7 +97,7 @@ or a threaded accept loop.
 ## Failure modes worth recognising
 
 - **Empty transcript, no client output.** Almost always a stale proxy from an
-  earlier session still holding the port: `pgrep -fl guile-repl-proxy`. The
+  earlier session still holding the port: `pgrep -fl repl-proxy`. The
   proxy now refuses to start with the errno instead of dying quietly, but an old
   one predating that fix will still be serving and writing to its own log.
 - **`,trace` produces nothing.** The target REPL was started without `--debug`.

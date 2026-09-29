@@ -78,7 +78,7 @@ CI runs the same set on every push to `main` and every PR (`.github/workflows/ch
 
 ```bash
 ${CLAUDE_SKILL_DIR}/scripts/guile-repl-server.sh --status
-pgrep -fl guile-repl-proxy
+pgrep -fl repl-proxy
 ```
 
 ### Testing a change
@@ -142,18 +142,18 @@ The worked example, against `guile-sicp` and its own modules:
 ```bash
 cd ~/ghq/github.com/dsp-dr/guile-sicp
 $GUILE_SKILLS/scripts/lib/guile-repl-paths.sh          # slug, ports, data root
-$GUILE_SKILLS/skills/guile-repl-server/scripts/guile-repl-server.sh
-$GUILE_SKILLS/skills/guile-repl-eval/scripts/guile-repl-eval.sh '(use-modules (sicp ch1)) (fib 10)'
+$GUILE_SKILLS/skills/repl-server/scripts/guile-repl-server.sh
+$GUILE_SKILLS/skills/repl-eval/scripts/guile-repl-eval.sh '(use-modules (sicp ch1)) (fib 10)'
 # => $1 = 55
-$GUILE_SKILLS/skills/guile-repl-eval/scripts/guile-repl-eval.sh '(use-modules (sicp ch1)) ,trace (fib 4)'
+$GUILE_SKILLS/skills/repl-eval/scripts/guile-repl-eval.sh '(use-modules (sicp ch1)) ,trace (fib 4)'
 # => the indented call tree, exposing the exponential double recursion
-$GUILE_SKILLS/skills/guile-repl-server/scripts/guile-repl-server.sh --stop
+$GUILE_SKILLS/skills/repl-server/scripts/guile-repl-server.sh --stop
 ```
 
 Report per project as **worked**, **worked with caveats**, or **failed**, and say why. Two things to check while you are there, because both are silent:
 
 - The derived port pair. `37000 + cksum(slug) mod 900` gives each checkout its own pair, and worktrees — sibling or child — get their own too, since the slug is the absolute path. But `PORT+1` is not collision-checked against other projects, and across 33 checkouts here there are already two cases where one project's proxy port is another project's REPL port.
-- Clean up. `--stop` before you leave, and `pgrep -fl guile-repl-proxy` afterwards. A stale listener is indistinguishable from a broken new one.
+- Clean up. `--stop` before you leave, and `pgrep -fl repl-proxy` afterwards. A stale listener is indistinguishable from a broken new one.
 
 ### Conventions
 

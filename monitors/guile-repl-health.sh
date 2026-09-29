@@ -2,7 +2,7 @@
 # guile-repl-health.sh --- what the `guile-repl-health' monitor tails.
 #
 # Started by Claude Code from monitors/monitors.json the first time the
-# guile-repl-server skill runs. Everything it prints reaches the agent as a
+# repl-server skill runs. Everything it prints reaches the agent as a
 # notification.
 #
 # It tails the two stderr streams, NOT the transcript. That is the whole point:
@@ -16,7 +16,7 @@
 #   repl.log is the transcript. It contains whatever was evaluated, by anyone
 #   holding the socket --- including a human in Geiser who never asked for an
 #   agent to read along. The agent already sees its own results through
-#   guile-repl-eval, so tailing it would duplicate what the agent knows and
+#   repl-eval, so tailing it would duplicate what the agent knows and
 #   surface what it has no business knowing. Not shipped on purpose. To watch it
 #   anyway, add a second entry naming "$GUILE_REPL_DIR/repl.log" in your own
 #   settings, with that trade-off in mind.
@@ -38,7 +38,7 @@ plugin_root=$(dirname "$here")
 
 # The canonical copy lives in scripts/lib/; this is the copy that ships inside
 # the skill, which is what a plugin install actually delivers (8d71a62).
-paths=$plugin_root/skills/guile-repl-server/scripts/guile-repl-paths.sh
+paths=$plugin_root/skills/repl-server/scripts/guile-repl-paths.sh
 [ -r "$paths" ] || {
     echo "guile-repl-health: $paths is missing; is the plugin fully installed?" >&2
     exit 1

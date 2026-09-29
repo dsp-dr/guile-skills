@@ -1,5 +1,5 @@
 {
-  "skill_name": "guile-repl-eval",
+  "skill_name": "repl-eval",
   "evals": [
     {
       "id": 1,

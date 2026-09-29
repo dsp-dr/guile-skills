@@ -27,7 +27,7 @@ while [ $# -gt 0 ]; do
         --stop)     ACTION=stop; shift ;;
         --status)   ACTION=status; shift ;;
         --help)     sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-        *) echo "guile-repl-server: unknown option $1" >&2; exit 2 ;;
+        *) echo "repl-server: unknown option $1" >&2; exit 2 ;;
     esac
 done
 
@@ -66,7 +66,7 @@ esac
 # never accepts, and its transcript goes to a log nobody is reading. Refuse
 # rather than guess.
 if listening "$GUILE_REPL_PORT"; then
-    echo "guile-repl-server: 127.0.0.1:$GUILE_REPL_PORT is already in use." >&2
+    echo "repl-server: 127.0.0.1:$GUILE_REPL_PORT is already in use." >&2
     echo "  reuse it, or stop it with: $0 --stop" >&2
     exit 1
 fi
@@ -82,7 +82,7 @@ echo "repl   $GUILE_REPL_PORT  ($GUILE --debug, load path: ${SRC_DIR:-none})"
 
 if [ "$PROXY" -eq 1 ]; then
     if listening "$GUILE_REPL_PROXY_PORT"; then
-        echo "guile-repl-server: proxy port $GUILE_REPL_PROXY_PORT already in use, skipping" >&2
+        echo "repl-server: proxy port $GUILE_REPL_PROXY_PORT already in use, skipping" >&2
     else
         # Wait for the REPL before the proxy tries to reach it.
         n=0

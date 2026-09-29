@@ -40,7 +40,7 @@ echo "test-proxy: $GUILE, port $PORT -> proxy $PROXY_PORT"
 # --- bring up REPL and proxy ----------------------------------------------
 $GUILE --debug --listen="$PORT" -c '(sleep 90)' >/dev/null 2>&1 &
 sleep 2
-"$ROOT/skills/guile-repl-proxy/scripts/guile-repl-proxy.scm" --listen "$PROXY_PORT" --target "$PORT" --log "$LOG" \
+"$ROOT/skills/repl-proxy/scripts/guile-repl-proxy.scm" --listen "$PROXY_PORT" --target "$PORT" --log "$LOG" \
     >"$WORK/proxy.err" 2>&1 &
 sleep 3
 
@@ -82,7 +82,7 @@ fi
 
 # --- E4: a second proxy on a taken port fails loudly ----------------------
 # It used to die silently while the stale one kept serving and kept logging.
-err=$("$ROOT/skills/guile-repl-proxy/scripts/guile-repl-proxy.scm" --listen "$PROXY_PORT" --target "$PORT" \
+err=$("$ROOT/skills/repl-proxy/scripts/guile-repl-proxy.scm" --listen "$PROXY_PORT" --target "$PORT" \
         --log "$WORK/second.log" 2>&1; echo "rc=$?")
 case $err in
     *'cannot bind'*rc=1*) check yes 'E4 duplicate proxy refuses the taken port';;
@@ -94,7 +94,7 @@ pkill -f "guile-repl-proxy.scm --listen $PROXY_PORT" 2>/dev/null
 sleep 1
 ROT="$WORK/rot.log"
 dd if=/dev/zero bs=1024 count=4200 2>/dev/null | tr '\0' 'x' > "$ROT"
-"$ROOT/skills/guile-repl-proxy/scripts/guile-repl-proxy.scm" --listen "$PROXY_PORT" --target "$PORT" --log "$ROT" \
+"$ROOT/skills/repl-proxy/scripts/guile-repl-proxy.scm" --listen "$PROXY_PORT" --target "$PORT" --log "$ROT" \
     >/dev/null 2>&1 &
 sleep 3
 if [ -f "$ROT.1" ] && [ "$(wc -c < "$ROT")" -lt 4194304 ]; then
