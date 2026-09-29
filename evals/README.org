@@ -13,6 +13,28 @@ claude plugin eval . --ablation with-without --allow-tools Bash
 ~claude plugin eval~ is in early access and is not enabled on this account
 (CLI 2.1.261 answers ~`plugin eval` is currently in early access~). So these
 cases are written but *unscored*: no pass rate here has been observed. Treat any
+
+*Re-probed 2026-09-29, same answer on 2.1.261* --- and two things learned that were
+not known when the paragraph above was written.
+
+=claude plugin eval --help= now prints the *complete* usage on this build: every
+flag, the =init= subcommand, =--ablation=, =--judge-model=, mocks and graders. The
+harness is compiled in. It still refuses to run. So the help text is not a
+capability probe, and the gate is reached before any model call --- which makes
+checking free:
+
+#+begin_src sh
+claude plugin eval . --case no-linter-claim --runs 1 --max-cost-usd 0.01 --no-publish
+#+end_src
+
+The feature shipped in *v2.1.269* per the week-37 changelog. This cell is 2.1.261,
+=pkg info= reports =claude-code-2.1.261=, and an upgrade elsewhere reached 2.1.268 ---
+one short. Whether the gate is build-side or account-side is *not established*.
+
+Also confirmed: these cases need no restructuring. The command accepts
+=prompt.md + graders/*.md=, which is exactly the shape below, and
+=experimental.evals= already points at this directory. Issue #20 carries the
+re-probe command, the cost model and the contract re-measure checklist.
 claim about them as untested until a run exists under ~evals/results/~.
 
 That matters more here than usual, since this plugin's whole argument is that
