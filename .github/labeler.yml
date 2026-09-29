@@ -18,6 +18,12 @@ deployable:
           - ".claude-plugin/**"
           - "scripts/lib/**"
           - "monitors/**"
+          - "agents/**"
+          - "commands/**"
+          - "hooks/**"
+          - "output-styles/**"
+          - "themes/**"
+          - "workflows/**"
 
 plugin:
   - changed-files:

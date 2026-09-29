@@ -19,7 +19,7 @@ reference fetched 2026-09-28.
 | monitors          | =monitors/monitors.json=    | *yes* --- one, new in 0.1.6   |
 | evals             | =skills/*/evals/evals.json= | *yes* --- 12, unscored        |
 | commands          | =commands/*.md=             | no                            |
-| agents            | =agents/*.md=               | *no* --- see below            |
+| agents            | =agents/*.md=               | *yes* --- one, new in 0.2.0   |
 | hooks             | =hooks/hooks.json=          | no                            |
 | MCP servers       | =.mcp.json=                 | no --- blocked, issue #1      |
 | channels          | manifest =channels=         | no --- needs an MCP server    |
@@ -31,8 +31,12 @@ reference fetched 2026-09-28.
 
 Two of those rows are the interesting ones.
 
-*There is no Guile debugging agent here.* Nothing in this repository declares
-=agents=, and the manifest names none. A session may well offer a =debugger=
+*There is now one Guile agent here, and it is a setup agent rather than a
+debugger.* =agents/guile-geiser-setup.md= prepares a project for interactive
+debugging from Emacs: it probes for the interpreter, measures where the modules
+actually live, writes a =.dir-locals.el= that probes rather than pins, starts the
+logged REPL through the existing skills, and verifies =,bt= and =,trace= answer
+before reporting success. Until 0.2.0 there was none. A session may well offer a =debugger=
 agent --- that is a personal agent in =~/.claude/agents/=, general-purpose, and
 nothing to do with this plugin. The closest thing this repository has is
 =guile-repl-server='s =,break= / =,bt= instructions, reached through the same
