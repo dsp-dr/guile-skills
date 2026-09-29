@@ -40,6 +40,20 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+      # Frontmatter, eval suites and monitor entries are pure-Python and need no
+      # guile, no npm and no gh. Running them BEFORE release:start means a PR with
+      # a broken skill never gets labelled as a gate that started, and the
+      # expensive installs below are never spent on it. The loop tolerates a
+      # validator that does not exist on this branch yet.
+      - name: Offline validations (before the gate is marked started)
+        if: steps.check-skip.outputs.skip != 'true'
+        run: |
+          for v in tests/validate-frontmatter.py tests/validate-evals.py tests/validate-monitors.py; do
+            [ -f "$v" ] || continue
+            echo "== $v"
+            python3 "$v"
+          done
+
       - name: Mark release:start
         if: steps.check-skip.outputs.skip != 'true'
         run: gh pr edit "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}" --add-label release:start

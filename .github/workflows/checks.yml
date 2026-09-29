@@ -70,6 +70,9 @@ jobs:
             *) ./scripts/check-version-bump.sh "$base" ;;
           esac
 
+      - name: Validate skill frontmatter
+        run: make check-frontmatter
+
       - name: Validate every eval suite
         run: make check-evals
 

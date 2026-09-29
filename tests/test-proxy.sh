@@ -4,12 +4,22 @@
 # Each test names the experiment it locks down, so a future change that
 # reintroduces a silent failure fails here instead of in a debugging session.
 #
-# Uses a port well away from the derived one so it cannot fight a real session.
+# Uses a port well away from the derived one so it cannot fight a real session,
+# and derived per checkout so it cannot fight another WORKTREE either: cleanup
+# below is `pkill -f "listen=$PORT"', so with a fixed port a run in one worktree
+# kills the REPL of a run in another. That was measured on 2026-09-29, as one
+# 6-passed-1-failed run that passed on its own -- the same pkill-by-pattern
+# hazard the roadmap files as A4, inside the test suite.
 
 set -u
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-PORT=${TEST_PORT:-39140}
+# Base 39000 keeps the test range clear of the 37000 project range.
+if [ -z "${TEST_PORT:-}" ]; then
+    _test_slug=$(printf '%s' "$ROOT" | tr '/.' '--')
+    TEST_PORT=$((39000 + $(printf '%s' "$_test_slug" | cksum | cut -d' ' -f1) % 900))
+fi
+PORT=$TEST_PORT
 PROXY_PORT=$((PORT + 1))
 WORK=$(mktemp -d)
 LOG="$WORK/repl.log"
