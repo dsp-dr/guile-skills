@@ -12,7 +12,7 @@ PROXY_SCRIPTS  := skills/guile-repl-proxy/scripts
 GUILE ?= $(shell command -v guile3 2>/dev/null || command -v guile-3.0 2>/dev/null || echo guile)
 GUILD ?= $(shell command -v guild3 2>/dev/null || command -v guild-3.0 2>/dev/null || echo guild)
 
-.PHONY: dx dx-kill wip help start stop status eval lint lint-org lint-claude test check-evals check-scripts check-version sync-scripts checks try try-in ship-check readme paths clean release-staging release-production
+.PHONY: dx dx-kill wip help start stop status eval lint lint-org lint-claude test check-evals check-frontmatter check-scripts check-version sync-scripts checks try try-in ship-check readme paths clean release-staging release-production
 
 help:
 	@echo "guile-skills"
@@ -27,6 +27,7 @@ help:
 	@echo "  gmake lint-org     org-lint every tracked .org file"
 	@echo "  gmake lint-claude  claude plugin validate ."
 	@echo "  gmake check-evals  validate every skills/*/evals/evals.json"
+	@echo "  gmake check-frontmatter  validate every skills/*/SKILL.md frontmatter"
 	@echo "  gmake sync-scripts  copy scripts/lib/ into each skill that needs it"
 	@echo "  gmake check-scripts verify those copies have not drifted"
 	@echo "  gmake check-version verify a shipped change raised plugin.json version"
@@ -91,6 +92,12 @@ lint-claude:
 check-evals:
 	@python3 ./tests/validate-evals.py
 
+# `claude plugin validate' checks the manifest, not a skill's frontmatter, and
+# `skills-ref validate' needs a cloned repo and a venv (a23284b). This is the
+# part that runs offline, so it can gate a PR before anything expensive starts.
+check-frontmatter:
+	@python3 ./tests/validate-frontmatter.py
+
 # scripts/lib/ is canonical; skills/*/scripts/ copies are generated, because a
 # skill installed on its own must carry everything it runs.
 sync-scripts:
@@ -107,7 +114,7 @@ check-version:
 # What CI runs, in the order that fails cheapest first. `claude plugin validate'
 # is deliberately not here: it needs the Claude Code CLI, which CI installs and
 # a developer already has running.
-checks: lint lint-org lint-claude check-scripts check-version check-evals test
+checks: lint lint-org lint-claude check-scripts check-version check-frontmatter check-evals test
 
 # Manual testing. `checks' proves the code is sound; these prove the *plugin*
 # works, which is a different question -- the skills reference scripts by path,
