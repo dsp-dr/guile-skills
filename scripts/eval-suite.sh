@@ -11,21 +11,25 @@
 # MANUAL. Not in `checks' and not in any workflow: a full suite is real model calls
 # on your account. See `gmake audit' for the same reasoning at more length.
 #
-# Two gates, in this order, because they fail differently:
+# Two gates, in this order, and BOTH ARE BEHAVIOURAL. There is deliberately no
+# minimum-version constant:
 #
-#   1. VERSION. plugin eval shipped in 2.1.269
-#      (https://code.claude.com/docs/en/whats-new/2026-w37). Below that the
-#      subcommand may not exist, or may exist and refuse.
+#   1. DOES THE SUBCOMMAND EXIST?  `claude plugin eval --help' exits non-zero on a
+#      build that has no such subcommand. Asking directly never goes stale.
 #
-#   2. THE PROBE. Version is necessary, not sufficient: on 2.1.261 the subcommand
-#      exists, `--help' prints the COMPLETE usage, and the run still answers
-#      "`plugin eval` is currently in early access". The harness is compiled in and
-#      gated elsewhere -- account-side or channel-side, not established which. So a
-#      version check alone would promise a run that does not happen.
+#   2. DOES A RUN GET PAST THE GATE?  On 2.1.261 the subcommand exists, --help
+#      prints the COMPLETE usage, and the run still answers "`plugin eval` is
+#      currently in early access". So existence is not permission, and only a run
+#      settles it. The probe is free -- the gate answers before any model call --
+#      which is a property of where the gate sits rather than a guarantee anyone
+#      made, so it still runs under a ceiling.
 #
-#      The probe is free: the gate answers before any model call. That is a property
-#      of where the gate sits, not a guarantee anyone made, so the probe is still
-#      run with a cost ceiling.
+# An earlier version of this script pinned MIN_VERSION=2.1.269 from the changelog.
+# That was wrong twice over: 2.1.268 was observed running it, so the constant was
+# off by a release; and the same build that refuses (2.1.261) prints full help, so
+# a version test would have been answering a different question anyway. A constant
+# read off a changelog is a claim about the world that ages; `--help' and a probe
+# are questions put to the binary in front of you.
 #
 # Only after both pass does anything expensive start.
 
@@ -34,8 +38,6 @@ set -u
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$ROOT" || exit 2
 
-# The release that ships it. Bump this only with a changelog entry to cite.
-MIN_VERSION=2.1.269
 PROBE_CASE=${PROBE_CASE:-no-linter-claim}
 PROBE_CEILING=${PROBE_CEILING:-0.01}
 SUITE_CEILING=${SUITE_CEILING:-5.00}
@@ -51,19 +53,16 @@ esac
 command -v claude >/dev/null 2>&1 || { echo "eval-suite: no claude on PATH" >&2; exit 2; }
 
 have=$(claude --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-[ -n "$have" ] || { echo "eval-suite: could not read the CLI version" >&2; exit 2; }
+echo "eval-suite: claude ${have:-unknown}"
 
-# sort -V puts the lower first; if MIN sorts first, we are at or above it.
-lowest=$(printf '%s\n%s\n' "$have" "$MIN_VERSION" | sort -V | head -1)
-if [ "$have" != "$MIN_VERSION" ] && [ "$lowest" = "$have" ]; then
-    echo "eval-suite: claude $have is below $MIN_VERSION, where plugin eval shipped."
+# --- gate 1: does the subcommand exist on this build? ----------------------
+if ! claude plugin eval --help >/dev/null 2>&1; then
+    echo "eval-suite: this build has no \`plugin eval\` subcommand."
     echo "eval-suite: nothing was run and nothing was spent."
-    echo "eval-suite: probing anyway, because the gate may be account-side:"
-else
-    echo "eval-suite: claude $have >= $MIN_VERSION"
+    exit 0
 fi
 
-# --- gate 2: the free probe ------------------------------------------------
+# --- gate 2: the free probe, which is the one that decides -----------------
 probe=$(claude plugin eval . --case "$PROBE_CASE" --runs 1 \
             --max-cost-usd "$PROBE_CEILING" --no-publish 2>&1)
 probe_status=$?
