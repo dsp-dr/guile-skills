@@ -34,3 +34,19 @@ Timeline
   2026-09-28, nexus, FreeBSD 15.1-RELEASE, guile3 3.0.10, direnv 2.35.0, as
   dsp-dr. Branched from main rather than from docs/contributing-check-targets so
   PR #5 stays a single-purpose diff.
+
+Amended 2026-09-29
+  Rebased onto origin/main after PRs #4 and #5 merged (02:20) and v0.1.4 was
+  tagged and published. The earlier note said this branched from main to keep
+  PR #5 single-purpose; #5 has since merged, so that reads as history.
+
+  The rebase itself produced the two findings now written into RELEASING.org: it
+  stranded this note on the pre-rebase sha 9ce331c (recovered with `git notes
+  copy'), and refs/notes/commits was found three commits ahead of origin with
+  nothing warning about it. notes.rewriteRef, notes.rewrite.rebase and
+  notes.rewrite.amend are now set in this checkout's config, which is why the
+  amend above carried the note instead of dropping it.
+
+  The push standard is deliberately here and not in CONTRIBUTING.org: the other
+  branch in flight edits CONTRIBUTING.org, and splitting the two files keeps the
+  two PRs from conflicting -- which is itself the first rule of the standard.
