@@ -1,0 +1,313 @@
+#+TITLE: Experiments: how to find out what a plugin ecosystem actually requires
+#+DATE: 2026-09-29
+#+AUTHOR: dsp-dr
+
+Nine probes for answering "is this allowed?" about Claude Code plugins without
+guessing, without downloading 314 plugins, and without asking a model to
+speculate. Each is a command you can re-run.
+
+They exist because the documentation, the CLI and the installed corpus disagree
+often enough that only one of them can be trusted per question --- and which one
+differs per question.
+
+Labels: *measured* here, *inherited* from a document, *not established*.
+
+Run on *nexus*, FreeBSD 15.1-RELEASE, Claude Code *2.1.261*, 2026-09-29.
+
+* How to run and review this
+
+The order matters, and it is not the order the questions arrive in.
+
+1. *Cheap and broad first.* One =git/trees?recursive=1= call censuses a whole
+   marketplace. Do this before forming any opinion, because it is free and it
+   frequently kills the hypothesis outright.
+2. *Then the binary.* Reading rules out of the executable costs nothing and
+   settles "is X even a thing" questions that documentation gets wrong.
+3. *Then fault planting.* This mutates files and costs attention, so it goes
+   after the two free steps have narrowed what is worth planting.
+4. *Isolated install last.* It touches real configuration, so it runs in a
+   throwaway =CLAUDE_CONFIG_DIR= and only once the question is precise.
+
+*Every claim carries a label and a version.* =claude= 2.1.261 here. A claim about
+what the CLI enforces is a claim about *that build*; when the version moves, the
+claim is void until re-measured, not "probably still true". That is why
+=contracts/cell.json= pins the version and =gmake check-contracts= fails when the
+installed CLI differs --- the tripwire exists so staleness is loud.
+
+*Calibrate in both directions.* A check that fires on a planted fault is half
+verified. Run it on the clean tree too. N9 is the case where that second half
+caught a guard that was wrong in a way the first half could not see.
+
+*Reviewing this document* means re-running the commands, not reading the results.
+Each section states its command; if yours disagrees, the disagreement is the
+finding. Report the CLI version with it.
+
+*Where I was wrong, and how it surfaced.* Three corrections happened while writing
+this, each caught by a later step contradicting an earlier one:
+
+- "38 skills are nested" --- a glob that matched plugin *cache version directories*
+  rather than skill directories. Caught by re-counting per plugin, which showed
+  =nested=0= everywhere.
+- "nesting is used by nobody" --- true of Anthropic's marketplace, false of the
+  wider ecosystem (N4). Caught by widening the sample.
+- "=$schema= is contract metadata and must not appear in a manifest" --- it is a
+  recognised field; the check I wrote rejected a legal file. Caught by reading the
+  binary's own description of the field.
+
+None of the three was caught by thinking harder. Each needed a different probe.
+
+* N1 -- What does the CLI actually enforce? Plant faults.
+
+*Question.* The manifest reference says entries are strict. Is that true of the
+CLI in front of you?
+
+*Method.* Build a throwaway plugin, break one thing at a time, and read the exit.
+
+#+begin_src sh
+D=$(mktemp -d); mkdir -p "$D/.claude-plugin"
+cat > "$D/.claude-plugin/plugin.json" <<'J'
+{ "name": "probe", "version": "0.0.1",
+  "description": "A probe plugin. Use when testing what the validator enforces.",
+  "author": { "name": "t" } }
+J
+claude plugin validate "$D" --strict          # baseline: must pass
+# then mutate one key and re-run, one fault per run
+#+end_src
+
+*Result.* Three distinct behaviours, not one:
+
+| Surface                    | unknown key in an entry            |
+|----------------------------+------------------------------------|
+| =channels=                 | *rejected*: =channels.0: Invalid input= |
+| =hooks.json= hook entry    | *passes* (a missing =command= is caught) |
+| =monitors.json=            | *passes* --- the file is not read at all |
+| marketplace plugin entry   | *warns*, and =--strict= turns that into failure |
+
+Nine planted faults against =monitors.json= all passed. So "the reference says
+strict" is not evidence about your CLI.
+
+*Label:* measured.
+
+* N2 -- Read the rules out of the binary
+
+*Question.* What are the actual name rules, event names, and environment
+variables --- as opposed to the documented ones?
+
+*Method.* The CLI is a large unstripped executable. Its own help text, error
+strings and internal documentation are in it.
+
+#+begin_src sh
+CLI=$(readlink -f "$(command -v claude)")     # may be a wrapper; find the real one
+strings -a "$CLI" | grep -oE 'CLAUDE_CODE_[A-Z0-9_]+' | sort -u
+strings -a "$CLI" | grep -oE 'Skill names match[^.]*\.'
+strings -a "$CLI" | grep -oxE '(SessionStart|PreToolUse|PostToolUse|Stop|PreCompact)'
+#+end_src
+
+*Result.* This is how four facts were established that no page states:
+=CLAUDE_PROJECT_DIR= exists and =CLAUDE_PROJECT_ROOT= does not; =CLAUDE_CONFIG_DIR=
+and =CLAUDE_CODE_TMPDIR= are real; =PostToolUseFailure= and =PostCompact= exist and
+are absent from the reference's hook table; and the skill-name rule is *"Skill names
+match the skill's directory name"*, with parentheses, commas and control characters
+forbidden.
+
+*Caveat.* Use =grep -o= with an anchored pattern. A bare =grep= on a 215 MB binary
+returns a single matching "line" that is megabytes wide.
+
+*Label:* measured.
+
+* N3 -- Census a whole marketplace without downloading it
+
+*Question.* What do 300-odd real plugins actually do? Downloading them is
+infeasible; the catalogue JSON does not carry their file trees.
+
+*Method.* One git-tree call against the marketplace repository.
+
+#+begin_src sh
+gh api 'repos/anthropics/claude-plugins-official/git/trees/HEAD?recursive=1' \
+  --jq '.tree[].path' > tree.txt
+grep -c '/SKILL\.md$' tree.txt
+#+end_src
+
+*Result.* 778 tree entries, *31 =SKILL.md= files, 36 agents*. Enough to answer
+layout questions definitively, in one request.
+
+The local marketplace manifest complements it for *metadata*:
+
+#+begin_src sh
+M=~/.claude/plugins/marketplaces/claude-plugins-official/.claude-plugin/marketplace.json
+python3 -c "import json;d=json.load(open('$M'));print(len(d['plugins']))"     # 314
+#+end_src
+
+To widen past one vendor, sample a topic rather than enumerate it:
+
+#+begin_src sh
+gh search repos --topic claude-skills --limit 10 --sort stars --json fullName \
+  --jq '.[].fullName' |
+while read -r repo; do
+    gh api "repos/$repo/git/trees/HEAD?recursive=1" --jq '.tree[].path' |
+      grep -oE 'skills/.+/SKILL\.md$'
+done
+#+end_src
+
+Ten repositories, ten requests, 1,382 skills. "Good enough" beats exhaustive here:
+the question is whether a convention holds, and a biased-toward-popular sample that
+*contradicts* it is decisive, while one that agrees is suggestive.
+
+*Label:* measured.
+
+* N4 -- Nesting: supported, and used by nobody
+
+*Question.* Can skills be namespaced, =skills/repl/server/SKILL.md=, giving
+=plugin:repl:server=?
+
+*Method.* N2 for the rule, N3 for the practice.
+
+*Result.* The binary states it: *"Skills nested under a directory are listed as
+=<dir>:<name>="*. So it is supported.
+
+Adoption, widened deliberately because the first sample was too narrow:
+
+| Corpus                                   | skills | nested |
+|------------------------------------------+--------+--------|
+| Anthropic's official marketplace repo    |     31 |      0 |
+| installed locally (6 plugins)            |     25 |      0 |
+| top 10 repos in the =claude-skills= topic |  1,382 |     30 |
+
+So *roughly 2% in the wild, and zero upstream*. My first conclusion --- "supported
+and used by nobody" --- was drawn from the upstream corpus alone and was wrong.
+
+More useful than the rate is the *shape*. The one legible pattern in the sample is
+=i18n/planning-with-files-{ar,de,es,zh,zht}= --- nesting used for a *variant axis*
+(translations of one skill), not for a domain namespace. Nobody in the sample groups
+=repl/server=, =repl/eval= the way a module system would. And *no directory anywhere
+contains a colon*: the colon in =<dir>:<name>= is derived by the product, never
+written by the author.
+
+The binary also states the cost: for a nested skill, usage *"may be recorded under
+either that qualified name or the bare =<name>="*. Two keys for one skill.
+
+*Not established:* that a nested skill loads and dispatches correctly. The rule is
+quoted from the binary; I did not install one and invoke it.
+
+*Label:* measured for the census, inherited for the rule.
+
+* N5 -- Frontmatter: nothing you have validates it
+
+*Question.* What checks =SKILL.md= frontmatter?
+
+*Method.* Point the CLI at a skill with a deliberately broken name and see.
+
+*Result.* =claude plugin validate --strict= passes a skill whose =name= contains a
+colon, and passes a nested skill directory. *It does not read skills at all.*
+=skills-ref validate= would, and needs a cloned repo and a venv. =gh skill publish=
+would, and is absent on FreeBSD.
+
+So frontmatter checking is yours to write. The offline-checkable rules: name
+matches its directory and is kebab-case; a description that states both what it
+does and when to use it; an SPDX licence; and *no flow-style YAML sequence*, because
+StrictYAML rejects =binaries: [guile3]= and that is what breaks =skills-ref=.
+
+*Label:* measured.
+
+* N6 -- Data: which paths an install actually delivers
+
+*Question.* What does a user receive?
+
+*Method.* Two installs differ, and the difference is the whole answer.
+
+#+begin_src sh
+# a plugin install delivers the plugin root:
+#   .claude-plugin/ skills/ agents/ hooks/ monitors/ commands/ ...
+# `gh skill install <repo> <skill>` copies ONLY skills/<name>/** -- and strips +x
+#+end_src
+
+*Result.* That asymmetry is why scripts are duplicated into each skill here, and
+why =monitors/= and =agents/= reach plugin users but not skill-only ones. Keep the
+shipped-path list in exactly one place and derive the rest: a version gate and a
+path labeler that disagree will disagree silently.
+
+*Label:* inherited (from ~8d71a62~'s measurement) and re-checked by =ship-check=.
+
+* N7 -- Security: probe in a throwaway configuration
+
+*Question.* How do you test an install without modifying your own setup?
+
+*Method.*
+
+#+begin_src sh
+D=$(mktemp -d)
+CLAUDE_CONFIG_DIR="$D" claude plugin marketplace add /path/to/repo
+CLAUDE_CONFIG_DIR="$D" claude plugin install name@marketplace --yes
+CLAUDE_CONFIG_DIR="$D" claude plugin list
+rm -rf "$D"
+#+end_src
+
+*Result.* A full add/install/enable/disable cycle, verified, touching nothing real.
+=CLAUDE_CONFIG_DIR= is confirmed present in the binary by N2.
+
+For credentials: keep the value in =pass=, move it on *stdin* (never =argv=, where
+=ps= sees it), and export it from =.envrc= rather than writing any file:
+
+#+begin_src sh
+gh auth token | pass insert -m github/<owner>/personal-access-token
+# .envrc:
+#   [ -n "$(pass show <path> 2>/dev/null)" ] &&
+#     export GITHUB_PERSONAL_ACCESS_TOKEN=$(pass show <path> | head -n 1)
+#+end_src
+
+Verify by *shape*, never by printing: =${#VAR}= and a four-character prefix.
+
+*Label:* measured.
+
+* N8 -- Audits: keep the model-graded one out of the gate
+
+*Question.* Should a model-graded review gate a merge?
+
+*Result.* No, and the reasons are structural rather than fussy. It costs tokens on
+every invocation while deterministic checks run on every save; two runs can
+disagree, and a gate that disagrees with itself teaches people to ignore it; and CI
+has no credentials, so it reports "could not run" forever and is then deleted.
+
+Reduce it to one bit and run it by hand:
+
+#+begin_src sh
+claude -p "<prompt>. End with a final line that is EXACTLY PASS or FAIL." \
+  --allowed-tools Read Grep Glob --permission-mode plan
+#+end_src
+
+Exit 0 / 1 / 2, where 2 is *could not run* and is distinct from FAIL.
+
+*Label:* measured for the mechanism, not established end to end.
+
+* N9 -- Boundaries: name the line, then find who crosses it
+
+*Question.* How do you check a boundary rather than assert one?
+
+*Method.* For each rule, write the command that would catch a violation, then run
+it on the clean tree *and* on a planted violation. A check calibrated only against
+a fault is half-calibrated.
+
+*Result.* That second half matters. A guard forbidding =${CLAUDE_SKILL_DIR}= in
+shipped scripts caught its planted fault --- and failed the clean tree, because the
+variable is legitimate in a shipped script and a helper exists to verify that exact
+usage. The real defect was prose telling a human to paste it into a shell. The guard
+was removed; the =bin/= guard beside it passes both directions and stayed.
+
+*Label:* measured.
+
+* What this adds up to
+
+Per question, exactly one source is authoritative, and it is rarely the same one:
+
+| Question                          | Ask                                    |
+|-----------------------------------+----------------------------------------|
+| Is this manifest valid?           | =claude plugin validate --strict=      |
+| Is this monitor entry valid?      | nothing --- write the check yourself   |
+| What are the name rules?          | the binary (N2)                        |
+| What do real plugins do?          | the marketplace git tree (N3)          |
+| What does an install deliver?     | two install paths, compared (N6)       |
+| Does my check work?               | a planted fault *and* the clean tree (N9) |
+
+The reference page is a fourth source and agrees with none of them completely: it
+claims strictness the CLI does not enforce, describes a =hooks.json= shape the CLI
+rejects, and omits two hook events the binary carries.
