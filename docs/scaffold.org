@@ -1,0 +1,123 @@
+#+TITLE: A common shape for a Guile project, read off the corpus
+#+DATE: 2026-09-29
+#+AUTHOR: dsp-dr
+
+The goal is that any Guile project gets the same three things without being asked
+twice: a =Makefile= that knows the standard verbs, a test layout that runs, and an
+Emacs setup where =geiser-connect= reaches /this project's/ REPL with /this
+project's/ load path.
+
+The temptation is to invent that shape. This file measures it instead.
+
+Surveyed on *nexus*, FreeBSD 15.1-RELEASE, 2026-09-29: every checkout under
+=$(ghq root)= containing a =.scm= file --- *48 projects*, including
+=rekado/guile-irc= fetched deliberately as a third-party reference, so the answer
+is not just a description of our own habits.
+
+* What 48 projects actually do
+
+Primary module directory, by where =(define-module ...)= forms live:
+
+| Directory                          | Projects |
+|------------------------------------+----------|
+| =src/=                             |       21 |
+| /no modules at all/ (scripts only) |       12 |
+| named for the project              |        5 |
+| the repository root                |        2 |
+| =tests/= as the only module dir    |        2 |
+| =lib/=, =modules/=, =experiments/=, =scripts/=, vendored | 1 each |
+
+The headline: *=src/= is the primary module directory in 21 of 48 --- 43%.* It is
+the plurality and nowhere near a majority. The five "named for the project" cases
+are not stragglers either; that is the Guile and Guix idiom, and it is what
+=rekado/guile-irc= (=irc/=) and =guile-cps-debugger= (=cps-debugger/=) both use.
+
+Everything else:
+
+| Dimension | Finding                                                            |
+|-----------+--------------------------------------------------------------------|
+| build     | =make= in 40; autotools in 4 (one of those also =guix.scm=); nothing in 4 |
+| tests     | =tests/= in 32, =test/= in 2, none in 14                            |
+| SRFI-64   | used in 28, absent in 20                                           |
+| Emacs     | =.dir-locals.el= in *7*; loose =.el= files in 20; nothing in 21     |
+
+So =make= and =tests/= are genuinely conventional and can be assumed. =src/=
+cannot. And per-project Emacs wiring is the real hole: 7 of 48.
+
+* Consequence: detection first
+
+=guile-repl-server.sh:20,76= has =SRC_DIR=${SRC_DIR:-src}=, so a project laid out
+any other way starts a REPL with load path =none= and =(use-modules ...)= fails
+with nothing pointing at why. That is =roadmap.org='s C5, and the survey says it
+is wrong for the majority of the corpus.
+
+=scripts/guile-project-detect.sh= is the primitive: it reports the module
+directories, the load-path flags, the test directory, the build system, whether
+SRFI-64 is already in use, and which Guile binary is actually present. Calibrated
+against twelve real projects, nine of which have *no* =src/= at all:
+
+| Project                | Detected        | =SRC_DIR=src= would be |
+|------------------------+-----------------+------------------------|
+| =guile-sicp=           | =src=           | right                  |
+| =guile-changeflow=     | =src test=      | right                  |
+| =guile-cps-debugger=   | =cps-debugger src .= | right                  |
+| =rekado/guile-irc=     | =irc=           | *wrong* --- no =src/=  |
+| =guile-nimbus=         | =nimbus=        | *wrong*                |
+| =guile-roulette=       | =roulette .=    | *wrong*                |
+| =defcon33=             | =modules=       | *wrong*                |
+| =mit-6851-...=         | =lib=           | *wrong*                |
+| =guile-basestation=    | =.=             | *wrong*                |
+| =enhanced-trie=        | =.=             | *wrong*                |
+| =functional-data-structures= | =tests scheme= | *wrong*            |
+| =guile-morse-bst=      | none --- scripts | *wrong*, and correctly reported as having no modules |
+
+The detector is a heuristic over evidence --- busiest top-level directory
+containing =define-module= forms, capped at three, vendored and submodule paths
+excluded --- not a default. Where it finds nothing it says so rather than
+guessing, because a project of scripts has no load path to set.
+
+* The Emacs half, and the trap already in the corpus
+
+Two of the seven existing =.dir-locals.el= files show both sides:
+
+- =guile-sicp= *deliberately does not set the binary*: "it is =guile3= on FreeBSD
+  and =guile= on macOS", and it derives the load path with
+  =locate-dominating-file=. That is the right instinct.
+- =guile-cps-debugger= hard-codes =geiser-guile-binary "guile3"=. That is
+  ~8178314~ in Emacs form --- the same mistake that stopped the proxy running
+  anywhere but FreeBSD --- and it will fail on Debian, Ubuntu and Homebrew, where
+  the binary is =guile-3.0= or =guile=.
+
+So the scaffolded =.dir-locals.el= must *probe*, exactly as
+=guile-repl-paths.sh= does: =guile3=, then =guile-3.0=, then =guile=.
+
+The third requirement is agreement. Geiser should connect to the same port the
+skill derives, =37000 + cksum(slug) mod 900=, without anyone typing a number.
+That means the elisp and the shell must compute the same value, which is a
+property worth *testing* rather than asserting --- a scaffolded project and
+=guile-repl-paths.sh= disagreeing about the port is precisely the class of silent
+failure this repository exists to catch.
+
+* What is built, and what is next
+
+| Piece                                        | State                          |
+|----------------------------------------------+--------------------------------|
+| the corpus survey above                      | *done*, reproducible           |
+| =scripts/guile-project-detect.sh=             | *done*, calibrated on 12 projects |
+| =Makefile= template: help/repl/check/lint/clean | not built                   |
+| =tests/= + an SRFI-64 runner (roadmap C6)    | not built                      |
+| =.dir-locals.el= template: probed binary, detected load path, derived port | not built |
+| port agreement test, elisp against shell     | not built                      |
+| a way to apply it --- =gmake scaffold DIR=' or a =guile-project-init= skill | not decided |
+| feeding the detector back into =guile-repl-server.sh= (C5) | not built        |
+
+It lives in =scripts/= rather than =scripts/lib/= on purpose. =scripts/lib/=
+is the canonical source of the copies synced into each skill, so a file there
+is shipped and must raise =version= --- the gate said so when this was first
+put in the wrong place. Nothing installs it yet, so it is unshipped tooling
+until the row below is done, and moving it then is the deployable change.
+
+The last row is the one with the most leverage: the detector exists to be used by
+the server, not only by the scaffold. Doing that turns "the load path assumes
+=src/=" from a documented gap into a fixed one for every project in the corpus,
+whether or not it ever gets scaffolded.
