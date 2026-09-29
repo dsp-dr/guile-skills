@@ -16,6 +16,40 @@ GNU Emacs 30.2, tmux 3.6a, direnv 2.35.0, git with =notes.rewriteRef= initially
 unset, as =dsp-dr=. A second checkout of the same repository existed as a sibling
 worktree for part of the session, which is how several of these were found.
 
+* Where everything lives, and what ships
+
+Orientation first, because more than one mistake in this session came from not
+knowing which side of a line a file was on.
+
+| Path                     | What                                          | Ships? |
+|--------------------------+-----------------------------------------------+--------|
+| =.claude-plugin/plugin.json= | the manifest                              | *yes*  |
+| =skills/<name>/=         | SKILL.md, =scripts/= copies, =evals/=         | *yes*  |
+| =scripts/lib/=           | canonical scripts synced into each skill      | *yes*  |
+| =monitors/=              | =monitors.json= + what it runs                | *yes*  |
+| =agents/=                | the Geiser setup agent                        | *yes*  |
+| =hooks/=                 | =hooks.json=, the Scheme check, the shared Emacs style, the log baseline | *yes* |
+| =commands/= =output-styles/= =themes/= =workflows/= | none yet, but reserved   | *yes*  |
+| =scripts/= (top level)   | release and dev tooling                       | no     |
+| =tests/=                 | the four validators and the proxy regressions | no     |
+| =contracts/=             | what we believe the product requires          | no     |
+| =docs/= =emacs/=         | prose; the DX Emacs profile                   | no     |
+| =.dx-emacs/=             | generated: the DX profile's ELPA tree          | gitignored |
+
+"Ships" means a *plugin* install delivers it. A single-skill =gh skill install=
+copies only =skills/<name>/**=, which is why scripts are duplicated into each skill
+--- and why =monitors/=, =agents/= and =hooks/= reach plugin users but not
+skill-only ones.
+
+The four shipped-path lists must stay in step: =SHIPPED= in
+=scripts/check-version-bump.sh=, the =deployable= globs in =.github/labeler.yml=,
+=scripts/ship-check.sh=, and this table. =monitors/= was missing from the first two
+until 0.1.6 and =agents/= until 0.2.0.
+
+*Logs and transcripts live in none of the above.* They are under
+=${CLAUDE_PLUGIN_DATA}/projects/<slug>/=, never in the working tree, and the
+session baseline (=.baseline=) sits beside them for the same reason.
+
 * A. Silent success: the repository's own genre, found in five new places
 
 ** A1 =gmake lint= cannot fail on Scheme
@@ -293,6 +327,85 @@ cksum(checkout path) mod 900=. Slug is the absolute path with =/= and =.= replac
 by =-=, matching the =~/.claude/projects= convention. None of these is a
 reservation.
 
+* H. The second half of the session
+
+Found after the first draft of this report, and each one changed a decision.
+
+** H1 =validate= reads =hooks.json= but only partly, and needs a wrapper
+=measured=. Unlike =monitors.json= (A5), =claude plugin validate= *does* read
+=hooks/hooks.json= --- and it requires a top-level =hooks= key. A bare
+settings.json-style event map at the root is rejected: "hooks.json must have
+=hooks= (the hook matchers) or =modules= (hooks modules), or both". The manifest
+reference's "same shape as =hooks= in settings.json" describes the *inline manifest*
+form, not this file, and following it produced a plugin that would not validate.
+
+The coverage is partial: a hook entry missing =command= is caught
+("Invalid command hook ... entry ignored at runtime"), an *unknown key* inside a
+hook entry passes.
+
+*Oracle*: both faults, planted, against =--strict=.
+
+** H2 Two environment variables, one of which does not exist
+=measured= against the CLI binary. =CLAUDE_PROJECT_DIR= is real;
+*=CLAUDE_PROJECT_ROOT= is not* --- it appears nowhere in the binary, and a hook
+written against it would silently fall back to the working directory.
+=CLAUDE_CONFIG_DIR= is real, which is what makes =gmake try-clean= possible.
+
+The binary also carries =SessionStart=, and =PostToolUseFailure= and =PostCompact=,
+neither of which appears in the reference's hook table.
+
+** H3 There is no standalone Scheme formatter, and Emacs is a good one
+=measured=. =scmindent=, =lispindent= and =schemefmt= are all absent here and
+=guild= compiles without formatting. =emacs --batch= in =scheme-mode= with
+=indent-region= produces correct indentation on a deliberately messy Guile file, and
+=guild3= compiles the result --- but =indent-tabs-mode= defaults to *on*, so the
+first attempt inserted a tab. =check-parens= is the balance oracle and reports the
+line.
+
+** H4 =require= searches by feature name, not file name
+=measured=, and it broke every caller. A shared style file named =scheme-style.el=
+that ends with =(provide 'guile-scheme-style)= cannot be found by
+=(require 'guile-scheme-style)=: Emacs looks on =load-path= for a file named after
+the *feature*. Renaming the file fixed it. Worth knowing because the natural
+instinct is to name the file after its subject.
+
+** H5 Guile has no JSON reader --- and that does not block a Scheme port
+=measured=, twice, and the second measurement reversed the first conclusion.
+
+Guile 3.0.10 has no JSON: =(json)=, =(json parser)=, =(ice-9 json)=, =(web json)=,
+=(sxml json)= and =(guile-json)= are all absent, nothing under the Guile load path
+is named for JSON, and =guile-json= is not in the FreeBSD package list. Written up
+as a blocker.
+
+Then =guile-json= 4.7.3 was cloned and checked: it is *pure Scheme*, eleven =.scm=
+files and no C, so it needs no build and no install. =guile3 -L <checkout>= is
+enough. It round-trips (=({"a":[1,2,{"b":true}]}= parses to
+=(("a" . #(1 2 (("b" . #t)))))=, objects as alists and arrays as vectors) and parses
+all three operational files.
+
+So the dependency is a vendored directory plus one =-L= flag, and writing our own
+reader --- attractive only while the dependency looked costly --- becomes the
+liability instead. Tracked as issue #15.
+
+*The lesson is the shape of the error, not the fact.* "Unpackaged" was allowed to
+imply "expensive" without checking, and one command settled it.
+
+** H6 The deployable gate works end to end
+=measured=. PR #6 carried no =deployable= label; merging it ran "Publish on merge",
+which *skipped*, and the tags stayed at =v0.1.4=. The first real confirmation that
+the label genuinely governs publishing rather than merely describing a diff.
+
+** H7 Specs must not live in the files the product reads
+=inherited= as a requirement, and it arrived just in time --- a contract version was
+about to go into =plugin.json='s =metadata=. It must not, because an unknown key in
+a strict entry stops the plugin loading and an unknown top-level manifest key fails
+=--strict=. So =contracts/= is a separate tree, its README opens with the isolation
+rule, and =tests/validate-contracts.py= fails if contract vocabulary appears in an
+operational file. Calibrated against a =contract_version= in a monitor entry and a
+=$schema= in the manifest.
+
+*Oracle*: both, planted, must fail =gmake check-contracts=.
+
 * What is still open
 
 - The internal address in published history (B1) --- needs a rewrite decision.
@@ -306,3 +419,13 @@ reservation.
   been verified on this machine. Only the tmux mechanics and an Emacs minibuffer
   round-trip were.
 - Tramp (section E) in its entirety.
+- Whether a =SessionStart= hook actually fires with this plugin loaded. The event
+  exists in the binary and =validate= accepts the entry; observing it needs a real
+  session.
+- Whether =claude plugin validate= reads =agents/= at all. Given A5 and H1, assume
+  partial at best until measured.
+- Whether Anthropic publishes machine-readable schemas for any of the ecosystem's
+  JSON files. A search is in flight; =ListToolsRequestSchema= in the channels
+  reference suggests Zod schemas exist at least for MCP.
+- The plugin's own name. =/guile-skills:guile-repl-server= says "guile" twice;
+  =/guile:repl= would not. Breaking, and cheapest now --- issue #13.
