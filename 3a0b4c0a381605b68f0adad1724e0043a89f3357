@@ -27,3 +27,25 @@ Considerations
 Timeline
   2026-09-29, nexus, FreeBSD 15.1-RELEASE, guile3 3.0.10, tmux 3.6a, GNU Emacs
   30.2, as dsp-dr. Session created and torn down; geiser/paredit install verified.
+
+Amended 2026-09-29, later
+  keycast added at the user's request, in the header line rather than the mode
+  line. Four bugs in my own Emacs profile were found by exercising it, the worst
+  being that it installed compat, cond-let and keycast into the user's real
+  ~/.emacs.d/elpa while both this commit message and the script header asserted it
+  would not. Disclosed rather than quietly corrected; the packages are still there
+  and removing them is the user's call, particularly since keycast was asked for.
+
+  Stronger isolation -- a scoped HOME, or the profile under ${CLAUDE_PLUGIN_DATA} --
+  was raised and judged unnecessary for this context. Pinning package-user-dir and
+  package-gnupghome-dir fixes the actual defect; the note is in the experience
+  report in case that judgement changes.
+
+  docs/experience-report.org is also published as a secret gist so the requirements
+  can be sealed and rebuilt from a spec rather than from a transcript.
+
+  Tramp is written from the constraints and labelled not established. The binding
+  rule decides its shape: the REPL is loopback-only, so a remote session needs
+  ssh -L rather than exposure, and Tramp alone gives remote files with a local REPL
+  -- the worst combination, since forms evaluate against the wrong tree while
+  looking correct.
