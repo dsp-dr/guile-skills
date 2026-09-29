@@ -44,7 +44,7 @@ _detect_module_dirs() {
         grep -rl --include='*.scm' -e '(define-module' "$GUILE_PROJECT_ROOT" 2>/dev/null |
         sed "s|^$GUILE_PROJECT_ROOT/||" |
         grep -v -e '^\.git/' -e '/\.git/' -e '^node_modules/' -e '/node_modules/' \
-                -e '^vendor/' -e '^submodules/' -e '^\.guix' |
+                -e '^vendor/' -e '^submodules/' -e '^\.' |
         awk -F/ '{ print (NF > 1 ? $1 : ".") }' |
         sort | uniq -c | sort -rn | awk '{ print $2 }'
     )
