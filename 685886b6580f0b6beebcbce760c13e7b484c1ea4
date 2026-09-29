@@ -1,0 +1,25 @@
+Context
+  Asked to push a gh token into pass and consume it as GITHUB_PERSONAL_ACCESS_TOKEN,
+  explicitly not on disk even gitignored; and to fix enable-local-eval. The GitHub
+  MCP server is failing this session with 'Authorization header is badly formatted',
+  which is what prompted it.
+
+Deviations
+  enable-local-eval was the wrong diagnosis on its own. Setting it did not clear the
+  prompt, and the screenshot showed the menu bar still present -- which meant the
+  profile was not loading at all. --init-directory was the actual cause. Both are
+  fixed; only the second explains the symptom.
+
+Considerations
+  The stored token is gh's OAuth token (gho_), not a classic or fine-grained PAT. gh
+  can rotate it on re-login, at which point the pass copy goes stale silently. For an
+  MCP server a dedicated PAT would be more stable, and its scopes could be narrowed --
+  this one carries repo, workflow, gist, read:org, user, admin:public_key and
+  write:gpg_key, which is more than an MCP server needs.
+
+  Value moved on stdin into pass insert -m, never as an argument, matching
+  sync-secrets.sh. Verified by length and prefix only; the value was never printed.
+
+Timeline
+  2026-09-29, nexus, GNU Emacs 30.2, Xvfb :99, ffmpeg x11grab, claude 2.1.261, as
+  dsp-dr. gmake checks green.
