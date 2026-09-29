@@ -1,0 +1,35 @@
+Context
+  Asked for an agent good at setting up a project for interactive debugging with
+  Emacs and Geiser, that reads guile3, and with deep background on Emacs, Guile 3,
+  Geiser and tmux -- tmux specifically so the agent can test its own work by
+  driving an interactive Emacs from a non-interactive place.
+
+Deviations
+  It is a setup agent, not a debugging agent. The debugging surfaces already exist
+  in the interpreter and are documented in guile-repl-eval; what was missing was
+  everything that has to be true before a person can reach them from Emacs. An
+  agent that re-explained ,bt would have added nothing.
+
+  The tmux recipe was exercised before being written down, minus Geiser, which is
+  not installed here. The polling loop replaced a vague "give Emacs time to redraw"
+  after the test showed how a half-drawn frame reads.
+
+Considerations
+  Geiser and Paredit are MISSING in this Emacs. The agent is told to check and
+  report rather than assume, but it means the end-to-end path -- geiser-connect
+  reaching the proxy port -- is UNVERIFIED on this machine. Only the tmux mechanics
+  and the Emacs minibuffer round-trip are verified.
+
+  Whether `claude plugin validate' reads agents/ at all was not tested. Given it
+  ignores monitors/ entirely, assume no coverage until measured.
+
+  0.2.0 rather than 0.1.7: RELEASING.org calls a new skill a minor bump, and a new
+  agent is the same kind of addition -- a new capability an installer receives.
+
+  Stacked on feat/monitor-repl-health, which is stacked on
+  fix/no-internal-endpoint-in-shipped-tree. Merging this tip into main publishes
+  one release covering all three, which is the consolidated deployment asked about.
+
+Timeline
+  2026-09-29, nexus, FreeBSD 15.1-RELEASE, guile3 3.0.10, tmux 3.6a, GNU Emacs
+  30.2, as dsp-dr. gmake checks green; validate --strict passing.
