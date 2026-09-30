@@ -3,7 +3,7 @@ name: emacs-setup
 description: Set a Guile project up for Emacs and Geiser - detect where its modules actually live, propose a .dir-locals.el that probes for the Guile 3 binary and derives this checkout's REPL ports at load time, and verify Emacs and the shell agree before anyone connects. Use when asked to set up Emacs, Geiser, geiser-connect or interactive debugging for a Guile or Scheme project, or when (use-modules ...) fails in Geiser because the load path is wrong.
 license: MIT
 allowed-tools: Read
-compatibility: Requires Guile 3 (guile3, guile-3.0 or guile), GNU Emacs 27 or later with Geiser and geiser-guile for the interactive half, and a POSIX shell. Writes one file, .dir-locals.el, at the project root. Designed for Claude Code or a similar product.
+compatibility: Requires Guile 3 (guile3, guile-3.0 or guile), GNU Emacs 29 or later (the oldest version in this project's CI; older is unverified) with Geiser and geiser-guile for the interactive half, and a POSIX shell. Writes one file, .dir-locals.el, at the project root. Designed for Claude Code or a similar product.
 metadata:
   requires:
     binaries:
@@ -20,7 +20,7 @@ metadata:
     network:
       - 127.0.0.1 only
     credentials: none
-  verified-on: FreeBSD 15.1-RELEASE and macOS, GNU Emacs 30.2, 2026-09-30
+  verified-on: macOS (Darwin 24.1, arm64), GNU Emacs 32.0.50 (a development build), Homebrew guile 3.0.10, 2026-09-30. Not yet run on FreeBSD, or under CI's Emacs 29.3
   enforcement: >-
       allowed-tools omits Bash for the same reason as repl-server: the calls
       here (emacs --batch, the detector, the generator) are approved one by one.
