@@ -4,17 +4,25 @@
 
 [![](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![](https://img.shields.io/badge/guile-3.0-orange.svg)](https://www.gnu.org/software/guile/) [![](https://img.shields.io/badge/claude--code-plugin-5A67D8.svg)](https://github.com/dsp-dr/guile-skills/blob/main/.claude-plugin/plugin.json) [![](https://img.shields.io/badge/verified-FreeBSD%2015.1-red.svg)](EXPERIMENTS.org)
 
-Three Claude Code skills that give an agent a real Guile REPL to work against instead of guessing. They start `guile3 --debug --listen` on a per-project port, record every evaluation through a logging proxy, and expose Guile's own debugger — tracing, breakpoints, macro expansion, profiling — over that same socket.
+Claude Code skills that give an agent a real Guile REPL to work against instead of guessing. They start `guile3 --debug --listen` on a per-project port, record every evaluation through a logging proxy, and expose Guile's own debugger — tracing, breakpoints, macro expansion, profiling — over that same socket.
 
 Everything stays on `127.0.0.1`. Nothing is sent anywhere.
 
-## The three skills
+## The skills
 
 | Skill | Use it when |
 |----|----|
 | `repl-server` | starting or resuming a Guile project: brings up the REPL and its logging proxy |
 | `repl-eval` | a claim about Guile code should be checked by running it, not recalled |
 | `repl-proxy` | you need a reviewable transcript of what was evaluated, or Emacs and an agent sharing one session |
+| `emacs-setup` | Emacs and Geiser should attach to this project's REPL: measures the module layout, writes a `.dir-locals.el` that probes rather than pins, and checks Emacs and the shell agree on ports and load path |
+
+As a plugin, the commands are `/guile:repl-server`, `/guile:repl-eval`, `/guile:repl-proxy` and `/guile:emacs-setup`. The plugin was called `guile-skills` before 0.4.0, and the repository keeps that name. The marketplace declares the rename, but measured on Claude Code 2.1.285 it only half-migrates an existing install: `marketplace update` moves the enable flag to `guile@guile-skills` and drops the install record, so finish with
+
+```bash
+claude plugin marketplace update guile-skills
+claude plugin install guile@guile-skills
+```
 
 ## Requirements
 
@@ -25,10 +33,14 @@ Guile 3.x. The binary is `guile3` on FreeBSD, `guile-3.0` on Debian and Ubuntu, 
 ## Install
 
 ```bash
-# as skills, pinned
-gh skill install dsp-dr/guile-skills --pin v0.1.2
+# as a plugin, from this repository's marketplace
+claude plugin marketplace add dsp-dr/guile-skills
+claude plugin install guile@guile-skills
 
-# or as a plugin, for one session
+# as skills only, pinned (no agent, hooks or monitor -- those ship with the plugin)
+gh skill install dsp-dr/guile-skills --pin v0.4.0
+
+# or from a checkout, for one session
 claude --plugin-dir /path/to/guile-skills
 ```
 
@@ -46,10 +58,12 @@ gmake stop
 
 ## How it works
 
-    agent / Emacs+Geiser ──▶ 127.0.0.1:PORT+1 ──▶ 127.0.0.1:PORT
-                                  (proxy)          (guile3 --debug --listen)
-                                     │
-                                     └──▶ ${CLAUDE_PLUGIN_DATA}/projects/<slug>/repl.log
+```example
+agent / Emacs+Geiser ──▶ 127.0.0.1:PORT+1 ──▶ 127.0.0.1:PORT
+                              (proxy)          (guile3 --debug --listen)
+                                 │
+                                 └──▶ ${CLAUDE_PLUGIN_DATA}/projects/<slug>/repl.log
+```
 
 The port pair is derived from the working directory, so a project — and each worktree of it — always gets its own. The transcript is keyed the same way, under the plugin's data directory rather than inside your repository, because it contains whatever you evaluated. Rotated at 4 MiB, five generations.
 

@@ -1,0 +1,48 @@
+{
+  "skill_name": "emacs-setup",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Set this Guile project up so I can use Geiser from Emacs. The modules are wherever they are -- I haven't told you.",
+      "expected_output": "The module directories are measured with the detector rather than assumed to be src/, a .dir-locals.el is proposed that probes for the binary and derives ports at load time, and --verify is run and reported before success is claimed.",
+      "expectations": [
+        "A Bash call runs guile-project-detect.sh (or an equivalent grep for define-module) before any load path is stated.",
+        "The load path in the written .dir-locals.el names the directories the detector reported, and names src only if the detector reported src.",
+        "The .dir-locals.el does not contain a literal geiser-guile-binary string such as \"guile3\" outside the probe list.",
+        "guile-dir-locals.sh --verify is run after the file is written, and its ok/FAIL lines are quoted in the response.",
+        "The response distinguishes a verified configuration from an exercised connection and does not claim geiser-connect worked unless a Geiser REPL prompt was actually observed."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "This project already has a .dir-locals.el with some indentation settings and (geiser-guile-binary . \"guile3\"). Add whatever Geiser needs.",
+      "expected_output": "The existing file is merged rather than overwritten: the indentation settings survive, the pinned binary is replaced by the probe with a stated reason, and the change is itemised.",
+      "expectations": [
+        "The existing .dir-locals.el is read before anything is written.",
+        "Every pre-existing entry other than geiser-guile-binary is still present in the file after the change.",
+        "The response says the pinned \"guile3\" fails on Debian (guile-3.0) or Homebrew (guile) and that it was replaced by a probe.",
+        "The response lists what was added and what was replaced."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "I opened a .scm file in Emacs after you set things up and it just seems to hang. What's going on?",
+      "expected_output": "The local-variables safety prompt is identified as the likely cause, with enable-local-eval named and the distinction from enable-local-variables stated.",
+      "expectations": [
+        "The response identifies the local-variables safety prompt triggered by eval forms in .dir-locals.el as the probable cause.",
+        "The response names enable-local-eval and states that enable-local-variables :all does not cover eval forms.",
+        "The response does not recommend deleting .dir-locals.el as the first remedy."
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Geiser connects but (use-modules (irc irc)) says no code for module. The modules are under irc/.",
+      "expected_output": "The running REPL's load path is inspected before any fix, and the fix makes the REPL's own load path include irc/ -- restarting repl-server with SRC_DIR=irc from the project root -- rather than asserting a cause that was not checked.",
+      "expectations": [
+        "The response checks what load path the running REPL was started with (repl-server output, --status, or %load-path evaluated in the REPL) before proposing a fix.",
+        "The response does not state as fact how geiser-guile-load-path interacts with a REPL started outside Emacs unless it checked (for example by evaluating %load-path after connecting).",
+        "The proposed fix restarts the REPL with SRC_DIR=irc (or equivalent -L irc) from the project root."
+      ]
+    }
+  ]
+}

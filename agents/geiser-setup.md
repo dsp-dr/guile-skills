@@ -111,6 +111,22 @@ derives the load path, and not `guile-cps-debugger`'s, which pins `guile3`.
 Preserve anything already in an existing `.dir-locals.el`; merge rather than
 overwrite, and say what you changed.
 
+**Two things that will otherwise waste an afternoon**, both measured on GNU Emacs
+30.2 while verifying this agent's own instructions against `guile-sicp`:
+
+- A `.dir-locals.el` containing `eval:` forms — which is every one worth writing,
+  including the one you are about to write — makes Emacs **prompt** on first visit:
+  *"The local variables list ... contains values that may not be safe"*. In an
+  automated or headless run it is indistinguishable from a hang. Say so when you
+  hand the file over. Answering `!` marks that exact form safe for good. Do not
+  reach for `enable-local-variables :all`: it applies every unsafe variable
+  everywhere without asking (Emacs 30.2 `files.el:4118-4147`; measured).
+- `emacs --init-directory=DIR` loads `~/.emacs` **instead of** `DIR/init.el`
+  whenever `~/.emacs` exists (Emacs 30.2 `startup.el:1499-1523`), so on a machine
+  with a `~/.emacs` it runs the user's real configuration. Use
+  `emacs -q -l DIR/init.el` and have the profile anchor its own
+  `user-emacs-directory` and `package-user-dir`.
+
 ## 5. Check Emacs can actually do this
 
 Geiser and Paredit may not be installed. Check before promising anything:
@@ -196,8 +212,8 @@ rather than recalling the meta-command list.
 **Geiser** (https://www.nongnu.org/geiser/) is Emacs' Scheme REPL integration, and
 the distinction that matters is:
 
-- `geiser-guile` *starts its own* Guile process. That gets you a REPL, but not
-  *this project's* REPL, and nothing of it is recorded.
+- `M-x run-guile` (or `M-x geiser`) *starts its own* Guile process. That gets you
+  a REPL, but not *this project's* REPL, and nothing of it is recorded.
 - `geiser-connect` attaches to an *already running* socket REPL. That is what you
   want, pointed at the proxy port so the session is logged.
 

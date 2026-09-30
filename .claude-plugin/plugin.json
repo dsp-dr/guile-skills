@@ -1,8 +1,8 @@
 {
   "$schema": "https://www.schemastore.org/claude-code-plugin-manifest.json",
-  "name": "guile-skills",
-  "version": "0.3.0",
-  "description": "Stand up and drive a Guile socket REPL from an agent: guile3 --debug --listen on a per-project port, a transcript-logging proxy on PORT+1, and the eval bridge that makes \"verified\" mean something. Use when starting or resuming a Guile/Scheme project, when a claim about Guile behaviour needs checking against a running interpreter, or when a REPL session should be recorded.",
+  "name": "guile",
+  "version": "0.4.0",
+  "description": "Stand up and drive a Guile socket REPL from an agent: guile3 --debug --listen on a per-project port, a transcript-logging proxy on PORT+1, the eval bridge that makes \"verified\" mean something, and an Emacs/Geiser setup that derives the same ports and load path. Use when starting or resuming a Guile/Scheme project, when a claim about Guile behaviour needs checking against a running interpreter, when a REPL session should be recorded, or when Emacs and Geiser should attach to the same REPL.",
   "author": {
     "name": "dsp-dr"
   },

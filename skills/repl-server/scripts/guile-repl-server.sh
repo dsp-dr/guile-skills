@@ -76,7 +76,7 @@ mkdir -p "$GUILE_REPL_DIR"
 [ -d "$SRC_DIR" ] && LOAD_PATH="-L $SRC_DIR" || LOAD_PATH=""
 
 # shellcheck disable=SC2086
-$GUILE --debug $LOAD_PATH --listen="$GUILE_REPL_PORT" -c '(sleep 86400)' \
+$GUILE --debug $LOAD_PATH --listen="$GUILE_REPL_PORT" -c '(let forever () (sleep 86400) (forever))' \
     >"$GUILE_REPL_DIR/repl.stderr" 2>&1 &
 echo "repl   $GUILE_REPL_PORT  ($GUILE --debug, load path: ${SRC_DIR:-none})"
 
@@ -101,4 +101,4 @@ if [ "$PROXY" -eq 1 ]; then
     fi
 fi
 
-echo "eval with: ./bin/guile-repl-eval.sh '(+ 1 1)'"
+echo "eval with: the repl-eval skill"

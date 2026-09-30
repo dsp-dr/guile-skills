@@ -8,7 +8,8 @@ has to reach all of it without reaching anything else. Most of the failures in
 this repository are boundary failures --- something crossed a line it should not
 have, or failed to cross one it should have.
 
-This file draws the lines and says who may cross each.
+This file draws the lines and says who may cross each. [[file:isolation.org][isolation.org]] is the
+protocol for checking a result that crosses one.
 
 * The layers
 

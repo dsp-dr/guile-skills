@@ -1,0 +1,35 @@
+# references.tsv --- the source trees this project reviews and verifies against.
+#
+# Fetched by scripts/fetch-references.sh into a per-host cache OUTSIDE the
+# repository, one directory per name-version, shared read-only by every
+# worktree. Never shipped, never committed.
+#
+# Why these versions: they are the ones actually in use, measured 2026-09-30,
+# not chosen:
+#   emacs 29.3      CI (ubuntu-latest emacs-nox)
+#   emacs 30.2      nexus, FreeBSD 15.1 -- where the skills were verified
+#   emacs e8d708a   this Mac's development build (32.0.50)
+#   guile 3.0.9     CI (ubuntu guile-3.0)
+#   guile 3.0.10    nexus and this Mac -- verified-on in every SKILL.md
+#   guile 3.0.11    current stable (Homebrew), not yet verified against
+#   geiser, geiser-guile   latest tags; ELPA snapshots here are 20260718 / 20260516
+#   emacs-arei, guile-ares-rs   the nREPL alternative under evaluation
+#
+# kind: tar  -> sha256 of the downloaded archive (pinned; a mismatch is fatal).
+#               Each was first checked against its GNU .sig with gnu-keyring.gpg
+#               (2026-09-30: all five "Good signature"), so the pin is not TOFU.
+#       git  -> the COMMIT the tag resolves to (the peeled ^{} value, not an
+#               annotated tag object -- that mistake failed the first run)
+# Columns are TAB-separated.
+#
+# name	version	kind	url	pin
+emacs	29.3	tar	https://ftp.gnu.org/gnu/emacs/emacs-29.3.tar.xz	c34c05d3ace666ed9c7f7a0faf070fea3217ff1910d004499bd5453233d742a0
+emacs	30.2	tar	https://ftp.gnu.org/gnu/emacs/emacs-30.2.tar.xz	b3f36f18a6dd2715713370166257de2fae01f9d38cfe878ced9b1e6ded5befd9
+emacs	32.0.50-e8d708a	git	https://github.com/emacs-mirror/emacs.git	e8d708a132746dda7bb0ab1118fc518af4a09105
+guile	3.0.9	tar	https://ftp.gnu.org/gnu/guile/guile-3.0.9.tar.xz	1a2625ac72b2366e95792f3fe758fd2df775b4044a90a4a9787326e66c0d750d
+guile	3.0.10	tar	https://ftp.gnu.org/gnu/guile/guile-3.0.10.tar.xz	bd7168517fd526333446d4f7ab816527925634094fbd37322e17e2b8d8e76388
+guile	3.0.11	tar	https://ftp.gnu.org/gnu/guile/guile-3.0.11.tar.xz	818c79d236657a7fa96fb364137cc7b41b3bdee0d65c6174ca03769559579460
+geiser	0.32	git	https://gitlab.com/emacs-geiser/geiser.git	9e76f336b91151315642de9bcbed0ffe83b69db7
+geiser-guile	0.28.3	git	https://gitlab.com/emacs-geiser/guile.git	a0f111f8dedd31c593c4ed12c0b99745f3c1340f
+emacs-arei	0.9.7	git	https://git.sr.ht/~abcdw/emacs-arei	05f89dc5cc016b9fa0b045b92442f248de702188
+guile-ares-rs	0.9.9	git	https://git.sr.ht/~abcdw/guile-ares-rs	ee72c28ed3582b9837b531b0eaa12128c8b474bf
