@@ -1,0 +1,2 @@
+Context: an experiment suggested by the guile-sicp session (another Claude session, same user) found the claim; reproduced on two scratch REPLs under mktemp with a scratch GUILE_SKILL_DATA; stopped only those; guile-sicp's REPL on 37618 left untouched.
+Timeline: 2026-09-30.
