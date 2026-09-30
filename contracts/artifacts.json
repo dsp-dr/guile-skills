@@ -184,7 +184,8 @@
       "notes": [
         "Anthropic's own anthropics/claude-code marketplace.json sets $schema to https://json.schemastore.org/claude-code-marketplace.json -- there is no Anthropic-published schema, and issues asking for one were closed by adopting the community mirror.",
         "An unknown key in a plugin entry WARNS ('Claude Code ignores it at load time') rather than erroring.",
-        "With marketplace.json present, `validate` checks BOTH: a plugin.json fault is reported as `plugins[0] plugin.json -> ...`, so adding a marketplace costs no manifest coverage."
+        "With marketplace.json present, `validate` checks BOTH: a plugin.json fault is reported as `plugins[0] plugin.json -> ...`, so adding a marketplace costs no manifest coverage.",
+        "`renames` (old plugin name -> new, or null) is a real, strictly validated top-level field -- measured on 2.1.285, NOT the pinned 2.1.261, so re-measure on the pinned CLI before relying on it. The chain must resolve: a target that is neither a name in plugins[] nor another renames key fails with `chain does not resolve (target-missing)`. It maps plugin names within this marketplace; it does not rename the marketplace itself."
       ],
       "measured_faults": [
         {
@@ -198,9 +199,37 @@
         {
           "fault": "plugin.json fault while marketplace.json exists",
           "cli_result": "reported as plugins[0] plugin.json -> ...; still fails --strict"
+        },
+        {
+          "fault": "renames value a number",
+          "cli_result": "error: renames.<old>: expected string (2.1.285)"
+        },
+        {
+          "fault": "renames an array",
+          "cli_result": "error: renames: expected record (2.1.285)"
+        },
+        {
+          "fault": "renames target not in plugins[]",
+          "cli_result": "error: chain does not resolve (target-missing) (2.1.285)"
+        },
+        {
+          "fault": "misspelled top-level key `renamez`",
+          "cli_result": "fails --strict (2.1.285)"
         }
       ],
-      "verified_end_to_end": "marketplace add (local dir) -> marketplace list -> plugin install -> plugin list, in a throwaway CLAUDE_CONFIG_DIR; installed 0.3.0 at user scope, enabled"
+      "verified_end_to_end": "marketplace add (local dir) -> marketplace list -> plugin install -> plugin list, in a throwaway CLAUDE_CONFIG_DIR; installed 0.3.0 at user scope, enabled",
+      "renames_migration_measured": {
+        "cli": "2.1.285",
+        "date": "2026-09-30",
+        "method": "throwaway CLAUDE_CONFIG_DIR, local-directory marketplace",
+        "sequence": [
+          "install guile-skills@guile-skills 0.3.0 -> listed, enabled",
+          "swap marketplace contents to 0.4.0 with renames {guile-skills: guile}; marketplace update -> list shows 'Note: Renamed to \"guile\"', still 0.3.0",
+          "plugin update guile-skills@guile-skills -> FAILS 'Plugin \"guile-skills\" not found'; afterwards enabledPlugins = {guile@guile-skills: true} but installed_plugins is EMPTY and list shows nothing",
+          "plugin install guile@guile-skills -> 0.4.0 installed and enabled, all four skills present"
+        ],
+        "conclusion": "renames migrates the enable flag, not the installation. A user must reinstall under the new name. Whether a session start auto-installs an enabled-but-missing plugin was not measured."
+      }
     },
     {
       "file": ".claude-plugin/plugin.json -- channels and mcpServers",

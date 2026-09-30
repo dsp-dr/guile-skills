@@ -5,7 +5,7 @@
 This plugin's version lives in one place: =version= in [[file:.claude-plugin/plugin.json][=.claude-plugin/plugin.json=]]. Raise it on every release --- the directory and =gh skill install --pin= both key off it.
 
 ** What counts as patch / minor / major
-Semver, judged against what an installer of this plugin actually depends on: the three skills' behavior and their =SKILL.md= contracts, =skills/*/scripts/*.sh= as a public interface, and the plugin manifest itself.
+Semver, judged against what an installer of this plugin actually depends on: the skills' behavior and their =SKILL.md= contracts, =skills/*/scripts/*.sh= as a public interface, and the plugin manifest itself.
 
 | Bump    | When                                                                                                                                                                                                                                                                      |
 |---------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -28,7 +28,9 @@ gmake release-production TAG=v0.2.0      # same gate, then the real `gh skill pu
 ** Publishing from a merged PR
 
 The path labeler applies *deployable* to any PR touching =skills/=,
-=.claude-plugin/= or =scripts/lib/= --- the paths that decide what an installed
+=.claude-plugin/=, =scripts/lib/= or any other plugin component directory
+(=monitors/=, =agents/=, =hooks/=, =commands/= and the rest listed in
+=.github/labeler.yml=) --- the paths that decide what an installed
 user receives. Merging a PR that carries that label publishes a release
 (=.github/workflows/publish.yml=).
 
