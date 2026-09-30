@@ -1,0 +1,23 @@
+Context
+  Asked to show the control flow with the skills and the debugger for a sample
+  project. README.org had a component diagram but nothing showing sequence, so
+  a reader could not tell that the debugger arrives over the same socket as
+  ordinary evaluation.
+
+Considerations
+  - The diagram is paired with a table of silent failures per step rather than a
+    list of features. Every row returns a plausible answer instead of an error,
+    which is the property that makes them worth drawing attention to.
+  - Mermaid was chosen over ASCII because GitHub renders it natively in the
+    generated README.md, and the source stays one org block.
+
+Deviations
+  - `gmake readme` now rewrites pandoc's "``` mermaid" to "```mermaid". Pandoc's
+    GFM writer puts a space before the class; GitHub's mermaid renderer wants
+    none. Caught by inspecting the generated file rather than by trusting the
+    conversion, which is the same discipline the diagram is about.
+
+Timeline
+  2026-09-28. checks.yml's `claude plugin validate` step was also promoted from
+  continue-on-error to fatal, the condition its own comment set: run
+  36382268404 is the first green run and that step passed in it.

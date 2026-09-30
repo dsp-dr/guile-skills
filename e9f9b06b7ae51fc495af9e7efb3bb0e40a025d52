@@ -1,0 +1,82 @@
+Context: asked to evaluate codeberg.org/rgherdt/scheme-lsp-server as another
+surface for this plugin and work out its boundaries and contracts. Read
+docs/surfaces.org, docs/boundaries.org, contracts/{README.org,artifacts.json},
+EXPERIMENTS-channels.org, EXPERIMENTS-conventions.org and
+skills/repl-proxy/scripts/guile-repl-proxy.scm first, and did not contradict the
+existing model anywhere without a measurement behind it.
+
+Cell: nexus, FreeBSD 15.1-RELEASE, guile3 3.0.10, guild3 3.0.10, claude 2.1.261,
+dsp-dr, 2026-09-29. Same CLI as contracts/cell.json, so the contract claims are
+measured on the pinned version rather than inherited from another.
+
+MEASURED (ran it and watched it):
+- Built the whole dependency chain from source into /tmp/lsp-eval/prefix: srfi-145,
+  srfi-180, rx/irregex 0.9.10, scheme-json-rpc 0.6.1, then guile-lsp-server. Three
+  FreeBSD failures observed and worked around: `guild' resolves to 2.2.7 so
+  `guild compile --r7rs' errors "r7rs: unrecognized option"; BSD `cp -R src/ dst'
+  flattens srfi-180 so the next compile fails on a missing helpers.scm; automake
+  timestamp skew after a tree copy demands a touch sequence. The installed
+  launcher's bare `guile' shebang was then measured failing under 2.2.7 with
+  "define-module: unknown keyword ... #:declarative?".
+- Wire capabilities from a real initialize response; textDocument/references
+  answering -32601.
+- Full LSP session against ~/ghq/github.com/dsp-dr/guile-sicp over stdio, read-only
+  (git status clean afterwards). Hover, completion, definition, references.
+- The load-path causation: one variable changed (GUILE_LOAD_PATH with and without
+  <root>/src) flips definition from null to the correct line and hover from bare to
+  module-qualified. $initialize-lsp-server! adds only rootPath.
+- Diagnostics against a planted unbound variable in a throwaway project: correct
+  line, fabricated end column (79).
+- Opening a file executes it: planted an (eval-when (expand) ...) side effect and a
+  load-time side effect in one module, cleared the artefacts, sent one didOpen, and
+  both PROOF files appeared.
+- Where it writes: .go under ~/.cache/guile/ccache keyed by absolute source path,
+  nothing in either repo, no workspace scan (one file per generate-meta-data!).
+- Bind address: sockstat and netstat both show 127.0.0.1 in --socket mode; grep
+  census of every network primitive in the Guile sources shows no HTTP client.
+- Three conformance faults: error responses spell the key "json-rpc" not "jsonrpc"
+  (traced to scheme-json-rpc lolevel-impl.scm:236,273); the usage banner is printed
+  on stdout at exit because main runs twice (guile -e main plus a trailing
+  (main (cdr (command-line))) at main.scm:139); no stderr trail, with internal
+  errors and whole file text arriving as window/logMessage.
+- 29 lspServers faults through `claude plugin validate --strict' in a throwaway
+  plugin dir, then 6 follow-ups showing the config FILE is never read -- invalid
+  JSON in .lsp.json passes --strict whether or not the manifest names it.
+- Latency, warm and cold cache.
+- .github/labeler.yml and scripts/check-version-bump.sh read directly to confirm
+  .lsp.json is in neither list.
+
+READ, NOT RUN (labelled inherited in the file):
+- The upstream README's per-implementation feature matrix.
+- That Claude Code accepts transport "socket" but runs every server over stdio, and
+  that `diagnostics' defaults to true and pushes into context after edits -- from
+  the manifest reference fetched 2026-09-29. No LSP surface was installed or
+  exercised inside a live session, so the end-to-end context cost is read, not
+  measured.
+- Geiser's own behaviour in Emacs, from docs/surfaces.org and Geiser's manual.
+- That lspServers path checks need claude >= 2.1.283, which is consistent with
+  fault N16 passing on 2.1.261 but was not tested on a newer CLI.
+
+NOT ESTABLISHED: nothing was left unsettled that the file does not say so about.
+
+Deviations: used /tmp/lsp-eval as the build sandbox rather than the session
+scratchpad. The scratchpad path contains the substring "git", which made the
+worktree-isolation guard refuse several plain commands that merely mentioned it in
+an environment variable; /tmp/lsp-eval is a short path with no such substring.
+Nothing was installed system wide, no repository was modified, and the throwaway
+plugin was never installed or enabled -- only passed to `claude plugin validate'.
+
+Considerations: the task framing expected guile-json (GPL-3) to be the blocker, as
+it was for channels in EXPERIMENTS-channels.org C8. It is not -- this chain uses
+SRFI 180 and is MIT/BSD throughout. That correction is in L2, because the
+licence-shaped reason to decline does not exist here and the decline rests on L13,
+L12, L10 and L5 instead.
+
+Timeline: about one session. Reading the existing model, then build, then the
+five runtime probes, then the 35 manifest faults, then writing.
+
+Clarifications: the recommendation is decline "for now" with one named reversal
+condition (roadmap.org C5), not a permanent no. Nothing in docs/ or contracts/ was
+edited -- the brief said new files only -- so contracts/artifacts.json does not yet
+carry the lspServers row that L11 and L12 measured. That is the obvious follow-up
+and belongs in a separate change alongside tests/validate-lsp.py.

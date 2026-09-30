@@ -1,0 +1,22 @@
+Context
+  Asked to run against all ../guile-* projects and check whether correct Emacs,
+  debugger, Geiser and REPL support is available, with guile-sage called out as the
+  large case.
+
+Deviations
+  Read-only by design. Starting 34 REPLs to test them would have created exactly the
+  orphan problem this repository documents, and readiness is answerable by looking.
+
+Considerations
+  gdb is not part of the sweep. It was checked separately and is built --without-guile
+  here, so the GDB-scriptable-in-Guile path is unavailable on this cell regardless of
+  project -- that is a cell property, not a per-project one, and it belongs in the
+  channels experiment where it was measured.
+
+  guile-sage is the largest checkout at 119 MB and the detector handles it without
+  special-casing: modules under src/ in the (sage ...) namespace, tests/ with SRFI-64,
+  load path -L src -L tests. Nothing about scale broke it.
+
+Timeline
+  2026-09-29, nexus, as dsp-dr. 34 checkouts, 66 derived ports, 2 collisions, 1
+  detector bug found and fixed by running it.

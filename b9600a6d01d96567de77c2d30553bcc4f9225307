@@ -1,0 +1,27 @@
+Context
+  The plugin directory reported: "The security scan flagged v0.1.0 e29e9a3 for
+  a reviewer ... Reason: Reports usage to an outside endpoint." Located by
+  grepping for hard-coded http:// addresses: skills/guile-repl-server/SKILL.md
+  named a fixed private IP twice, once in the requires network list and once in
+  a rule instructing GET /ports/<port> then POST /claim with node, repo, pwd,
+  kind and a mandate.
+
+Considerations
+  - pwd is the part that makes this a usage report rather than a port check: it
+    sends the absolute path of whatever the agent is working on off-box.
+  - The operator's global CLAUDE.md mandates this registration, so removing it
+    from the skill does not change behaviour on these machines. The distinction
+    is audience: a house rule applies to the operator's hosts; a skill applies
+    to every installer, none of whom can reach that address.
+
+Deviations
+  - Version stays 0.1.1 rather than taking a second bump. Per RELEASING.md this
+    is patch work: no skill was removed or renamed, no bin/*.sh argument or
+    output contract changed, and nothing an installer could have scripted
+    against is broken. The rule removed was an instruction to the agent, not an
+    interface.
+  - Generated benchmark transcripts under the *-workspace/ trees were not
+    scrubbed. They are evidence of what the agent produced under the old
+    instruction; rewriting them to match the new one would be falsifying a
+    record this repo's whole argument depends on. If the scanner reads them and
+    flags again, that is the honest answer to give the reviewer.

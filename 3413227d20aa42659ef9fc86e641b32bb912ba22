@@ -1,0 +1,8 @@
+Amended 2026-09-29, second pass
+  Asked to keep the private experience report current because it covers file
+  locations, DX, testing, boundaries and contracts -- the things someone needs to
+  work on this plugin at all. The gist is updated alongside this commit.
+
+  The file-locations table is new and is the part I would have wanted at the start:
+  the distinction between what a plugin install delivers and what a single-skill
+  install delivers explains several of this session's mistakes.

@@ -1,0 +1,26 @@
+Context
+  Asked for a wrapper that looks for the version and runs the eval once we bump past
+  it. Issue #20 can be closed when it actually runs.
+
+Deviations
+  Version alone was not enough, so the wrapper does not stop there. The whole reason
+  #20 exists is that I read a capability off --help and was wrong; a wrapper that
+  trusted a version number would repeat that mistake in automated form. The probe is
+  the authority and the version check is an early, free filter in front of it.
+
+Considerations
+  MIN_VERSION is a constant with a changelog citation rather than data in
+  contracts/cell.json. cell.json records the environment the contracts were MEASURED
+  on; 'the release that ships plugin eval' is a claim about the product, and mixing
+  the two would make a version bump look like a contract re-measure.
+
+  The probe case defaults to no-linter-claim because it has one grader and needs no
+  REPL. If the gate opens and that case is removed, PROBE_CASE overrides it.
+
+  Untested beyond the gated path: everything after the probe passes has never
+  executed here. The flags are taken from --help on 2.1.261 and may have changed by
+  2.1.269.
+
+Timeline
+  2026-09-29, nexus, claude-code-2.1.261 from pkg, as dsp-dr. Version comparison
+  calibrated against six versions; end-to-end run verified on the gated path.

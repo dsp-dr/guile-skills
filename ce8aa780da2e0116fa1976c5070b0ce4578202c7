@@ -1,0 +1,35 @@
+Context
+  Asked for subagents to grind the Python files, the contracts, CI/flags/params
+  parsing, UI/UX, error handling and exit codes. One review agent returned twenty
+  findings, each with a command that reproduces it.
+
+Deviations
+  Seven fixed, thirteen deferred. The thirteen, so they are not lost:
+
+    corpus-sweep.sh word-splits $targets and swallows a bad directory (exit 0)
+    corpus-sweep.sh GEISER column never checks the 3.x its own header promises
+    ship-check.sh DIRECT heuristic false-positives on the correct quoted form
+    audit.sh swallows an unresolvable BASE and audits an empty file list
+    eval-suite.sh --probe is indistinguishable from a run once the gate opens
+    sync-skill-scripts.sh reports only the first drift, not all
+    validate-contracts.py: one bad artifact suppresses every later ok line
+    validate-monitors.py: a missing skills/ silently passes on-skill-invoke
+    hooks.json has no validated_by, so its recorded gap is untestable
+    artifacts.json and the validators duplicate rules with no cross-check
+    absolute vs repo-relative paths differ across the four validators
+    only audit.sh and eval-suite.sh honour 2 = could-not-run
+    none of the validators pass encoding= to read_text()
+
+  The exit-code inconsistency is the one with the most leverage: three scripts use 1
+  for could-not-run where two use 2, so a caller cannot distinguish failure from
+  absence. That wants one decision applied everywhere rather than seven patches.
+
+Considerations
+  The review also confirmed things I had assumed: python3 is 3.11.15 so the union
+  syntax is fine, there are no dead imports or silent excepts, shellcheck is clean
+  apart from two annotated cases, and every Makefile target's argv matches its
+  script's parsing except the two noted above.
+
+Timeline
+  2026-09-29, nexus, as dsp-dr. Seven fixes, each verified with the reviewer's own
+  reproducing command; gmake checks green.

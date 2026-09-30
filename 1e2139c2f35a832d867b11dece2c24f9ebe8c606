@@ -1,0 +1,20 @@
+Context
+  Asked to create the 0.1.1 release by hand from this dev instance while the
+  publishing tooling is built out. Done: annotated tag v0.1.1 on 306afd1, pushed,
+  and a GitHub release created with notes. Gate run first -- 7/7 proxy tests,
+  3/3 eval suites, claude plugin validate passing, publish step reported as
+  skipped.
+
+Considerations
+  - The git tag and the directory listing are independent. The directory reads
+    .claude-plugin/plugin.json on main, which is why the earlier scan reported
+    "v0.1.0 e29e9a3" -- a commit that is not the v0.1.0 tag. Anyone reading the
+    tag as the published artifact will be wrong, so RELEASING.md now says so.
+  - v0.1.0's tag is lightweight. v0.1.1's is annotated and records the gate
+    result. Not retroactively fixed: rewriting an existing tag that a release
+    already points at buys nothing.
+
+Deviations
+  - Nothing was published. `gh skill publish` exists in no released gh, so the
+    plugin directory has still never received a publish from this repo; it picks
+    up main via the webhook and the ~6-hour poll instead.

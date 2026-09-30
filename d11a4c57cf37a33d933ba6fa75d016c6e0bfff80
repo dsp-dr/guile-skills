@@ -1,0 +1,21 @@
+Context
+  Asked to note the testing process in CONTRIBUTING.md and add a Makefile entry
+  for `claude --plugin-dir'. The flag was verified against `claude --help' before
+  being written into a target: it takes a directory or a .zip and is repeatable.
+
+Considerations
+  - The four layers are ordered by what each can rule out, not by convenience.
+    `checks' cannot see a path bug; `try' cannot either, because the cwd is still
+    this repo; only `try-in' can. `ship-check' answers a different question again
+    -- not "does it work" but "does the user receive it".
+  - `ship-check' reports executables-shipped as a yes/no line rather than just
+    listing files, so the answer does not depend on the reader noticing an
+    absence. Today it prints NO. When the bin/ -> scripts/ move lands it should
+    print YES, which makes it the regression test for that change.
+  - The corpus section names the two silent things to check per project rather
+    than describing a happy path, matching how the skills themselves are written.
+
+Deviations
+  - `try' and `try-in' launch an interactive session, so they are not run by CI
+    and were not run here; only `ship-check' was exercised. The targets' shell is
+    syntax-valid and `gmake -s help' lists all three.

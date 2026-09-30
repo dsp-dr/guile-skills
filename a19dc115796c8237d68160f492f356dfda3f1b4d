@@ -1,0 +1,44 @@
+Context
+  Asked whether there is a standard location for Guile REPL logs and, if so, to
+  add a monitors/monitors.json tailing it; then asked for a diagram of the
+  surfaces (skills, agents, MCP, channels, communication styles) as a process for
+  adding more, including the Emacs/Geiser + logs + debugging requirement.
+
+  There is a standard location, so the monitor was straightforward. The diagram
+  turned into docs/surfaces.org because the inventory was the interesting part:
+  of about a dozen surfaces this plugin uses two.
+
+Deviations
+  The example in the request tailed the transcript equivalent (an application
+  error log). This tails stderr instead, and says why in the script header. The
+  transcript is the one file here that carries other people's input.
+
+  `when: on-skill-invoke:guile-repl-server' rather than the default `always'. A
+  monitor started in every session would tail a transcript directory in projects
+  that never touch Guile.
+
+Considerations
+  The CLI validation gap is the real finding. Nine planted faults, all of which
+  `claude plugin validate --strict' accepted, all of which validate-monitors.py
+  rejects. Worth re-testing on a newer CLI: this is a measurement of one version,
+  not a permanent property.
+
+  Whether ${CLAUDE_PLUGIN_ROOT} and ${CLAUDE_PLUGIN_DATA} are substituted into a
+  monitor `command' is NOT verified here. The reference lists both as resolving in
+  plugin configuration and forbids only ${user_config.*} in a monitor command, so
+  the design follows the documented contract -- but the argument-handling branch
+  for an unsubstituted literal exists precisely because it is unverified. Running
+  it for real needs a session with the plugin loaded (gmake try).
+
+  Stacked on fix/no-internal-endpoint-in-shipped-tree rather than branched from
+  main, so plugin.json goes 0.1.5 -> 0.1.6 with no conflict. Per the version rule
+  now in RELEASING.org: v0.1.4 is the highest published tag, PR #7 holds 0.1.5,
+  so 0.1.6 is the next free number. Merge #7 first.
+
+Clarifications
+  docs/roadmap.org is referenced as plain text, not an org link: it lives on the
+  other branch, and org-lint flags a link to a file that is not there yet.
+
+Timeline
+  2026-09-29, nexus, FreeBSD 15.1-RELEASE, guile3 3.0.10, as dsp-dr. gmake checks
+  green including the new check-monitors; validate --strict passing.

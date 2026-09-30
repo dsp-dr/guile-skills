@@ -1,0 +1,73 @@
+Context
+-------
+Asked for a guile-skills repo suggesting how to start a project that exposes
+guile3 --debug --listen=PORT, plus a debugging proxy on PORT+1 logging to
+~/.guile-skill/projects/{pwd | tr / -}, in the shape of ~/.claude/projects.
+Follow-on asks in the same session: log rotation, document the experiments and
+deviations, Emacs+Geiser through the proxy, and the standard collaborators.
+
+Inputs
+------
+- jwalsh/37d0ef2d6837e9234a878991d3c01c78 section 3.1 (Surfaces): a surface is
+  what a worker can read or drive from its own tools; presence is not
+  reachability; a GUI-first debugger is not a surface. Cloned to
+  ~/ghq/gist.github.com/jwalsh/.
+- aygp-dr/58f58a9ca6a44cc0570106999a96a9b1: the Clojure census handoff. Supplied
+  the 007 thesis, the anti-pattern rankings (22/~19/14/8/8/6/3 of 75 skills), the
+  no-linter gap, and the Guix-Home delivery finding. Also two measurements from
+  hydra that this design rests on: --listen binds loopback only, and the wire
+  protocol is the plain REPL rather than a framed one, so no bencode equivalent
+  is needed.
+
+Deviations
+----------
+- Proxy written in Guile rather than socat or shell. A socat tee would be
+  shorter, but the log needs rendering (direction markers, ms timestamps,
+  non-UTF-8 chunks reported instead of corrupting the file), and this is a Guile
+  tooling repo.
+- No style guide, deliberately. Experiment 007 found Clojure skills police
+  tooling and process, not idioms -- Java-style loops drew zero warnings across
+  75 skills. Writing one would have been the obvious wrong move.
+- Port derivation (37000 + cksum(slug) mod 900) began as an admitted convention.
+  On learning of portclaim mid-session it became a real reservation: 37496 and
+  37497 are claimed as nexus-guile-skills-repl and -repl-proxy. The whole
+  37000-37999 range was unclaimed, which is why the base sits there.
+- Serial accept loop, not threaded. Geiser plus an agent simultaneously needs two
+  proxies or a rewrite. Named in EXPERIMENTS.org "Still open" rather than
+  pre-solved.
+
+Considerations
+--------------
+- Four of six failures were silent, which is the argument for the whole
+  repository. The worst was a stale proxy from an earlier test: it held the port,
+  the replacement's bind failed uncaught and died quietly, and the old process
+  kept answering tests while writing to a log nobody was reading. Three separate
+  fixes (bind guard with errno, server refuses a taken port, --status/--stop).
+- Every earlier test used nc -N, which half-closes after each send. Geiser holds
+  one connection across many round-trips. Testing only the convenient client
+  tested only half the connection lifecycle; E6 covers the other half now.
+- Version disagreement with the other agent (3.0.10 here, 3.0.11 on hydra) was
+  not taken at face value and not dismissed. Both are correct; nexus is FreeBSD
+  15.1, hydra is 14.4. Recorded in README provenance as an instance of the very
+  anti-pattern the table names.
+- Claims are tagged measured-here / measured-on-hydra / inherited-from-Clojure /
+  not-established. The unestablished three (,locals behaviour, GOOPS reload
+  semantics, guile-lsp-server maturity) are flagged so they are checked before
+  becoming instructions.
+
+Related changes outside this repo, same session
+-----------------------------------------------
+- ~/.claude/CLAUDE.md gained a "Standing Up a New Service or Port" section, and
+  ~/.claude/AGENT_SERVICE_STANDUP.md was written for the agent-specific part
+  (identity fields, their sources, and which of them are self-reported rather
+  than measured). ~/.claude/.gitignore is allowlist-style and was silently
+  ignoring the new file, which would have made the CLAUDE.md reference dangle on
+  the macOS checkout; it is now allowlisted. Left uncommitted: that repo had
+  pre-existing uncommitted changes and committing it is not mine to decide.
+- dsp-dr/guile-sicp branch feat/surfaces: surfaces.org and
+  scripts/surface-liveness.sh, the same model applied to reading SICP.
+
+Timeline
+--------
+Single session, 2026-09-26, on nexus as dsp-dr. Roughly a dozen socket REPLs and
+proxies started and torn down; leftovers verified gone at the end.

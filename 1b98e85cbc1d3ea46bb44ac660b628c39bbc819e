@@ -1,0 +1,34 @@
+Context
+  Asked whether anything here could wrap paredit or an Emacs formatter for Guile
+  source the way the plugin docs' scripts/format.sh hook example does; then for a
+  consistent Emacs setup across every tool even when wrapped in shell; then for the
+  JSON files to carry a known contract version so a contract change throws; then --
+  crucially -- that the specs for configuration must be ISOLATED from the in-practice
+  JSON that drives the config, to protect future agents.
+
+  That last constraint arrived before I had put a version marker in plugin.json's
+  metadata, which is what I had been about to do. contracts/ exists because of it.
+
+Deviations
+  The hook checks rather than formats. The request pointed at a formatter example;
+  the anti-pattern in the record is broken delimiters, not inconsistent indentation,
+  and a hook that rewrites files after every edit is a surprise this repository's
+  own conventions argue against. Formatting is a separate, opt-in target.
+
+Considerations
+  `gmake fmt' over the whole tree is not run here and should not be run casually --
+  it would reindent four existing files and produce a diff unrelated to any change.
+  check-scheme is the safe half and is the one in `checks'.
+
+  The contract pin is a tripwire, not a guarantee: it fails when the CLI version
+  moves, which is the only drift signal available without re-running every planted
+  fault. The fault lists are in contracts/artifacts.json precisely so a re-measure
+  is mechanical rather than remembered.
+
+  hooks/ validation being partial while monitors/ has none is worth re-testing on a
+  newer CLI. Both claims are versioned in contracts/cell.json for that reason.
+
+Timeline
+  2026-09-29, nexus, FreeBSD 15.1-RELEASE, guile3 3.0.10, GNU Emacs 30.2, Claude Code
+  2.1.261, as dsp-dr. gmake checks green with check-contracts and check-scheme added;
+  validate --strict passing; four contract faults and four hook cases calibrated.

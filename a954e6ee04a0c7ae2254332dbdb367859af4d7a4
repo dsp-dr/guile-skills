@@ -1,0 +1,12 @@
+Context
+  The user cloned aconchillo/guile-json while I was writing the blocker up as
+  unpackaged-therefore-expensive. Checking it took one command and reversed the
+  conclusion, which is the argument for checking rather than reasoning about
+  availability.
+
+Considerations
+  A new commit rather than an amend: PR #12 is open and published, and rewriting a
+  branch someone may be reading to correct a comment is the wrong trade.
+
+Timeline
+  2026-09-29, nexus, guile-json 4.7.3 from a fresh ghq clone, guile3 3.0.10.

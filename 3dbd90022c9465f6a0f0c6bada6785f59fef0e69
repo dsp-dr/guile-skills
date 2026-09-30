@@ -1,0 +1,23 @@
+Context
+  The user upgraded elsewhere and landed 2.1.268, one shy of the 2.1.269 that
+  reportedly ships plugin eval, and is also trying it inside a bastille jail. Asked
+  for a note or issue recording what was tried.
+
+Deviations
+  Both: issue #20 for the checklist and the version matrix, and this dated paragraph
+  in the file that carries the original claim, so a reader of evals/README.org does
+  not have to find the issue to learn the claim was re-checked.
+
+Considerations
+  I was wrong twice in ten minutes on the same question -- first asserting the gate
+  had lifted because --help printed, then having to retract it. Both retractions are
+  in the record rather than smoothed over, because the failure mode (reading a
+  capability off a help string) is the one this repository exists to catch.
+
+  Cost: the probe is free, and that is a property of the gate answering early, not a
+  design decision anyone made. If the gate opens, the defaults are 5 cases x 3 runs x
+  2 arms = 30 agent runs plus grader calls, which is why issue #20 leads with the
+  bounded form.
+
+Timeline
+  2026-09-29, nexus, FreeBSD 15.1-RELEASE, claude-code-2.1.261 from pkg, as dsp-dr.

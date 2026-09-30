@@ -1,0 +1,13 @@
+Context
+  Asked to drop MIN_VERSION. Read as removing it rather than lowering it to 2.1.268:
+  lowering would have kept a constant that had already been wrong once, and the probe
+  it sits in front of is both free and decisive.
+
+Deviations
+  Removing the version test needed a replacement for the case it did cover -- a build
+  with no such subcommand at all -- so --help's exit status took that job. Two
+  behavioural questions rather than one constant and one probe.
+
+Timeline
+  2026-09-29, nexus, claude-code-2.1.261. Verified: reports the version, reaches the
+  gate, reports it, exits 0 having spent nothing.

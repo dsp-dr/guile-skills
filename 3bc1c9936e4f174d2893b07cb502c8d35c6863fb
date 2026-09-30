@@ -1,0 +1,31 @@
+Context
+  Asked to make sure a PR checks frontmatter, evals and so on BEFORE release:start
+  lands, and to consider stacking the deployable branches into one consolidated
+  deployment.
+
+  This branch is the first half. It is deliberately non-deployable -- tests/,
+  Makefile and .github/ are not in SHIPPED -- so it can merge without publishing
+  and without waiting on the release chain.
+
+Deviations
+  The reordering in gate.yml iterates over validator files rather than calling
+  make targets. Calling `gmake check-monitors' here would break, because that
+  target and its validator live on feat/monitor-repl-health; the loop tolerates a
+  missing file, so gate.yml does not have to be edited again when that lands, and
+  the two branches do not conflict on this file.
+
+Considerations
+  The test-port bug was found by my own carelessness and is worth recording as
+  such: I piped `gmake checks' through tail, did not gate the commit on its exit
+  status, and pushed feat/guile-project-scaffold on a 6-passed-1-failed run. The
+  commit in this branch now gates on the exit code explicitly. The underlying flake
+  is real and is fixed here; the process failure was mine.
+
+  Frontmatter rules are judgement calls encoded as thresholds. The 80-character
+  floor on description and the "Use when" clause requirement would both reject a
+  terse but legitimate skill. They pass all three skills here, and the reasoning is
+  in the validator's docstring, but they are conventions rather than spec.
+
+Timeline
+  2026-09-29, nexus, FreeBSD 15.1-RELEASE, guile3 3.0.10, as dsp-dr. Eight planted
+  frontmatter faults, all caught. Concurrent two-worktree test run verified.
