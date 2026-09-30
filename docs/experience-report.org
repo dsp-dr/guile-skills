@@ -111,7 +111,7 @@ subnet. ~b9600a6~ had removed the endpoint from the shipped skill but deliberate
 left the generated evidence, reasoning that rewriting a record falsifies it.
 
 Redacted to =<port-registry>= with the substitutions recorded in
-=skills/guile-repl-server-workspace/REDACTIONS.org= rather than quietly. *The
+=evals/workspace/guile-repl-server-workspace/REDACTIONS.org= rather than quietly. *The
 address remains in published history* --- five commits on =main= --- which
 redaction does not touch and which only a history rewrite would.
 

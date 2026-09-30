@@ -85,12 +85,16 @@ verify() {
           (princ (format "%s %s %s\n"
                          (bound-and-true-p guile-project-repl-port)
                          (bound-and-true-p guile-project-proxy-port)
-                         (mapconcat (quote identity)
+                         (mapconcat (lambda (d) (directory-file-name (file-truename d)))
                                     (bound-and-true-p geiser-guile-load-path) ":")))))' 2>&1 | tail -1)
     set -- $got
     want_load=''
     for d in $GUILE_PROJECT_MODULE_DIRS; do
         case $d in .) p=$GUILE_PROJECT_ROOT ;; *) p=$GUILE_PROJECT_ROOT/$d ;; esac
+        # Compare directories, not spellings: git reports the physical path
+        # (/private/var/...) while Emacs keeps the one it was given (/var/...),
+        # and on macOS /var, /tmp and /etc are symlinks.
+        p=$(cd "$p" 2>/dev/null && pwd -P || printf '%s' "$p")
         want_load="${want_load:+$want_load:}$p"
     done
     status=0

@@ -48,12 +48,13 @@ MAKE=${MAKE:-$(command -v gmake || command -v make)}
 [ -n "$MAKE" ] || { echo "release.sh: no make on PATH" >&2; exit 2; }
 
 gate() {
-    echo "== regression tests: $MAKE test =="
-    "$MAKE" test
-    echo "== plugin manifest: claude plugin validate . --strict =="
-    claude plugin validate . --strict
-    echo "== eval suites: $MAKE check-evals =="
-    "$MAKE" check-evals
+    # The whole of `checks', not a hand-copied subset of it. This gate ran three
+    # of eleven targets until 0.4.0 -- the same mistake 6143228 fixed in CI -- so
+    # a drifted skill copy, a stale version or bad frontmatter could publish.
+    # check-contracts is included, which is why gate.yml and publish.yml install
+    # the CLI contracts/cell.json pins rather than latest.
+    echo "== full check suite: $MAKE checks =="
+    "$MAKE" checks
     if [ "$SKILL_CMD" -eq 1 ]; then
         echo "== skill validation: $GH skill publish --dry-run =="
         "$GH" skill publish --dry-run

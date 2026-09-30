@@ -44,8 +44,10 @@ Two mistakes this skill exists to prevent, both found in real checkouts:
 
 ## 1. Measure the project
 
-Run from the project root. The ports are derived from the working directory, so
-the directory matters:
+Run from the project root. The ports are derived from the working directory **as
+spelled**, so the directory matters. On a symlinked path (macOS `/tmp`, `/var`, or a
+symlinked `~/ghq`), start the REPL from the same spelling Emacs will visit the
+files under. The physical and logical spellings give different ports:
 
 ```sh
 sh ${CLAUDE_SKILL_DIR}/scripts/guile-project-detect.sh

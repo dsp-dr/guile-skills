@@ -36,9 +36,12 @@ GUILE=${GUILE:-guile}
 # by it and rejects the bare flag. Decided against the live REPL below, once.
 NCS="-N"
 
+# Kill only the PIDs this run started (docs/isolation.org, step 6). A pattern --
+# even one carrying the derived port -- reaches whatever else matches it, and
+# another session's REPL is someone else's work.
+PIDS=''
 cleanup() {
-    pkill -f "guile-repl-proxy.scm --listen $PROXY_PORT" 2>/dev/null
-    pkill -f "listen=$PORT" 2>/dev/null
+    for pid in $PIDS; do kill "$pid" 2>/dev/null; done
     rm -rf "$WORK"
 }
 trap cleanup EXIT INT TERM
@@ -51,9 +54,12 @@ echo "test-proxy: $GUILE, port $PORT -> proxy $PROXY_PORT"
 
 # --- bring up REPL and proxy ----------------------------------------------
 $GUILE --debug --listen="$PORT" -c '(sleep 90)' >/dev/null 2>&1 &
+PIDS="$PIDS $!"
 sleep 2
 "$ROOT/skills/repl-proxy/scripts/guile-repl-proxy.scm" --listen "$PROXY_PORT" --target "$PORT" --log "$LOG" \
     >"$WORK/proxy.err" 2>&1 &
+PROXY_PID=$!
+PIDS="$PIDS $PROXY_PID"
 sleep 3
 
 # Empty input evaluates nothing, so this does not disturb E1's `$1 = 2'.
@@ -105,12 +111,13 @@ case $err in
 esac
 
 # --- E5: rotation past the threshold --------------------------------------
-pkill -f "guile-repl-proxy.scm --listen $PROXY_PORT" 2>/dev/null
+kill "$PROXY_PID" 2>/dev/null
 sleep 1
 ROT="$WORK/rot.log"
 dd if=/dev/zero bs=1024 count=4200 2>/dev/null | tr '\0' 'x' > "$ROT"
 "$ROOT/skills/repl-proxy/scripts/guile-repl-proxy.scm" --listen "$PROXY_PORT" --target "$PORT" --log "$ROT" \
     >/dev/null 2>&1 &
+PIDS="$PIDS $!"
 sleep 3
 if [ -f "$ROT.1" ] && [ "$(wc -c < "$ROT")" -lt 4194304 ]; then
     check yes 'E5 log rotates past 4 MiB'

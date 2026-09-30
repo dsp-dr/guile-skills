@@ -82,6 +82,7 @@ lint:
 
 test:
 	@./tests/test-proxy.sh
+	@./tests/test-dir-locals.sh
 
 # Tracked .org files only, so a stray scratch file in the tree is not linted.
 ORG_FILES := $(shell git ls-files '*.org' 2>/dev/null)

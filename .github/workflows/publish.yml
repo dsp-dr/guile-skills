@@ -55,6 +55,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y guile-3.0 netcat-openbsd
+          sudo apt-get install -y --no-install-recommends emacs-nox
 
       - name: Install gh with `gh skill` (needs >= 2.90.0)
         run: |
@@ -67,8 +68,12 @@ jobs:
           gh skill --help >/dev/null 2>&1 || {
             echo "::error::this gh has no \`gh skill\`; cannot publish"; exit 1; }
 
-      - name: Install Claude Code CLI
-        run: npm install -g @anthropic-ai/claude-code
+      - name: Install the pinned Claude Code CLI
+        run: |
+          pinned=$(python3 -c "import json;print(json.load(open('contracts/cell.json'))['claude_cli'])")
+          echo "contracts/cell.json pins $pinned"
+          npm install -g "@anthropic-ai/claude-code@$pinned"
+          claude --version
 
       # The same gate a human runs locally: tests, manifest validation, eval
       # suites, and `gh skill publish --dry-run', then the real publish.
