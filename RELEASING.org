@@ -130,6 +130,15 @@ Two related traps, both real:
   git rev-parse refs/notes/commits
   #+end_src
 
+** Folding PRs into one release PR
+
+Merging a release PR that contains other PRs' merge commits marks each of them
+merged, and GitHub fires =closed= for every one. Any that carried =deployable=
+starts its own publish of the same =main=. For 0.4.0 that was #22 beside #26.
+=publish.yml= therefore runs in one =concurrency= group, queued rather than
+cancelled, and a run that finds the version's tag already on its commit exits
+green without publishing. A tag on a *different* commit is still an error.
+
 ** After the merge, confirm the release happened
 
 Merging a =deployable= PR starts =publish.yml=; it is not proof the release

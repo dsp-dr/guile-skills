@@ -24,6 +24,16 @@ on:
 permissions:
   contents: write
 
+# One publish at a time, queued rather than cancelled. Merging a release PR that
+# folds in other PRs fires `closed' for each of them, and any that carried
+# `deployable' starts its own publish of the SAME main. For 0.4.0, #22 and #26
+# both started, both passed the tag check before either had created the tag, and
+# raced on an immutable tag until one was cancelled by hand (after a 502).
+# Serialised, the second run sees the tag and stops as below.
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
 jobs:
   publish:
     if: >-
@@ -44,20 +54,35 @@ jobs:
           echo "tag=v$version"    >> "$GITHUB_OUTPUT"
           echo "publishing v$version"
 
+      # Fetch tags NOW, not at checkout: a run queued behind another publish must
+      # see the tag that run created. A tag already on THIS commit means the
+      # version is published, so the rest is skipped and the run is green. A tag on
+      # any other commit is a bump that did not happen, which is an error.
       - name: Stop if that tag already exists
+        id: tagcheck
         run: |
-          if git rev-parse --verify --quiet "refs/tags/${{ steps.v.outputs.tag }}" >/dev/null; then
-            echo "::error::${{ steps.v.outputs.tag }} already exists. Raise version in plugin.json."
+          git fetch --quiet --force --tags origin
+          tag="${{ steps.v.outputs.tag }}"
+          if git rev-parse --verify --quiet "refs/tags/$tag" >/dev/null; then
+            at=$(git rev-parse "refs/tags/$tag^{commit}")
+            if [ "$at" = "$(git rev-parse HEAD)" ]; then
+              echo "$tag is already published at this commit; nothing to do."
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "::error::$tag already exists at ${at:0:7}, not at HEAD. Raise version in plugin.json."
             exit 1
           fi
 
       - name: Install Guile and netcat
+        if: steps.tagcheck.outputs.skip != 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y guile-3.0 netcat-openbsd
           sudo apt-get install -y --no-install-recommends emacs-nox
 
       - name: Install gh with `gh skill` (needs >= 2.90.0)
+        if: steps.tagcheck.outputs.skip != 'true'
         run: |
           curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
           sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
@@ -69,6 +94,7 @@ jobs:
             echo "::error::this gh has no \`gh skill\`; cannot publish"; exit 1; }
 
       - name: Install the pinned Claude Code CLI
+        if: steps.tagcheck.outputs.skip != 'true'
         run: |
           pinned=$(python3 -c "import json;print(json.load(open('contracts/cell.json'))['claude_cli'])")
           echo "contracts/cell.json pins $pinned"
@@ -78,11 +104,13 @@ jobs:
       # The same gate a human runs locally: tests, manifest validation, eval
       # suites, and `gh skill publish --dry-run', then the real publish.
       - name: Gate and publish
+        if: steps.tagcheck.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: ./scripts/release.sh production "${{ steps.v.outputs.tag }}"
 
       - name: Summary
+        if: steps.tagcheck.outputs.skip != 'true'
         run: |
           {
             echo "### Published ${{ steps.v.outputs.tag }}"
