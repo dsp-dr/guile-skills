@@ -3,6 +3,21 @@
 #
 #   ./scripts/release.sh staging            # regression tests + validation, no publish
 #   ./scripts/release.sh production TAG     # same gate, then a real `gh skill publish --tag TAG`
+#   ./scripts/release.sh status TAG         # none | done | resume | conflict, and why
+#
+# `production' is idempotent: run it again at any point and it finishes what is
+# missing or does nothing. A publish is two artifacts, the tag and the release
+# `gh skill publish' creates from it, and either can exist without the other
+# after a failure halfway through:
+#
+#   none      no tag                      -> gate, then gh skill publish --tag
+#   done      tag at HEAD, release exists -> nothing; exit 0
+#   resume    tag at HEAD, no release     -> gate, then gh release create from
+#                                            the existing tag
+#   conflict  tag on another commit       -> exit 1: a bump that did not happen
+#
+# After publishing it re-reads the state and fails unless it is `done', so a
+# publish that reports success without leaving a release is loud, not silent.
 #
 # This plugin has no running service, so "staging" and "production" don't mean
 # separate deployed environments -- they mean the same gate run twice: once as
@@ -65,24 +80,72 @@ gate() {
     echo "== gate passed =="
 }
 
+# publish_state TAG -> prints one of none | done | resume | conflict <sha>.
+# Tags are fetched here, not trusted from checkout: a run queued behind another
+# publish must see the tag that run created. The tag is peeled with ^{commit},
+# so an annotated tag compares as its commit.
+publish_state() {
+    git fetch --quiet --force --tags origin 2>/dev/null || true
+    at=$(git rev-parse --verify --quiet "refs/tags/$1^{commit}" 2>/dev/null) || at=''
+    if [ -z "$at" ]; then
+        echo none
+    elif [ "$at" != "$(git rev-parse HEAD)" ]; then
+        echo "conflict $at"
+    elif "$GH" release view "$1" >/dev/null 2>&1; then
+        echo done
+    else
+        echo resume
+    fi
+}
+
 case ${1:-} in
+    status)
+        tag=${2:-}
+        [ -n "$tag" ] || { echo "release.sh: status needs a tag" >&2; exit 2; }
+        publish_state "$tag"
+        ;;
     staging)
         gate
         ;;
     production)
         tag=${2:-}
         [ -n "$tag" ] || { echo "release.sh: production needs a tag, e.g. ./scripts/release.sh production v0.1.0" >&2; exit 2; }
+        state=$(publish_state "$tag")
+        case $state in
+            done)
+                echo "== $tag is already published at this commit; nothing to do =="
+                exit 0 ;;
+            conflict*)
+                echo "release.sh: $tag already exists at ${state#conflict }, not at HEAD." >&2
+                echo "  Raise version in .claude-plugin/plugin.json." >&2
+                exit 1 ;;
+        esac
         gate
-        [ "$SKILL_CMD" -eq 1 ] || {
-            echo "release.sh: cannot publish -- no \`gh\` on PATH has \`gh skill\`." >&2
-            echo "  The gate above passed; publishing is the only blocked step." >&2
-            exit 2
+        case $state in
+            none)
+                [ "$SKILL_CMD" -eq 1 ] || {
+                    echo "release.sh: cannot publish -- no \`gh\` on PATH has \`gh skill\`." >&2
+                    echo "  The gate above passed; publishing is the only blocked step." >&2
+                    exit 2
+                }
+                echo "== publishing $tag =="
+                "$GH" skill publish --tag "$tag" ;;
+            resume)
+                # The tag exists at HEAD but its release does not: an earlier run
+                # stopped between the two. Finish it from the existing tag rather
+                # than asking gh skill publish to create a tag that is already there.
+                echo "== resuming $tag: tag exists at HEAD, creating its release =="
+                "$GH" release create "$tag" --verify-tag --generate-notes --title "$tag" ;;
+        esac
+        after=$(publish_state "$tag")
+        [ "$after" = done ] || {
+            echo "release.sh: publish of $tag reported success, but the state is now '$after', not 'done'." >&2
+            exit 1
         }
-        echo "== publishing $tag =="
-        "$GH" skill publish --tag "$tag"
+        echo "== $tag published and verified: tag at HEAD, release present =="
         ;;
     *)
-        echo "usage: $0 {staging|production TAG}" >&2
+        echo "usage: $0 {staging|production TAG|status TAG}" >&2
         exit 2
         ;;
 esac

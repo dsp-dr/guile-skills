@@ -130,6 +130,32 @@ Two related traps, both real:
   git rev-parse refs/notes/commits
   #+end_src
 
+** Folding PRs into one release PR
+
+Merging a release PR that contains other PRs' merge commits marks each of them
+merged, and GitHub fires =closed= for every one. Any that carried =deployable=
+starts its own publish of the same =main=. For 0.4.0 that was #22 beside #26.
+=publish.yml= therefore runs in one =concurrency= group, queued rather than
+cancelled.
+
+** Publishing is idempotent
+
+=scripts/release.sh production TAG= can be rerun at any point.
+=scripts/release.sh status TAG= names the state it will act on:
+
+| state    | meaning                     | production does                                  |
+|----------+-----------------------------+--------------------------------------------------|
+| none     | no tag                      | gate, then =gh skill publish --tag=              |
+| done     | tag at HEAD, release exists | nothing; exit 0                                  |
+| resume   | tag at HEAD, no release     | gate, then =gh release create= from the tag      |
+| conflict | tag on another commit       | exit 1: a bump that did not happen               |
+
+After publishing it re-reads the state and fails unless it is =done=, so a
+publish that claims success but leaves no release is caught. To finish a stuck
+release, run the *Publish on merge* workflow by hand (=workflow_dispatch=); it
+publishes the version =main= names, and does nothing if that is already done.
+=tests/test-release-idempotency.sh= covers all four states with a stubbed =gh=.
+
 ** After the merge, confirm the release happened
 
 Merging a =deployable= PR starts =publish.yml=; it is not proof the release
