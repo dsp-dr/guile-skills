@@ -81,7 +81,29 @@ either phase. A PR can show =release:end= while its head failed. A failed gate
 looks like a gate that never ran. A failed publish leaves no trace on the PR at
 all.
 
-* The four changes the model proposes
+* What a consumer of the labels must assume
+
+=release:start= and =release:end= are *kept as they are*: another system reads
+them (decision in [[file:../EXPERIMENTS-release.org][EXPERIMENTS-release.org]], R5). So the model is also their
+specification. Under the rules as deployed, a consumer must read them this way:
+
+| The PR shows | It means | It does *not* mean |
+|--------------+----------+--------------------|
+| =release:start= | a gate run for some commit is in progress | that the run is for the head |
+| =release:end= | the gate passed on *some* commit of this PR | that the head passed (=EndMeansHeadPassed=) |
+| neither | the gate failed, is queued, never ran, or was skipped | that nothing is wrong (=GateFailureVisible=) |
+| anything, after merge | nothing about publishing | that the version shipped (=PublishOutcomeVisible=) |
+
+For the head's verdict, read the =gate= check run on the head commit. For
+publishing, read =scripts/release.sh status vX.Y.Z=. For the directory, see
+below: nothing here can see it.
+
+* Changes the model would propose, deferred
+
+*Deferred*, because they change what an existing label means to its consumer.
+Adding a *new* label (3, 4) is safe for that consumer; changing when an existing
+one is set or cleared (1, 2) is not. They are recorded so the choice is
+deliberate, and each is already a switch in the model.
 
 1. =gate.yml= "Mark release:start" also removes =release:end= and
    =release:failed= (=StartClearsEnd=).
@@ -105,5 +127,9 @@ all.
   dispatch resumes), not that anyone will.
 - Branch protection: merging is not assumed to require the gate, which is why
   the publish run re-runs it.
-- The directory ingest (the webhook and the portal's scan). It happens off
-  GitHub and is not observable from here.
+- *The directory.* It is not downstream of this machine but parallel to it. The
+  directory follows the push to =main= and reads =plugin.json= (RELEASING.org),
+  not the tag or the release. So a failed publish can still go live, and a
+  green one can be held or never delivered. "Published" here means published
+  on GitHub. Modelling it needs the delivery and listing states, which only the
+  directory administrator's side can observe (EXPERIMENTS-release.org, R6).

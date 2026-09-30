@@ -220,6 +220,9 @@ it.
   =mcpServers=; that a Guile backtrace goes to *stdout* and so corrupts any protocol
   carried there; and that =guile-json= is GPL-3, which closes a door this repository
   was about to walk through.
+- [[file:EXPERIMENTS-release.org][EXPERIMENTS-release.org]] --- R1--R6: the 0.4.0 release, its race,
+  idempotent publishing, and a model of the labels and the pipeline.
+- [[file:EXPERIMENTS-invocation.org][EXPERIMENTS-invocation.org]] --- T1--T2: a trigger benchmark for the skills.
 
 * Still open
 

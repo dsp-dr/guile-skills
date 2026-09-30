@@ -1,0 +1,72 @@
+#+TITLE: Experiments: which skill does a prompt actually invoke?
+#+DATE: 2026-09-30
+#+AUTHOR: dsp-dr
+
+Earlier benchmarks (=evals/workspace/=) measured what a skill does *once
+loaded*. They showed little quality change (+0.04 to +0.10 pass rate) and mostly
+time savings. Nothing measured *invocation*: whether a prompt reaches a skill
+at all. That decides whether four skills should become fewer.
+
+Run on a macOS laptop, Claude Code 2.1.285, the plugin at 0.4.0 (=guile=, four
+skills) loaded with =--plugin-dir=, in the user's real configuration, with about
+80 of their own skills competing. The runner and data are in [[file:evals/trigger/][evals/trigger/]].
+Labels as in [[file:EXPERIMENTS-release.org][EXPERIMENTS-release.org]].
+
+* T1 -- First tool call
+
+*Method.* 18 prompts: 13 that should reach a Guile skill (some accept either of
+two) and 5 that should not (Python, a conceptual question, Rust Emacs, a README
+typo, a Clojure nREPL). Two runs each, in a scratch project with modules under
+=irc/= rather than =src/=. Only the =Skill= tool is allowed, and a run is scored
+by its first tool call.
+
+*Result.* 22/36 = 0.61, below the 0.85 bar. No false positives: none of the
+five negatives reached a Guile skill.
+
+| Prompt shape | Result |
+|--------------+--------|
+| names the thing ("start a guile repl", "emacs with geiser", "record everything evaluated", "connect my emacs to the agent's repl") | 2/2 each, the right skill |
+| generic setup ("set up this project so I can debug it", "get this guile project ready", "set up guile") | Bash first, both runs |
+| "does srfi-1's fold take the accumulator first? check it" | Bash first; it ran guile itself, bypassing the logged proxy |
+| "Geiser connects but (use-modules ...) fails" | Bash first; debugged by hand |
+
+*Label:* measured. =evals/trigger/results/2026-09-30-first-tool.json=.
+
+* T2 -- Allowing four tool calls first
+
+*Question.* Is "first tool call" too strict, and do those prompts reach a skill
+after one look around?
+
+*Result.* Sometimes. Of the eight failing or half-passing prompts, re-run
+allowing up to four tool calls: "set up this project so I can debug it" reached
+=emacs-setup= in 1 of 2 runs, and "set up guile" reached =repl-server= in 1 of 2.
+The =fold= prompt never did (0/4 over T1 and T2), and neither did the
+=use-modules= one or "get this guile project ready".
+
+*Label:* measured. =evals/trigger/results/2026-09-30-first-four-tools.json=.
+
+* What it implies, and how sure
+
+Generic "set up" prompts are where invocation fails. They split between
+=repl-server= and =emacs-setup= when they reach a skill at all. That argues for
+one front door: a =setup= skill absorbing the server, the proxy's transcript
+role and Emacs, with =eval= separate and its description saying "instead of
+running guile yourself". It is a *prediction*, not a result: 2 runs per
+prompt, prompts written by the person proposing the change, one model, one
+scratch project. The test is to re-run this benchmark after the reshape:
+
+#+begin_src sh
+python3 evals/trigger/run.py              # T1 shape
+python3 evals/trigger/run.py --tools 4    # T2 shape
+#+end_src
+
+* Isolation, learned while running it
+
+- The installed copy of the plugin came from the directory as
+  =guile-skills@synced=, not =@guile-skills=. Disabling by the marketplace name
+  did nothing, and each skill appeared twice. =run.py= now aborts a run whose
+  init lists a skill twice.
+- Plugin hooks fire under =claude -p= even with every tool denied. The runs
+  left =.baseline= files for the scratch project in two plugin data
+  directories.
+- Both are rows in [[file:docs/isolation.org][docs/isolation.org]].
