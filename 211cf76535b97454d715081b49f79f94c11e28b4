@@ -1,0 +1,5 @@
+Context: asked to fold the 0.3.1 branch's shipped fixes into a 0.4.0 that renames the plugin to guile (#13) and adds an Emacs/Geiser setup skill. Branched in a sibling worktree, because CI/CD is being exercised through PRs rather than main.
+Considerations: marketplace name left as guile-skills. Renaming it is a separate break (renames maps plugin names only), deferred per #13 item 5.
+Deviations: README.md regenerated with pandoc 3.5 (upstream 3.9), which changes an indented example into a fenced one. It renders the same.
+Open: fix/token-from-pass-and-local-eval still claims 0.3.1 and carries the same three shipped hunks. It needs its bump dropped and a rebase once this merges, or it will conflict and try to publish a lower version.
+Timeline: 2026-09-30.
