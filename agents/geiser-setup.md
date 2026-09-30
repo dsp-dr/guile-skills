@@ -116,15 +116,16 @@ overwrite, and say what you changed.
 
 - A `.dir-locals.el` containing `eval:` forms — which is every one worth writing,
   including the one you are about to write — makes Emacs **prompt** on first visit:
-  *"The local variables list ... contains values that may not be safe"*. That prompt
-  is governed by `enable-local-eval` (default `maybe`), which `enable-local-variables
-  :all` does **not** cover. In an automated or headless run it is indistinguishable
-  from a hang. Say so when you hand the file over, and set both if you are also
-  writing the profile that loads it.
-- `emacs --init-directory=DIR` sets `user-emacs-directory` but does **not** load
-  `init.el` from it on this build. Use `emacs -q -l DIR/init.el` and have the profile
-  anchor its own `user-emacs-directory` and `package-user-dir`. Verified by a marker
-  file the profile writes: absent under `--init-directory`, present under `-q -l`.
+  *"The local variables list ... contains values that may not be safe"*. In an
+  automated or headless run it is indistinguishable from a hang. Say so when you
+  hand the file over. Answering `!` marks that exact form safe for good. Do not
+  reach for `enable-local-variables :all`: it applies every unsafe variable
+  everywhere without asking (Emacs 30.2 `files.el:4118-4147`; measured).
+- `emacs --init-directory=DIR` loads `~/.emacs` **instead of** `DIR/init.el`
+  whenever `~/.emacs` exists (Emacs 30.2 `startup.el:1499-1523`), so on a machine
+  with a `~/.emacs` it runs the user's real configuration. Use
+  `emacs -q -l DIR/init.el` and have the profile anchor its own
+  `user-emacs-directory` and `package-user-dir`.
 
 ## 5. Check Emacs can actually do this
 
@@ -211,8 +212,8 @@ rather than recalling the meta-command list.
 **Geiser** (https://www.nongnu.org/geiser/) is Emacs' Scheme REPL integration, and
 the distinction that matters is:
 
-- `geiser-guile` *starts its own* Guile process. That gets you a REPL, but not
-  *this project's* REPL, and nothing of it is recorded.
+- `M-x run-guile` (or `M-x geiser`) *starts its own* Guile process. That gets you
+  a REPL, but not *this project's* REPL, and nothing of it is recorded.
 - `geiser-connect` attaches to an *already running* socket REPL. That is what you
   want, pointed at the proxy port so the session is logged.
 

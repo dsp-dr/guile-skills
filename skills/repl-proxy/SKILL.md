@@ -86,13 +86,20 @@ agent reading the transcript can see what the person tried.
 
 ```elisp
 ;; M-x geiser-connect, host 127.0.0.1, port PORT+1
-(setq geiser-guile-binary "guile3")   ; not `guile' — that may be 2.2.7
+;; No geiser-guile-binary: connecting does not start a Guile, so the binary is
+;; irrelevant here -- and pinning one is the mistake emacs-setup exists to undo.
 ```
 
 Geiser holds **one** connection open across many round-trips, unlike `nc -N`
-which half-closes after each. Both work, but the proxy currently serves
-connections **serially** — an agent and Geiser at the same time needs two proxies
-or a threaded accept loop.
+which half-closes after each. Both work, with three limits:
+
+- The proxy serves connections **serially**: while Geiser holds its connection,
+  an agent's evaluation waits. Two at once needs two proxies.
+- An idle connection is closed after **300 seconds**, so a Geiser session left
+  alone for five minutes has to reconnect.
+- Geiser cannot interrupt an evaluation over a socket (`interrupt-process` needs
+  a subprocess; Geiser 0.32 `geiser-connection.el:269-273`). A runaway evaluation
+  from either side is stopped only by restarting the REPL.
 
 ## Failure modes worth recognising
 

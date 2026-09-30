@@ -90,10 +90,12 @@ worktree.
   you should say why.
 
 Tell the person about the prompt before they see it. Because the file contains
-`eval` forms, Emacs asks on first visit whether the values are safe. The
-setting that controls this is `enable-local-eval` (default `maybe`), and
-`enable-local-variables :all` does **not** cover it. In a headless or tmux-driven
-Emacs that prompt looks like a hang.
+`eval` forms, Emacs asks on first visit whether the values are safe; answering
+`!` marks that exact form safe for good. In a headless or tmux-driven Emacs the
+prompt looks like a hang. Do **not** suggest `enable-local-variables :all` to
+silence it: that applies every unsafe local variable in every directory, without
+asking (Emacs 30.2 `files.el:4118-4147`, measured: an `eval` ran under `:all` with
+`enable-local-eval` at its default `maybe`).
 
 ## 4. Verify before anyone connects
 
@@ -123,15 +125,20 @@ prompt, and run `M-x guile-project-connect`. That connects Geiser to the
 
 Geiser documents this path, attaching to an external `guile --listen`, in
 [Starting the REPL](https://www.nongnu.org/geiser/The-REPL.html#Starting-the-REPL).
-`M-x run-geiser` / `geiser-guile` would start a separate Guile that is not this
-project's REPL and records nothing.
+`M-x geiser` or `M-x run-guile` would start a separate Guile that is not this
+project's REPL and records nothing (`run-geiser` is an obsolete alias since
+Geiser 0.26).
 
 ## 6. What "working" means
 
 Batch mode loads Geiser but never runs a REPL, so step 4 proves the
 configuration and not the connection. The connection is proved by:
 
-1. A `scheme@(guile-user)>` prompt in the Geiser REPL buffer.
+1. A `scheme@(guile-user)>` prompt in the Geiser REPL buffer. Run
+   `guile-project-connect` from a `.scm` buffer: Geiser reads that buffer's
+   `geiser-guile-load-path` at connect time and sends it to the REPL
+   (geiser-guile 0.28.3, `geiser-guile.el:667-681`), which also means connecting
+   changes the shared REPL's `%load-path`, debug options and terminal width.
 2. `(use-modules (<a module the detector found>))` succeeding there.
 3. `,bt` after a forced error returning frames, and `,trace` on a small call
    returning more than zero lines (both need the REPL's `--debug`, which

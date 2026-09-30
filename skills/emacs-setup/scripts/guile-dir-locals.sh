@@ -23,6 +23,9 @@
 #     37000 + cksum(slug) mod 900, because the slug is the absolute path and a
 #     literal port would be wrong in every other checkout and worktree.
 #
+# Scoped to scheme-mode: under `nil' the eval -- which runs a shell for cksum --
+# fired in every buffer of the project (dired, magit, org).
+#
 # The cost: `eval' forms make Emacs ask before applying them on first visit
 # (enable-local-eval defaults to `maybe'). That prompt is expected; headless, it
 # looks like a hang.
@@ -46,7 +49,7 @@ emit() {
 ;;; path is baked in. Connect with M-x guile-project-connect (or geiser-connect
 ;;; to guile-project-proxy-port) after the repl-server skill has started the REPL.
 
-((nil
+((scheme-mode
   . ((eval
       . (let* ((root (expand-file-name
                       (locate-dominating-file default-directory ".dir-locals.el")))
@@ -81,6 +84,7 @@ verify() {
         (setq enable-local-variables :all enable-local-eval t)
         (with-temp-buffer
           (setq default-directory (file-name-as-directory (expand-file-name ".")))
+          (scheme-mode)   ; the file applies to scheme-mode buffers only
           (hack-dir-local-variables-non-file-buffer)
           (princ (format "%s %s %s\n"
                          (bound-and-true-p guile-project-repl-port)

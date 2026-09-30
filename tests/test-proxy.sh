@@ -125,6 +125,20 @@ else
     check no  'E5 log rotates past 4 MiB'
 fi
 
+# --- E7: rotation BETWEEN connections reopens the log ----------------------
+# Before 0.4.0 the open port kept writing to the renamed file: after the first
+# mid-run rotation everything went to LOG.1 and LOG never came back.
+dd if=/dev/zero bs=1024 count=4200 2>/dev/null | tr '\0' 'x' >> "$ROT"
+printf '(+ 1 1)\n' | nc $NCS 127.0.0.1 "$PROXY_PORT" >/dev/null 2>&1   # rotates after it closes
+sleep 1
+printf '(+ 2 2)\n' | nc $NCS 127.0.0.1 "$PROXY_PORT" >/dev/null 2>&1
+sleep 1
+if [ -f "$ROT" ] && grep -q '(+ 2 2)' "$ROT" && [ "$(wc -c < "$ROT")" -lt 4194304 ]; then
+    check yes 'E7 a rotation between connections reopens the log'
+else
+    check no  'E7 a rotation between connections reopens the log'
+fi
+
 echo
 echo "$passed passed, $failed failed"
 [ "$failed" -eq 0 ]
