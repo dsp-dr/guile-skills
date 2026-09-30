@@ -1,0 +1,84 @@
+#+TITLE: Isolation protocol
+#+DATE: 2026-09-30
+#+AUTHOR: dsp-dr
+
+Most of the time lost building this plugin went to one mistake in different
+places: something we assumed was private to one checkout, one session or one
+copy of the plugin turned out to be shared. The symptom almost never names the
+cause. A stale listener looks like a broken new one, a second plugin copy looks
+like the model ignoring a skill, and a host's =nc= looks like "nothing
+listening".
+
+This file is the protocol. [[file:boundaries.org][boundaries.org]] draws the
+layers; this says what to check before trusting a result that crosses one.
+
+* What is shared, whether or not it looks it
+
+| Resource | Shared between | Incident |
+|----------+----------------+----------|
+| TCP ports | every checkout, worktree and session on the host | E4 (=cdc4a22=): a stale proxy held the port, the new bind died silently, the old one kept serving. A3: eleven orphaned proxies, nine proxying a dead REPL |
+| Process names | the same | B3 (=2115075=): =pkill -f "listen=$PORT"= with a fixed test port killed another worktree's REPL; the run read 6/1 and then passed alone |
+| =~/.emacs.d= | the user and every profile that forgets to pin =package-user-dir= | B4 (=14e41a6=): the DX profile installed three packages into the user's real ELPA tree, after we had said it would not |
+| Installed plugins | every session, including one you load with =--plugin-dir= | 2026-09-30: the synced 0.3.0 loaded beside the 0.4.0 working tree, so each skill appeared twice. Disabling =guile-skills@guile-skills= did nothing; the key is =guile-skills@synced= |
+| =~/.claude= config | every session | install and rename tests run in a throwaway =CLAUDE_CONFIG_DIR= (=f9cbc8e=). Such a directory has no OAuth, so it cannot run =claude -p= |
+| =${CLAUDE_PLUGIN_DATA}= | every project the plugin touches, keyed =<plugin>-<source>= | =guile-skills-synced= and =guile-inline= coexist. A rename or a source change starts a new directory, and old transcripts stay behind |
+| Plugin hooks | every session that loads the plugin, including =claude -p= with all tools denied | 2026-09-30: trigger-benchmark runs wrote =.baseline= files for a scratch project into both data directories. Hooks are not tools, so =--allowedTools= does not stop them |
+| Untracked per-checkout files | nothing: each checkout has its own | =.env.local=, =.dx-emacs/=. A new worktree has neither and silently falls back to defaults |
+| Host tool semantics | every script on that host | =8178314=: =guile3= hard-coded, so it ran only on FreeBSD. 2026-09-30: macOS =nc= lists =-N= with a different meaning, so =repl-eval= reported "nothing listening" while the proxy was up |
+| Other agent sessions | the whole host | a guile-sicp session's REPL on 37618/37619 was live throughout this repo's test runs. It is someone else's work, not debris |
+
+* The protocol
+
+** Before a run whose result you will believe
+
+1. *Name what it will bind, write and read,* and check each against the table
+   above. If it touches a shared row, the next steps apply.
+2. *Ports come from the checkout path,* never a constant: =37000 + cksum(slug)
+   mod 900= for projects, =39000 + ...= for tests. Before trusting a port, check
+   what is already on it (=lsof -nP -iTCP:PORT= or =sockstat -4l=) and whose it
+   is.
+3. *Load exactly one copy of the plugin.* With =--plugin-dir=, disable the
+   installed copy by its /source/ key. Read that key from the init message's
+   =plugins= list; don't guess it from the marketplace name. Then confirm
+   the skill list has no duplicates before reading any result.
+4. *Anything that installs, renames or migrates* runs under a throwaway
+   =CLAUDE_CONFIG_DIR=. Anything that needs a model runs in the real config with
+   the installed copy disabled, and anything that must not act runs with
+   =--allowedTools= restricted. It still fires hooks, so expect their writes.
+5. *Probe host tools by behaviour,* not by name or help text. A present binary
+   is not a 3.x binary, and a listed flag is not the flag you mean.
+
+** While it runs
+
+6. *Never kill by pattern.* =pkill -f guile= reaches other worktrees and other
+   sessions. Kill a PID you started, or the listener on a port you derived.
+7. *Never write outside the checkout or the plugin data directory.* That
+   includes =~/.emacs.d=: pin =package-user-dir= and =package-gnupghome-dir=
+   explicitly, because =user-emacs-directory= is set too late (B4).
+
+** After
+
+8. *Account for what you started:* =guile-repl-server.sh --status=,
+   =pgrep -fl repl-proxy=, and any =.baseline= or transcript the run wrote.
+   Remove only what you can show is yours.
+9. *A result from a shared row is a claim about that row, not about the
+   change.* "3/7 on this Mac" was the macOS =nc= bug, not the environment and
+   not the change. Say which one it was, or that you don't know yet.
+
+* What is not isolated, and is accepted
+
+- *The serial accept loop.* Geiser and an agent cannot hold the proxy at the
+  same time. That is by design and documented; it is contention, not a leak.
+- *PORT+1 is not collision-checked* against other projects' REPL ports. Two
+  such overlaps exist across the 33 local checkouts. The check in step 2 is the
+  mitigation until the derivation changes, and changing it is a breaking change.
+
+* Open
+
+- Whether a session start auto-installs an enabled-but-missing plugin after a
+  =renames= migration. Not measured (see =contracts/artifacts.json=).
+- A per-host tool profile resolved once, under =$XDG_CONFIG_HOME=, instead of
+  per call. Proposed from the guile-sicp session. It needs an issue, and a
+  decision on where it lives relative to =${CLAUDE_PLUGIN_DATA}=.
+- Whether plugin benchmark runs should use a scratch =CLAUDE_PLUGIN_DATA=. Not
+  possible from outside as far as we know, since the runtime sets it.
