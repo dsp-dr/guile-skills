@@ -1,0 +1,3 @@
+Context: bug report relayed from the guile-sicp session (another Claude session working for the same user). Reproduced before fixing.
+Deviations: the reporter also proposed resolving host tool semantics once, into a per-host config under XDG. That is a larger design; it is deferred to an issue rather than folded into 0.4.0.
+Timeline: 2026-09-30.
