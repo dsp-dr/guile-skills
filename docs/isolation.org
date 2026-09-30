@@ -25,6 +25,8 @@ layers; this says what to check before trusting a result that crosses one.
 | Plugin hooks | every session that loads the plugin, including =claude -p= with all tools denied | 2026-09-30: trigger-benchmark runs wrote =.baseline= files for a scratch project into both data directories. Hooks are not tools, so =--allowedTools= does not stop them |
 | Untracked per-checkout files | nothing: each checkout has its own | =.env.local=, =.dx-emacs/=. A new worktree has neither and silently falls back to defaults |
 | Host tool semantics | every script on that host | =8178314=: =guile3= hard-coded, so it ran only on FreeBSD. 2026-09-30: macOS =nc= lists =-N= with a different meaning, so =repl-eval= reported "nothing listening" while the proxy was up |
+| The Claude Code CLI version | every session on the host, and it updates itself | 2026-09-30: 2.1.285 became 2.1.286 mid-session. =check-contracts= is what noticed, which is why CI installs the version =contracts/cell.json= pins |
+| The spelling of a path | Emacs, the shell and git, which disagree about symlinks | 2026-09-30: git reports =/private/var/...= while Emacs keeps =/var/...=, so =emacs-setup --verify= failed on every macOS temp path until it compared true names. Ports cannot be compared that way, because the slug is the path as spelled |
 | Other agent sessions | the whole host | a guile-sicp session's REPL on 37618/37619 was live throughout this repo's test runs. It is someone else's work, not debris |
 
 * The protocol
