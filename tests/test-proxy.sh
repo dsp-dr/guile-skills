@@ -32,7 +32,9 @@ for guile_candidate in guile3 guile-3.0 guile; do
     command -v "$guile_candidate" >/dev/null 2>&1 && { GUILE=$guile_candidate; break; }
 done
 GUILE=${GUILE:-guile}
-if nc -h 2>&1 | grep -q '\-N'; then NCS="-N"; else NCS=""; fi
+# Behaviour, not help text: macOS nc lists -N but means "adaptive write timeout"
+# by it and rejects the bare flag. Decided against the live REPL below, once.
+NCS="-N"
 
 cleanup() {
     pkill -f "guile-repl-proxy.scm --listen $PROXY_PORT" 2>/dev/null
@@ -53,6 +55,9 @@ sleep 2
 "$ROOT/skills/repl-proxy/scripts/guile-repl-proxy.scm" --listen "$PROXY_PORT" --target "$PORT" --log "$LOG" \
     >"$WORK/proxy.err" 2>&1 &
 sleep 3
+
+# Empty input evaluates nothing, so this does not disturb E1's `$1 = 2'.
+printf '' | nc -N 127.0.0.1 "$PORT" >/dev/null 2>&1 || NCS=""
 
 # --- E1: the socket REPL answers -----------------------------------------
 out=$(printf '(+ 1 1)\n' | nc $NCS 127.0.0.1 "$PORT" 2>/dev/null)
