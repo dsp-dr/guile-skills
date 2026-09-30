@@ -1,0 +1,4 @@
+Context: asked for a quick-lookup handle on the directory portal's versions page, not exposed in the repo. Placeholder in .env.example; real value in the main checkout's .env.local (mode 600, ignored).
+Considerations: pass on this Mac holds no guile-skills entries (they live on nexus), so no partial store was started here.
+Deviations: user suggested CLAUDE_PLUGIN_URL; renamed to avoid the runtime's CLAUDE_PLUGIN_* namespace.
+Timeline: 2026-09-30.
