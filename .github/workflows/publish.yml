@@ -20,6 +20,10 @@ name: Publish on merge
 on:
   pull_request:
     types: [closed]
+  # Recovery: publishes whatever version main names, idempotently. Safe to run
+  # at any time -- a version already published is a green no-op, and a publish
+  # that stopped between tag and release is finished (scripts/release.sh).
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -37,8 +41,9 @@ concurrency:
 jobs:
   publish:
     if: >-
-      github.event.pull_request.merged == true &&
-      contains(github.event.pull_request.labels.*.name, 'deployable')
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged == true &&
+       contains(github.event.pull_request.labels.*.name, 'deployable'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -54,25 +59,22 @@ jobs:
           echo "tag=v$version"    >> "$GITHUB_OUTPUT"
           echo "publishing v$version"
 
-      # Fetch tags NOW, not at checkout: a run queued behind another publish must
-      # see the tag that run created. A tag already on THIS commit means the
-      # version is published, so the rest is skipped and the run is green. A tag on
-      # any other commit is a bump that did not happen, which is an error.
-      - name: Stop if that tag already exists
+      # The state machine lives in scripts/release.sh (tested by
+      # tests/test-release-idempotency.sh); this step only asks it. `done' skips
+      # every later step and the run is green; `conflict' fails; `none' and
+      # `resume' go on to the gate and publish, which finishes what is missing.
+      - name: Publish state
         id: tagcheck
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          git fetch --quiet --force --tags origin
           tag="${{ steps.v.outputs.tag }}"
-          if git rev-parse --verify --quiet "refs/tags/$tag" >/dev/null; then
-            at=$(git rev-parse "refs/tags/$tag^{commit}")
-            if [ "$at" = "$(git rev-parse HEAD)" ]; then
-              echo "$tag is already published at this commit; nothing to do."
-              echo "skip=true" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-            echo "::error::$tag already exists at ${at:0:7}, not at HEAD. Raise version in plugin.json."
-            exit 1
-          fi
+          state=$(GH=gh ./scripts/release.sh status "$tag")
+          echo "state of $tag: $state"
+          case $state in
+            done)      echo "skip=true" >> "$GITHUB_OUTPUT" ;;
+            conflict*) echo "::error::$tag exists at ${state#conflict }, not at HEAD. Raise version in plugin.json."; exit 1 ;;
+          esac
 
       - name: Install Guile and netcat
         if: steps.tagcheck.outputs.skip != 'true'
