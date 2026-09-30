@@ -15,12 +15,12 @@ reference fetched 2026-09-28.
 
 | Surface           | Lives in                    | Have one?                     |
 |-------------------+-----------------------------+-------------------------------|
-| skills            | =skills/<name>/SKILL.md=    | *yes* --- three               |
+| skills            | =skills/<name>/SKILL.md=    | *yes* --- four (=emacs-setup= in 0.4.0) |
 | monitors          | =monitors/monitors.json=    | *yes* --- one, new in 0.1.6   |
 | evals             | =skills/*/evals/evals.json= | *yes* --- 12, unscored        |
 | commands          | =commands/*.md=             | no                            |
 | agents            | =agents/*.md=               | *yes* --- one, new in 0.2.0   |
-| hooks             | =hooks/hooks.json=          | no                            |
+| hooks             | =hooks/hooks.json=          | *yes* --- Scheme balance check, log baseline |
 | MCP servers       | =.mcp.json=                 | no --- blocked, issue #1      |
 | channels          | manifest =channels=         | no --- an MCP server over stdio |
 | LSP servers       | =.lsp.json=                 | no --- maturity not established |

@@ -51,7 +51,7 @@ any other way starts a REPL with load path =none= and =(use-modules ...)= fails
 with nothing pointing at why. That is =roadmap.org='s C5, and the survey says it
 is wrong for the majority of the corpus.
 
-=scripts/guile-project-detect.sh= is the primitive: it reports the module
+=scripts/lib/guile-project-detect.sh= is the primitive: it reports the module
 directories, the load-path flags, the test directory, the build system, whether
 SRFI-64 is already in use, and which Guile binary is actually present. Calibrated
 against twelve real projects, nine of which have *no* =src/= at all:
@@ -103,7 +103,7 @@ failure this repository exists to catch.
 | Piece                                        | State                          |
 |----------------------------------------------+--------------------------------|
 | the corpus survey above                      | *done*, reproducible           |
-| =scripts/guile-project-detect.sh=             | *done*, calibrated on 12 projects |
+| =scripts/lib/guile-project-detect.sh=             | *done*, calibrated on 12 projects |
 | =Makefile= template: help/repl/check/lint/clean | not built                   |
 | =tests/= + an SRFI-64 runner (roadmap C6)    | not built                      |
 | =.dir-locals.el= template: probed binary, detected load path, derived port | not built |

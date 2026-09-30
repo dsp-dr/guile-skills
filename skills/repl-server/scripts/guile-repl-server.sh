@@ -101,4 +101,4 @@ if [ "$PROXY" -eq 1 ]; then
     fi
 fi
 
-echo "eval with: ./bin/guile-repl-eval.sh '(+ 1 1)'"
+echo "eval with: the repl-eval skill"

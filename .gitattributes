@@ -9,7 +9,7 @@ CONTRIBUTING.md  linguist-generated=true
 
 # Benchmark output from skill-creator: recorded evidence of what an agent
 # produced, not authored source. Collapsed for the same reason.
-skills/*-workspace/** linguist-generated=true
+evals/workspace/** linguist-generated=true
 
 # Org is the authored form here; GitHub detects it, but be explicit so the
 # language breakdown reflects what is actually written by hand.
