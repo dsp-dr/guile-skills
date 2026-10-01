@@ -1,3 +1,9 @@
+---
+type: llm
+focus: trace
+weight: 2
+---
+
 # Did the response come from a running interpreter?
 
 PASS only if the transcript shows Guile actually evaluating the expressions —

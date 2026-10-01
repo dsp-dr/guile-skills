@@ -1,3 +1,8 @@
+---
+type: llm
+focus: trace
+---
+
 # Was a stale listener considered and checked?
 
 The dominant cause is a proxy left running from an earlier session: it holds the
