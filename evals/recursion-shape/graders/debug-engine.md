@@ -1,3 +1,8 @@
+---
+type: llm
+focus: trace
+---
+
 # Was --debug handled?
 
 `,trace` emits nothing at all — no output and no error — when the REPL was

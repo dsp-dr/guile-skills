@@ -45,6 +45,30 @@ The =fold= prompt never did (0/4 over T1 and T2), and neither did the
 
 *Label:* measured. =evals/trigger/results/2026-09-30-first-four-tools.json=.
 
+* T3 -- Did 0.4.1's guidance fixes move invocation?
+
+*Question.* Between T1 (0.4.0) and 0.4.1, the skills' guidance changed
+(=emacs-setup= on when Geiser sends the load path; =repl-eval= on what a
+connection shares). Their descriptions, which are what triggering matches on,
+did not. Does invocation change?
+
+*Result.* No. 22/36 = 0.61 again, with three prompts trading places and every
+other prompt unchanged:
+
+| Prompt | 0.4.0 | 0.4.1 |
+|--------+-------+-------|
+| "geiser connects but (use-modules (irc irc)) says no code for module" | 0/2 | 2/2, =emacs-setup= |
+| "what does the call tree of (fib 5) look like" | 1/2 | 0/2 |
+| "profile the connect procedure in irc/irc.scm" | 1/2 | 0/2 |
+
+Two runs per prompt cannot separate these from noise, so the finding is the
+total: guidance content does not move invocation. The generic "set up" prompts
+and the =fold= "check it" prompt still reach no skill. That points back at
+the skill boundaries and descriptions, as T1 and T2 did.
+
+*Label:* measured, against the rebased #30 tree, 2026-10-01.
+=evals/trigger/results/2026-10-01-0.4.1-first-tool.json=.
+
 * What it implies, and how sure
 
 Generic "set up" prompts are where invocation fails. They split between

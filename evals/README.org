@@ -5,27 +5,60 @@ Five cases, each targeting one anti-pattern this plugin exists to prevent. Run
 them with:
 
 #+begin_src sh
-claude plugin eval . --ablation with-without --allow-tools Bash
+claude plugin eval . --allow-tools Bash --scaffold --no-publish --max-cost-usd 15
 #+end_src
 
-* Status: authored, *not yet run*
+=--scaffold= lets =no-linter-claim= copy its fixture into the run's empty
+directory. =--no-publish= keeps the HTML report local. With-without ablation is
+the default whenever the plugin resolves.
 
-~claude plugin eval~ is in early access and is not enabled on this account
-(CLI 2.1.261 answers ~`plugin eval` is currently in early access~). So these
-cases are written but *unscored*: no pass rate here has been observed. Treat any
-claim about them as untested until a run exists under ~evals/results/~.
+* Status: loads, *not yet scored*
 
-That matters more here than usual, since this plugin's whole argument is that
-unverified claims are the failure mode. An eval suite nobody has run is exactly
-that failure in miniature, so it is labelled rather than implied.
+=claude plugin eval= is available from CLI 2.1.286 (issue #20 had it gated at
+2.1.261). Measured on 2026-10-01:
+
+- *As first written, no case loaded.* Every grader was plain prose, and the CLI
+  requires frontmatter with a =type:= (=invalid case.yaml: graders: Required=).
+  The suite had never been run, so nothing had noticed.
+- *Now all five load and parse as intended*, checked against the real loader at
+  $0 (see below): =focus: trace= on the graders that ask "did it run?",
+  =with-only= on the plugin-fired indicators, weights as written.
+- *No case has been scored.* Every case needs Bash, and a Bash-granting run on the
+  maintainer's macOS laptop is refused before it starts. The sandbox reports that
+  "the Docker (~/.docker) credential store ... holds a symbolic link inside it, so
+  the Bash sandbox cannot reliably exclude it". Docker Desktop creates those
+  links. The refusal protects credentials, so it is not worked around here. A
+  host with no symlinks in =~/.docker=, or a Linux runner with =bubblewrap= and
+  =socat=, can run the suite.
+
+The free load check: grant Bash on a host where the sandbox refuses. Every case
+is loaded and parsed, then every run is refused at $0, and =--json= shows the
+parsed graders.
+
+Until a run exists under =evals/results/=, treat every claim about these cases as
+untested. This plugin's argument is that unverified claims are the failure mode,
+and an eval suite nobody has run is that failure in miniature.
 
 * Form
 
-Each case is a directory holding ~prompt.md~ and ~graders/*.md~. The CLI also
-accepts a ~case.yaml~ per case, which carries ~runs~, ~tags~, ~max_turns~,
-~timeout_seconds~ and ~scaffold_script~. None is written: without early access
-the schema cannot be validated, and a guessed schema that silently fails to
-parse is worse than none.
+Each case is a directory holding =prompt.md= (frontmatter: =name=, =tags=,
+=runs=, =max_turns=, =timeout_seconds=, =allowed_tools=; then the prompt) and
+=graders/*.md=. Each grader needs frontmatter with =type:= (=llm=, =tool_used=, and
+others). An =llm= grader judges =last_message= unless it sets =focus: trace=, so
+any grader asking whether something was *run* must set it.
+=no-linter-claim= adds a =case.yaml= for its =scaffold_script=. Every run starts
+in an empty directory, and the script copies =scripts/lib/guile-repl-proxy.scm=
+in.
+
+Graders are written to be *host-neutral*. The interpreter is =guile3=,
+=guile-3.0= or =guile= depending on the platform, and a bare =guile= can be 2.x,
+so they judge the behaviour (ran it, named the binary, checked it is 3.x), not
+one machine's names. They were first written for nexus, where only =guile3= is
+3.x, and would have failed a correct run on Homebrew.
+
+=stale-listener= is tagged =kills-processes=. Its baseline arm may reasonably
+=pkill= a REPL, so run it only where no one else's REPL is live:
+=--tag= filters, and the sandbox's process rules are not established.
 
 * Why the ablation matters
 

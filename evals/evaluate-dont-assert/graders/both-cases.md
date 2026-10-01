@@ -1,3 +1,7 @@
+---
+type: llm
+---
+
 # Were both forms actually evaluated?
 
 The prompt asks two things: with a delimiter and without one. PASS only if both
