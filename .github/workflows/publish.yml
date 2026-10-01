@@ -40,9 +40,14 @@ concurrency:
 
 jobs:
   publish:
+    # base.ref == main: a PR merged into another PR's branch changed nothing on
+    # main, yet without this its `closed' event would publish main anyway. That
+    # is a no-op when main's version is already out, and an early publish when
+    # it is not. Stacked deployable PRs are not a supported path (RELEASING.org).
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.pull_request.merged == true &&
+       github.event.pull_request.base.ref == 'main' &&
        contains(github.event.pull_request.labels.*.name, 'deployable'))
     runs-on: ubuntu-latest
     steps:

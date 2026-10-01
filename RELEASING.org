@@ -130,6 +130,21 @@ Two related traps, both real:
   git rev-parse refs/notes/commits
   #+end_src
 
+** No stacked deployable PRs
+
+A PR whose base is another PR's branch gets no =checks= and no =gate=, because
+both run only for PRs into =main=. Its =deployable= label and its version bump
+are judged against a base that is not what users receive. So deployable changes
+are never stacked. When several belong in one release, *fold* them: each PR
+targets =main=, and a single release PR merges them in, carries the one bump at
+the highest level of anything inside it, and is the one that publishes. That is
+what 0.2.0 (#17, folding #8 and #12) and 0.4.0 (#26) did. =publish.yml= also
+publishes only for PRs whose base is =main=, so a stack merged by mistake starts
+no publish.
+
+Non-deployable work (docs, CI, the model) may stack freely. Nothing publishes
+for it.
+
 ** Folding PRs into one release PR
 
 Merging a release PR that contains other PRs' merge commits marks each of them
