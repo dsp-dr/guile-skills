@@ -125,6 +125,14 @@ else
     check no  'E5 log rotates past 4 MiB'
 fi
 
+# --- E8: connections share the image's top-level bindings -----------------
+# repl-eval's SKILL.md said each connection was a fresh REPL whose bindings were
+# gone. They are not: a define on one connection is visible on the next.
+printf '(define e8-shared 314)\n' | nc $NCS 127.0.0.1 "$PROXY_PORT" >/dev/null 2>&1
+out=$(printf 'e8-shared\n' | nc $NCS 127.0.0.1 "$PROXY_PORT" 2>/dev/null)
+case $out in *'= 314'*) check yes 'E8 a define on one connection is visible on the next';;
+             *)         check no  'E8 a define on one connection is visible on the next';; esac
+
 # --- E7: rotation BETWEEN connections reopens the log ----------------------
 # Before 0.4.0 the open port kept writing to the renamed file: after the first
 # mid-run rotation everything went to LOG.1 and LOG never came back.

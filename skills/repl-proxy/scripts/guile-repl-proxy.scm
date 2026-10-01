@@ -197,8 +197,10 @@ keep forwarding the other until it closes too."
              (client (car accepted)))
         (format log-port ";; connection ~a at ~a\n" n (iso-8601-now))
         (force-output log-port)
-        ;; One upstream connection per client connection: the REPL keeps state
-        ;; per connection, so reusing one would leak bindings between clients.
+        ;; One upstream connection per client connection, so each client gets its
+        ;; own REPL loop and prompt state. Top-level BINDINGS are not per
+        ;; connection: every connection shares the image's (guile-user) module and
+        ;; the $N history (measured, 0.4.1).
         (catch #t
           (lambda ()
             (let ((repl (socket PF_INET SOCK_STREAM 0)))
