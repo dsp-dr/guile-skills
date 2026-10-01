@@ -269,7 +269,7 @@ it.
   was about to walk through.
 - [[file:EXPERIMENTS-release.org][EXPERIMENTS-release.org]] --- R1--R6: the 0.4.0 release, its race,
   idempotent publishing, and a model of the labels and the pipeline.
-- [[file:EXPERIMENTS-invocation.org][EXPERIMENTS-invocation.org]] --- T1--T2: a trigger benchmark for the skills.
+- [[file:EXPERIMENTS-invocation.org][EXPERIMENTS-invocation.org]] --- T1--T3: a trigger benchmark for the skills.
 
 * Still open
 
