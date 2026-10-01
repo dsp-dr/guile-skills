@@ -1,0 +1,135 @@
+#+TITLE: The release labels and the publish pipeline, model-checked
+#+DATE: 2026-09-30
+#+AUTHOR: dsp-dr
+
+=GuilePublish.tla= transcribes =.github/workflows/gate.yml=,
+=.github/workflows/publish.yml= and =scripts/release.sh= into one state machine.
+It asks the question a person asks of a PR: *can I tell from its labels whether
+it passed, and whether it shipped?* The conventions come from
+=aygp-dr/standard-change/tla=: one boolean constant per rule, and =check.sh=
+runs every rule both ways, because a model that can only pass verifies nothing.
+
+#+begin_src sh
+tla/check.sh        # ~20 s; needs Java and tla2tools.jar (TLA2TOOLS=...)
+#+end_src
+
+* The machine
+
+#+begin_src mermaid
+stateDiagram-v2
+    direction LR
+    state "GATE, per push (gate.yml)" as G {
+        [*] --> pending: opened / synchronize
+        pending --> running: add release:start
+        running --> passed: remove start, add release:end
+        running --> failed: remove start
+        note right of failed
+            deployed: labels now read as
+            "never ran", and an older
+            release:end survives
+        end note
+    }
+    G --> merged: merge (rel, and folded sub)
+    state "PUBLISH, per merged deployable PR + dispatch (publish.yml, release.sh)" as P {
+        [*] --> queued
+        queued --> check: concurrency group free
+        check --> skip: tag+release at HEAD (done)
+        check --> gate: none, or resume (tag, no release)
+        gate --> red: checks fail
+        gate --> tagged: gh skill publish creates tag
+        tagged --> verify: release created
+        tagged --> red: crash between tag and release
+        verify --> green: re-read state is done
+        verify --> red: not done (silent no-op)
+    }
+    merged --> P
+#+end_src
+
+* The rules, and what breaks without each
+
+| Rule | Deployed? | Its absence violates | TLC counterexample, in words |
+|------+-----------+----------------------+------------------------------|
+| =StartClearsEnd= | *no* | =EndMeansHeadPassed= | commit 0 passes (=release:end=); a push's gate fails; the PR still shows =release:end= |
+| =CurrentHeadOnly= | *no* | =EndMeansHeadPassed= | a newer commit's gate fails, then the older commit's slower run passes and labels the new head =release:end= |
+| =GateFailLabel= | *no* | =GateFailureVisible= | the first gate fails; labels return to ={}=, identical to "never ran" |
+| =Concurrency= | yes, #28 | =NoTagRace= | the 0.4.0 incident: two publish runs both see no tag, and the second hits the immutable tag |
+| =IdempotentDone= | yes, #28 | =NoRedOnPublished= | the folded PR's run finds 0.4.0 published and goes red anyway |
+| =ResumeOnRelease= | yes, #28 | =NoFalseGreen= | a crash between tag and release; the next run sees "tag at HEAD", skips, ends green with no release |
+| =PostVerify= | yes, #28 | =NoFalseGreen= | the publish command reports success and creates nothing; the run ends green |
+| =OutcomeLabel= | *no* | =PublishOutcomeVisible= | after merge the publish gate fails; nothing on the PR changes, so it is visible only in the Actions tab |
+
+Every rule is required: =check.sh= fails if switching any one off does *not*
+produce its violation. All rules on: 125,373 distinct states, no error.
+
+* What main guarantees today
+
+=check.sh= also runs the rules as deployed (after #28), once per invariant:
+
+| Invariant | Today |
+|-----------+-------|
+| =NoFalseGreen= | holds |
+| =NoTagRace= | holds |
+| =NoRedOnPublished= | holds |
+| =NoStuckStart= | holds |
+| =EndMeansHeadPassed= | *violated* |
+| =GateFailureVisible= | *violated* |
+| =PublishOutcomeVisible= | *violated* |
+
+The publish pipeline is sound: green means shipped, and no run goes red for a
+version that is already out. The *labels* are not a trustworthy display of
+either phase. A PR can show =release:end= while its head failed. A failed gate
+looks like a gate that never ran. A failed publish leaves no trace on the PR at
+all.
+
+* What a consumer of the labels must assume
+
+=release:start= and =release:end= are *kept as they are*: another system reads
+them (decision in [[file:../EXPERIMENTS-release.org][EXPERIMENTS-release.org]], R5). So the model is also their
+specification. Under the rules as deployed, a consumer must read them this way:
+
+| The PR shows | It means | It does *not* mean |
+|--------------+----------+--------------------|
+| =release:start= | a gate run for some commit is in progress | that the run is for the head |
+| =release:end= | the gate passed on *some* commit of this PR | that the head passed (=EndMeansHeadPassed=) |
+| neither | the gate failed, is queued, never ran, or was skipped | that nothing is wrong (=GateFailureVisible=) |
+| anything, after merge | nothing about publishing | that the version shipped (=PublishOutcomeVisible=) |
+
+For the head's verdict, read the =gate= check run on the head commit. For
+publishing, read =scripts/release.sh status vX.Y.Z=. For the directory, see
+below: nothing here can see it.
+
+* Changes the model would propose, deferred
+
+*Deferred*, because they change what an existing label means to its consumer.
+Adding a *new* label (3, 4) is safe for that consumer; changing when an existing
+one is set or cleared (1, 2) is not. They are recorded so the choice is
+deliberate, and each is already a switch in the model.
+
+1. =gate.yml= "Mark release:start" also removes =release:end= and
+   =release:failed= (=StartClearsEnd=).
+2. =gate.yml= labels only if =github.event.pull_request.head.sha= is still the
+   PR's head when it writes, at the start *and* at the end (=CurrentHeadOnly=).
+   The model found that guarding only the end leaves =release:start= stuck
+   (=NoStuckStart=). A =concurrency= group with =cancel-in-progress: true= per
+   PR is the simpler way to get the same property.
+3. =gate.yml= failure adds =release:failed= (=GateFailLabel=).
+4. =publish.yml= labels the release PR, the one whose merge commit carries the
+   version, =published= or =publish:failed= when it finishes, from every run,
+   dispatch included (=OutcomeLabel=). This is the post-merge half the labels
+   currently leave blank.
+
+* Not modelled
+
+- =conflict= (a tag on another commit): it needs a second commit on main; the
+  script's refusal is covered by =tests/test-release-idempotency.sh= instead.
+- Liveness: that a stuck release is eventually finished needs fairness on
+  =Dispatch=, which is a person. The model shows it *can* be finished (a
+  dispatch resumes), not that anyone will.
+- Branch protection: merging is not assumed to require the gate, which is why
+  the publish run re-runs it.
+- *The directory.* It is not downstream of this machine but parallel to it. The
+  directory follows the push to =main= and reads =plugin.json= (RELEASING.org),
+  not the tag or the release. So a failed publish can still go live, and a
+  green one can be held or never delivered. "Published" here means published
+  on GitHub. Modelling it needs the delivery and listing states, which only the
+  directory administrator's side can observe (EXPERIMENTS-release.org, R6).

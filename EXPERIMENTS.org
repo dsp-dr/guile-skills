@@ -176,6 +176,53 @@ From the companion work in ~guile-sicp~: ~,profile (fib 22)~ prints
 sample. It looks like a broken profiler. ~,profile (fib 30)~ gives 3 samples.
 Any liveness check for a profiler must use a workload large enough to sample.
 
+* E11 -- Who blocks whom, and what a connection shares
+
+*Question.* Suggested by the guile-sicp session, which had measured it there.
+Do separate checkouts' REPLs block each other? Does the proxy? And is a new
+connection a fresh REPL, as =repl-eval= claimed?
+
+*Method.* Two scratch projects under =mktemp=, a "main" and a sibling "-exp",
+each started with =repl-server= and a scratch =GUILE_SKILL_DATA=. The ports were
+read from =--status=, not recomputed. One client sends
+=(begin (sleep 6) 'done)=; one second later, a trivial =(quote x)= is timed on
+the other side. Run on macOS, 0.4.0, 2026-09-30.
+
+*Result.*
+
+| Pairing | Latency of the probe |
+|---------+----------------------|
+| 1. worktree busy, main probe (proxies) | 0.04 s |
+| 2. main busy, worktree probe (proxies) | 0.03 s |
+| 3. two clients, *same proxy port* | *5.06 s* |
+| 4. two clients, same raw REPL port | 0.05 s |
+
+The proxy makes its clients take turns; Guile's =--listen= does not; and
+separate checkouts never contend, because the path-derived slug gives each its
+own ports and transcript directory. Pairing 3 is the negative control a checker
+must see fail a sub-second threshold.
+
+And a new connection is *not* a fresh REPL. =(define probe-binding 42)= on one
+connection, then =probe-binding= on the next, returned =$12 = 42= on the raw port
+and through the proxy. =$N= counted =$7=, =$8=, =$9= across three separate
+connections. Each connection gets its own REPL loop, but all of them share the
+image's =(guile-user)= module and history. =repl-eval='s SKILL.md said the
+opposite, and its eval suite graded agents for repeating it. Both are corrected
+in 0.4.1 (#30), which adds regression E8 to =tests/test-proxy.sh=. The
+committed benchmark records under =evals/workspace/= graded against the old
+expectation. They stay as the record of what was run.
+
+Also confirmed: =(%search-load-path "m")= returned the relative ="src/m.scm"=,
+so a REPL's load path resolves only while the process stays in its checkout.
+Each marker appeared only in its own project's transcript.
+
+*Label:* measured. Only the two scratch REPLs were started and stopped; the
+guile-sicp session's REPL on 37618 was left running.
+
+*Lesson.* A claim about what a connection resets is a claim about shared state,
+and this plugin's whole design is a REPL shared between an agent and a person.
+It had been written down, graded and shipped without being run once.
+
 * Deviations
 
 - *The proxy is written in Guile, not shell or socat.* A ~socat~ tee would have
@@ -220,6 +267,9 @@ it.
   =mcpServers=; that a Guile backtrace goes to *stdout* and so corrupts any protocol
   carried there; and that =guile-json= is GPL-3, which closes a door this repository
   was about to walk through.
+- [[file:EXPERIMENTS-release.org][EXPERIMENTS-release.org]] --- R1--R6: the 0.4.0 release, its race,
+  idempotent publishing, and a model of the labels and the pipeline.
+- [[file:EXPERIMENTS-invocation.org][EXPERIMENTS-invocation.org]] --- T1--T2: a trigger benchmark for the skills.
 
 * Still open
 

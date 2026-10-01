@@ -130,6 +130,14 @@ Two related traps, both real:
   git rev-parse refs/notes/commits
   #+end_src
 
+** =release:start= and =release:end= are an interface
+
+Another system reads these two labels, so their names and their current
+semantics are fixed: adding labels is fine, and changing when these two are
+set or cleared is not. What they do and do not mean, including that
+=release:end= can outlive a later failing push, is specified in
+[[file:tla/README.org][tla/README.org]] ("What a consumer of the labels must assume").
+
 ** No stacked deployable PRs
 
 A PR whose base is another PR's branch gets no =checks= and no =gate=, because
