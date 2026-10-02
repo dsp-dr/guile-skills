@@ -1,0 +1,3 @@
+Context: found by experiment 001 in jwalsh/guile-skills-papers-workshop while profiling through repl-server/repl-eval. My own 0c54a6e introduced the trigger; its verification used a bare REPL, not the proxy.
+Deviation: three zsh word-splitting mistakes in this session's calibration loops; caught by checking each run actually swapped files.
+Timeline: 2026-10-02.
