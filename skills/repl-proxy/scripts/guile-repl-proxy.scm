@@ -159,6 +159,15 @@ keep forwarding the other until it closes too."
               (loop (lset-difference eq? readers retired))))))))
 
 (define (serve listen-port target-port log-file)
+  ;; Ignore SIGPIPE. Its default action terminates the process, silently: no
+  ;; stderr and exit status 141. A client that disconnects before the REPL's
+  ;; banner has been forwarded (`nc -z', which repl-eval uses as its liveness
+  ;; probe since 0.4.0, or a Geiser that gives up) made the next write raise
+  ;; SIGPIPE, so the proxy died on the first repl-eval call and every later call
+  ;; reported "nothing listening". Ignored, the write fails with EPIPE instead,
+  ;; and `pump' already catches and logs a failed write ("write to peer
+  ;; failed").
+  (sigaction SIGPIPE SIG_IGN)
   (mkdir-p (dirname log-file))
   (rotate-logs! log-file)
   ;; log-port is reassigned after a rotation between connections. Renaming a
