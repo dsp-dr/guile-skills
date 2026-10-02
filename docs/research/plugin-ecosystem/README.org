@@ -1,0 +1,82 @@
+#+TITLE: Plugin ecosystem survey: patterns worth adopting
+#+DATE: 2026-10-02
+#+AUTHOR: dsp-dr
+
+Four parallel research passes on 2026-10-02 over third-party Claude Code
+marketplaces, plugins, skills and agents, each asking what this plugin could
+adopt. Every claim in the reports is labelled *measured* (read, with URL or
+path) or *inherited*.
+
+| Report | Covered |
+|--------+---------|
+| [[file:marketplaces.org][marketplaces.org]] | 35 =marketplace.json= files, the 315-entry official catalogue, the CLI's built-in schema |
+| [[file:ci-release-evals.org][ci-release-evals.org]] | 15 repos' CI, release and eval practice |
+| [[file:skill-design.org][skill-design.org]] | 20 skills: all 33 official SKILL.md files read, six Clojure REPL skills |
+| [[file:agents-hooks-surfaces.org][agents-hooks-surfaces.org]] | agents, hooks, MCP, LSP and commands in the wild |
+
+*Limits.* GitHub code search is 10 requests/min shared by all four passes. Two
+passes hit it, so a negative result ("nobody uses X") can mean "rate-limited".
+The local crawl database =aygp-dr/github-skills-search/data/github.db= is a
+0-byte file (dated 2026-09-24), so the crawl contributed nothing; it needs
+rebuilding with =ghcrawl load= before reuse. Racket, Common Lisp, Elixir and
+Python REPL skills are not covered.
+
+* Checked here before recommending
+
+- =relevance= is a real, strictly validated marketplace field, but its shape is
+  ={topic, signals: {filesRead, cli, hosts, manifestDeps}}=. Putting =cli= at the
+  top level is rejected ("Unknown field 'cli'"), and so is a misspelled signal
+  ("did you mean 'filesRead'?"). Our entry,
+  ={"topic":"Guile","signals":{"filesRead":["**/*.scm","**/*.sld"],"cli":["guile","guile3","guile-3.0","guild"]}}=,
+  passes =--strict= on a full copy of the tree. *measured*, CLI 2.1.287.
+- =marketplace.json= =metadata.version= is 1.0.0 while =plugin.json= is 0.4.1.
+  *measured*.
+- *Contract drift:* on 2.1.287, =validate= checks that =experimental.monitors=
+  points at a file that exists. =contracts/artifacts.json= records monitors as
+  wholly unvalidated, as measured on 2.1.261. Re-measure before the pin moves.
+  *measured*.
+
+* Adopt, ranked
+
+| # | Pattern | Evidence | Breaking? | Cost |
+|---+---------+----------+-----------+------|
+| 1 | *A/B the skill descriptions before restructuring.* Trigger on project markers ("whenever you work in a Guile project: =*.scm=, =guix.scm=..."); name the Bash shortcut and why it loses ("a running REPL holds the project's loaded state; =guile -c= starts cold"); quote the phrases users type | nreplctl, plugin-dev, skill-creator ("make descriptions a little bit pushy"); skill-design.org | no | one benchmark run, ~$5-10 |
+| 2 | *Add =relevance=* to the =guile= entry. It feeds the "Working with Guile?" tip, session-start auto-suggest and browse ranking | melodic-software (15 entries); CLI schema; verified here | no | one edit |
+| 3 | *Two eval tiers.* Read-only plus Skill cases with a =tool_used= grader: no sandbox and no judge, so they can run on every PR. The Bash cases run on dispatch or release, on a Linux runner with =bubblewrap= and =socat=, which also makes =stale-listener= safe | coalesce-labs/catalyst-cloud-skills ci.yml, run-evals.mjs | no | an API-key secret (owner's call); its own CLI pin, since eval needs >= 2.1.286 |
+| 4 | *Bind cases to descriptions with no model.* A test fails when a description stops containing the phrase its case sends | catalyst =coverage.json= | no | small script in =make checks= |
+| 5 | *An opt-out for hooks under automation.* An explicit variable checked by =log-baseline.sh= and =scheme-check.sh=, set by the eval and benchmark runners. =CLAUDE_CODE_ENTRYPOINT= alone is not enough: a =-p= child of an interactive session inherits =cli= | approval-lens; CoalMine L1318-1330 (inherited for the inheritance) | no | small |
+| 6 | *Hook fixture tests* that pipe recorded JSON payloads into =scheme-check.sh= | juxt/allium =allium-check.test.mjs=; clojure-mcp-light =capture-hook.sh= | no | small |
+| 7 | *Pid and lock files keyed by session*, logs left where they are. This gives #27 the pidfile it needs to stop killing by pattern | clojure-mcp-light runtime layout; ralph-loop | no, if logs stay put | medium |
+| 8 | *Version signals agree*: drop =metadata.version= or make it the plugin's version | CLI update order: plugin.json version, then entry version, then digest | no | one edit |
+| 9 | *Append-only =renames=*, with chains and =null= tombstones, never edited in place | melodic chain; shopware tombstone | no | discipline only |
+
+* Considered, not now
+
+- *Collapse to =setup= + =eval=.* Supported by how others split skills: by user
+  intent or with an entry skill, never by component the way ours are. But #1
+  might fix triggering without breaking anyone. If it lifts the failing
+  prompts, the merge becomes a maintenance choice; if not, it is the next
+  experiment. Breaking either way.
+- *Rename the marketplace to the owner* (=guile@dsp-dr=). 22 of 35 catalogues
+  name it after the owner, and none after the plugin. But there is no
+  marketplace-level rename, so every install id changes. It belongs with the
+  next breaking change, done once, with the old catalogue left in place as a
+  pointer.
+- *Paren repair* (clojure-mcp-light repairs with parinfer and backs up before the
+  edit). Ours detects only. Repair writes the user's files, which crosses a
+  boundary our hook keeps; worth an experiment, not a default.
+- *Agent frontmatter* (=model=, =effort=, =maxTurns=, a restricted =Agent(...)=).
+  Pinning a model changes users' cost. Worth it for =geiser-setup='s turn limit
+  alone.
+
+* Confirmed decisions
+
+- *No MCP server.* clojure-mcp (779 stars) now steers Claude Code users to a hook
+  plus a CLI rather than MCP.
+- *No =commands/=.* It is documented as legacy in favour of skills.
+- *LSP inline, if ever.* The official LSP plugins declare servers in
+  =marketplace.json= with =strict: false= and ship no =.lsp.json=, which matches
+  our finding that =.lsp.json= is never read.
+- *The directory is unobserved everywhere.* No repo found records a publish as
+  a GitHub Deployment or reports directory state back. Our R6 gap is the
+  ecosystem's gap, not a local oversight.
