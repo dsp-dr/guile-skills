@@ -1,0 +1,292 @@
+#+TITLE: Plugin ecosystem: agents, hooks and other surfaces
+#+DATE: 2026-10-02
+#+STARTUP: content
+
+Survey of how Claude Code plugins in the wild use agents, hooks, MCP/LSP,
+commands and the minor surfaces, and how they keep plugin processes from
+leaking across sessions. Read against [[file:../../surfaces.org][surfaces.org]] and [[file:../../isolation.org][isolation.org]]; this
+file only records what is different from what we already do.
+
+Labels: *measured* = read it, path or URL given. *inherited* = stated by
+someone else (a README, a comment) and not reproduced here.
+
+* Sources and budget
+
+- Local: =~/.claude/plugins/marketplaces/claude-plugins-official= (41 first-party
+  plugins under =plugins/=, 14 under =external_plugins/=). All agents' frontmatter
+  and all six =hooks.json= files read.
+- Crawl DB =aygp-dr/github-skills-search/data/github.db=: *0 bytes* on disk
+  (dated 2026-09-24). Nothing to read; not touched further, =queue.db= and =raw/=
+  not opened.
+- GitHub, read-only via =gh=: 6 code searches (2 returned 0 — query syntax, not
+  rate limit), 5 repo searches, then =gh api .../contents= reads. No 403/429.
+  - =CLAUDE_PLUGIN_ROOT filename:hooks.json= → 80 files, all fetched; 76 parse.
+    This is the event census in [[*Hooks][Hooks]].
+  - =CLAUDE_CODE_ENTRYPOINT path:hooks= → 40 hits; that is the headless-gating
+    evidence.
+  - =capture-pane path:agents= → 40 hits; tmux-driving agents.
+
+* Repos examined
+
+| repo | pushed | surfaces read | why it matters here |
+|------+--------+---------------+---------------------|
+| claude-plugins-official/plugins/claude-security | local | agents (9), hooks | =if:= per-hook conditions, =Agent(plugin:agent)= tool scoping, CI/opt-out gate |
+| claude-plugins-official/plugins/security-guidance | local | hooks | session-keyed locked state, kill-switch env var, =asyncRewake= |
+| claude-plugins-official/plugins/ralph-loop | local | commands, Stop hook | state file stamped with =session_id=; other sessions' Stop hooks no-op |
+| claude-plugins-official/plugins/code-modernization | local | agents (8), commands (13), hooks | =modules: ["./register.ts"]= in hooks.json (function hooks) |
+| claude-plugins-official/plugins/math-proof | local | agents | =maxTurns=, =effort= pinning |
+| claude-plugins-official/plugins/example-plugin | local | README, commands, .mcp.json | commands/ declared legacy |
+| claude-plugins-official/plugins/*-lsp (12) | local | marketplace.json | LSP declared inline, =strict: false=, no files in plugin dir |
+| [[https://github.com/bhauman/clojure-mcp-light][bhauman/clojure-mcp-light]] | 2026-06-19 | README, src tree, capture-hook.sh | the Lisp delimiter-repair hook; "this is not an MCP" |
+| [[https://github.com/bhauman/clojure-mcp][bhauman/clojure-mcp]] | 2026-06-20 | README | MCP side of the same author's trade-off |
+| [[https://github.com/juxt/allium][juxt/allium]] | 2026-09-27 | hooks/, agents/ (5) | PostToolUse language checker *with a test file* |
+| [[https://github.com/obra/claude-session-driver][obra/claude-session-driver]] | 2026-09-17 | hooks, README | tmux-driven worker sessions, cleanup |
+| [[https://github.com/Yeachan-Heo/oh-my-claudecode][Yeachan-Heo/oh-my-claudecode]] | 2026-10-01 | agents/qa-tester.md | tmux verification agent, unique session names |
+| [[https://github.com/team-attention/hoyeon][team-attention/hoyeon]] | 2026-05-21 | agents/qa-verifier.md | report-only verifier, =model: opus= |
+| [[https://github.com/TheColliery/CoalMine][TheColliery/CoalMine]] | — | hooks/rot-canary-stop.js | measured *against* entrypoint gating |
+| [[https://github.com/roctang2021/approval-lens][roctang2021/approval-lens]] | — | hooks/approval_lens.py | exact headless entrypoint set |
+| [[https://github.com/addit-digital/addit-harness][addit-digital/addit-harness]] | — | hooks/check-setup-version.sh | interactive-only SessionStart notice |
+| 76 other =hooks.json= | mixed | hooks.json only | event / key census |
+
+* 1. Agents
+
+** Measured, first-party
+Frontmatter keys actually used across 37 official agent files:
+=name, description, tools, model, effort, color, maxTurns, initialPrompt=.
+
+- *Model pinning is common and deliberate.* =model: sonnet= for cheap
+  mechanical roles (claude-security =scan-loader= with =effort: low= and
+  =tools: Read= only; =scan-redactor= =Read, Edit=), =opus= for
+  simplifier/reviewer roles (code-simplifier, pr-review-toolkit/code-reviewer),
+  =inherit= for the heavy worker roles. =effort:= is set per agent
+  (=low/medium/xhigh=). =maxTurns: 80/120= on math-proof workers and judge.
+- *Tool lists are the norm, and they narrow.* Read-only analysts get
+  =Read, Glob, Grep[, Bash]= (code-modernization ×5, plugin-dev/skill-reviewer).
+  claude-security restricts *which subagents* an agent may spawn:
+  =Agent(claude-security:explore)=, and the orchestrator lists its exact
+  subagent set. That is tool scoping one level up from ours.
+- *Roles*: setup is rare. The population is reviewers/analysts
+  (pr-review-toolkit ×6, feature-dev ×3), pipeline workers (claude-security ×9,
+  code-modernization ×8, math-proof ×3), verifiers (agent-sdk-verifier-py/ts,
+  plugin-validator). No first-party *setup* agent.
+- =initialPrompt: "/claude-security:claude-security"= — an agent that boots by
+  invoking its own plugin's skill. Our =geiser-setup= could open with
+  =/guile:emacs-setup= the same way instead of restating it.
+
+** Measured, wild: tmux-verification agents
+- oh-my-claudecode =agents/qa-tester.md= (=model: sonnet=): a tmux QA agent with
+  the same shape as ours — setup / send-keys / capture-pane / teardown. Its two
+  rules we do not state explicitly: *unique session names*
+  =qa-{service}-{test}-{timestamp}=, and *cleanup even on failure*. No tools
+  restriction. Forked near-verbatim into realsigridjin/oh-my-codex,
+  qoder-plugins/oh-my-qoder, Abortbeen/Agentscope-code (same path, same hits).
+- hoyeon =agents/qa-verifier.md=: report-only verifier ("Does NOT fix code"),
+  =model: opus=, uses =allowed-tools:= (not =tools:=; inherited that this is
+  accepted for agents — not checked).
+- obra/claude-session-driver drives *whole Claude sessions* in tmux rather than
+  a REPL; per-worker =session-id=, =handoff= prints the attach command for a
+  human. Its hooks are one node binary on every event emitting to an event log
+  the controller polls.
+
+Nobody found ships "a setup agent that verifies with tmux against a REPL"
+the way =geiser-setup= does. Closest in kind: qa-tester (verification) +
+clojure-mcp-light's =/start-nrepl= command (setup). *measured*
+
+* 2. Hooks
+
+** Event census (76 parsed plugin =hooks.json=, events per file) — measured
+| event | files |
+|-------+-------|
+| SessionStart | 51 |
+| UserPromptSubmit | 37 |
+| Stop | 36 |
+| PreToolUse | 35 |
+| PostToolUse | 34 |
+| PreCompact | 13 |
+| SessionEnd | 12 |
+| SubagentStop | 11 |
+| PostToolUseFailure | 6 |
+| SubagentStart | 5 |
+| Notification | 4 |
+| TeammateIdle, PostCompact, PermissionRequest, TaskCompleted, TaskCreated, ConfigChange, MessageDisplay | ≤2 each |
+
+Interpreter of the hook command: =node= 115, =bash= 55, =python3= 27, =sh= 23.
+Tool matchers: =Bash= 22, =Write|Edit= / =Edit|Write= 26, =Skill= 6.
+SessionStart matcher: empty/=*= in 43 of 64 groups; the rest use
+=startup|resume|clear|compact= variants. Hook keys: =timeout= on 215 of 366
+hooks, =statusMessage= 34, =async= 16, =args= (exec form) 21, =once= 1,
+=type: prompt= 3. *Zero* wild files use =if:=.
+
+What they do, by reading: memory/context injection at SessionStart and
+PreCompact; telemetry on every event (session-driver, code-modernization);
+language checkers on PostToolUse Write|Edit (juxt/allium =allium-check.mjs=,
+ours); guards on PreToolUse Bash; Stop-hook loops (ralph-loop) and
+background reviews (security-guidance, =asyncRewake=).
+
+** First-party mechanisms we do not use — measured
+- *Per-hook =if:= in permission-rule syntax.* claude-security:
+  ="if": "Bash(git push *)"=, ="Bash(gh pr create *)"=; security-guidance
+  ="Bash(git commit:*)"=. Narrows a broad =matcher= without spawning the
+  script. Whether =if= accepts path globs for Edit/Write (=Edit(**/*.scm)=) is
+  *not measured* — it is permission-rule syntax, so it should; test before
+  relying on it.
+- =timeout= on every hook; =|| true= on the command so a crashing helper never
+  surfaces as a hook error.
+- =asyncRewake= + =rewakeMessage=: run in the background, re-wake the model only
+  if the hook has something to say.
+- =PostToolUseFailure=, =PermissionRequest= (matcher =AskUserQuestion=),
+  =UserPromptExpansion= (matcher on the plugin's own skill name — banner only
+  when *our* skill is invoked).
+- code-modernization's hooks.json carries ="modules": ["./register.ts"]=
+  alongside command hooks (function hooks / mod API); the file itself is not in
+  the local copy, so no more than that.
+
+** Keeping hooks from firing where they should not
+Our finding (isolation.org): hooks fire under =claude -p= even with all tools
+denied. What others do:
+
+1. *Entrypoint gate.* =CLAUDE_CODE_ENTRYPOINT= is =cli= in a terminal and
+   =sdk-cli= under =claude -p=; =sdk-ts=, =sdk-py= for SDK hosts;
+   =claude-desktop=, =claude-vscode= elsewhere. roctang2021/approval-lens:
+   =NON_INTERACTIVE_ENTRYPOINTS = frozenset({"sdk-cli","sdk-py","sdk-ts"})=,
+   unknown values default to interactive. addit-harness: "=cli= in a terminal
+   and =sdk-cli= under =claude -p=; unset means unknown". SmailG/voice-conversation,
+   odakin/claude-config, enckequity/samebrain gate the same way. *measured
+   (code), values inherited (their comments)*.
+2. *…which is not sound for nested runs.* TheColliery/CoalMine
+   =hooks/rot-canary-stop.js= L1318–1330: "=CLAUDE_CODE_ENTRYPOINT= is
+   inherited, so a =-p= child of an interactive session reads that parent's
+   value", the Stop payload "carries no mode field", hook stdio "is never a
+   TTY". Bogzx/seeks =hooks/lib/control.mjs= says the same, "checked on
+   2.1.285". Conclusion they draw: the consequence belongs to the *caller*
+   (read results from disk, use =stream-json --verbose=), not to a gate in the
+   hook. STRML/cc-simple-memory spawns its own =claude --print= with
+   =CLAUDECODE="" CLAUDE_CODE_ENTRYPOINT=""= and a private skip variable — i.e.
+   the spawner sets the gate, not the hook. *inherited* (their measurements).
+   This matters for us exactly: our benches are =claude -p= children launched
+   from interactive sessions.
+3. *Explicit opt-out env vars*, per plugin: =SECURITY_GUIDANCE_DISABLE=1=,
+   =CLAUDE_SECURITY_SCAN_TIP=off=, =SESSION_CARD_HOOK=0=, =AUTO_CONTINUE=0=.
+4. *CI gate*: claude-security =hooks.sh=:
+   =[ "$GITHUB_ACTIONS" = true ] || [ "$CI" = true ] && exit 0= for advisory hooks.
+5. *=stop_hook_active=* checked so a Stop hook that blocked once never loops
+   (jeancarlo-javier/claude-status-bar, odakin).
+6. *Session ownership*: ralph-loop stamps =session_id= into its state file and
+   every other session's Stop hook =exit 0=s on mismatch. *measured*
+
+** Lisp delimiter repair — yes, one, and it is the reference design
+[[https://github.com/bhauman/clojure-mcp-light][clojure-mcp-light]] =clj-paren-repair-claude-hook= (README L205–350, *measured*
+by reading; not run):
+- PreToolUse =Write|Edit=: for Write, content repaired via parinfer *before* it
+  hits disk, write *blocked* if unfixable; for Edit, a *backup* is taken.
+- PostToolUse =Edit|Write=: repair; if unfixable, *restore from backup*. On
+  successful repair under Codex =apply_patch= the model is told the file
+  changed on disk, because silent rewrites desync the next context-matched
+  patch.
+- SessionEnd (Claude) / SessionStart sweep of temp dirs idle 3+ days (Codex
+  has no SessionEnd).
+- Rationale vs MCP: "Hooks let Claude Code operate normally with its native
+  Edit/Write tools, preserving the clean diff UI", "zero tokens".
+- Installed into =~/.claude/settings.json=, not as a plugin hooks.json.
+- Ships =capture-hook.sh=: a hook that dumps the stdin payload to
+  =hook-logs/hook-<ts>.json= — a fixture recorder.
+
+Ours (=hooks/scheme-check.sh=) checks and never rewrites, deliberately. The
+adoptable half is not the rewriting, it is *backup-on-Pre, restore-or-report on
+Post*, plus "tell the model the file changed" if we ever do rewrite.
+
+* 3. MCP and LSP
+
+** Language REPLs: MCP vs not — measured from READMEs
+- bhauman/clojure-mcp (779★) is a full MCP: =clojure_eval= with a =port=
+  parameter, =list_nrepl_ports= discovery, its own structural edit tools. Its
+  own README (L74–82) now says: for CLI assistants *start with clojure-mcp-light*,
+  keep the CLI's native editing, add the MCP only as a "structural editing
+  fallback" for the <5% of find/replace misses; to force it, add
+  =permissions.deny= ="Edit(/**/*.clj)"=.
+- clojure-mcp-light: "This is not an MCP." =clj-nrepl-eval= is a CLI with
+  =--discover-ports=, per-target persistent sessions, taught to the model by a
+  skill/custom instructions; plus a =/start-nrepl= command.
+- Other nREPL MCP bridges (JohanCodinha/nrepl-mcp-server, cat-state/nrepl-mcp,
+  sneed-biz/nrepl-mcp) are small and mostly stale (2025). No Scheme/Guile
+  plugin surfaced in repo search.
+
+This is the same decision we made (skill + socket + proxy, MCP/channel
+declined), arrived at independently by the most-starred Lisp REPL tool, which
+walked *back* from MCP. *measured*
+
+** LSP — measured
+The 12 official =*-lsp= plugins have *no files* beyond README/LICENSE. The
+server is declared inline in =.claude-plugin/marketplace.json= with
+="strict": false=, e.g. =clangd: {command, args, extensionToLanguage}=,
+=jdtls/kotlin-lsp: startupTimeout: 120000=. Consistent with our
+=contracts/artifacts.json= finding that a plugin-local =.lsp.json= is unread:
+first-party never uses one.
+
+** MCP in plugins — measured
+External plugins (context7, github, linear, playwright, serena, terraform…)
+are almost all *only* =.mcp.json=. Channels (discord, telegram, imessage,
+fakechat) are =.mcp.json= + a skill. Nobody in the official set combines an
+MCP with process-launching skills the way a REPL plugin would.
+
+* 4. Commands vs skills — measured
+- example-plugin README L48–50: "The =commands/*.md= layout is a legacy format.
+  It is loaded identically to =skills/<name>/SKILL.md=… prefer =skills/=."
+  plugin-dev =command-development/SKILL.md= L9 says the same.
+- Still shipped heavily anyway: 15 of 41 official plugins have =commands/=
+  (code-modernization 13, hookify 4, commit-commands 3). Commands keep one
+  feature skills-only plugins use less: =allowed-tools= scoped to exact
+  invocations (ralph-loop =cancel-ralph.md=:
+  ="Bash(rm .claude/ralph-loop.local.md)"=) and =hide-from-slash-command-tool=.
+- We ship none and need none; =disable-model-invocation= on a SKILL.md gives
+  the user-only behaviour if wanted.
+
+* 5. Isolation and testing of plugin processes
+- *Session × project scoped runtime dirs.* clojure-mcp-light =tmp.clj=:
+  ={XDG_RUNTIME_DIR or tmp}/claude-code/{user}/{hostname}/{session-id}-proj-{sha1(abs path)}/=,
+  session id from the hook payload, falling back to the grandparent PID for
+  CLI calls made outside a hook; cleanup enumerates *all* candidate ids. Our
+  slug is per-project only; two sessions in one checkout share it. *measured*
+- *Locked, session-keyed state.* security-guidance =session_state.py=: one JSON
+  per =session_id= (or =CLAUDE_CODE_REMOTE_SESSION_ID=), file lock around
+  read-modify-write, state dir resolution
+  =SECURITY_WARNINGS_STATE_DIR > $CLAUDE_CONFIG_DIR/security > ~/.claude/security=,
+  empty env treated as unset. *measured*
+- *Unique tmux names + always-teardown*: oh-my-claudecode qa-tester. *measured*
+- *Idle sweeps* instead of trusting SessionEnd: clojure-mcp-light (3 days).
+- *Hook tests without Claude.* juxt/allium =hooks/allium-check.test.mjs=
+  (and =loop-trace.test.mjs=) =execFileSync("node", [hook], {input: …})= a JSON
+  payload and assert on stderr/exit — 800 lines, includes read-only cache dir
+  and once-per-machine marker cases. clojure-mcp-light records real payloads
+  with =capture-hook.sh=. We have no test for =scheme-check.sh= or
+  =log-baseline.sh=. *measured*
+- *One-time notices with a marker*, falling back to a project marker if the
+  cache dir is unwritable (allium), and created with noclobber *before*
+  printing so a race prints nothing rather than twice (addit-harness).
+- *uncaughtException → exit 0* (allium): a hook bug never blocks an edit.
+
+* Adoptable, ranked
+
+1. *Gate advisory hooks, but at the spawner.* Add an opt-out
+   (=GUILE_PLUGIN_HOOKS=0=) and a CI gate to =log-baseline.sh=; have our
+   benches export it for =claude -p= children. Do not rely on
+   =CLAUDE_CODE_ENTRYPOINT= alone — inherited by nested =-p= (CoalMine, seeks).
+   Non-breaking.
+2. *Hook fixture tests.* =tests/test-hooks.sh= piping recorded payloads (balanced,
+   unbalanced, non-.scm, malformed JSON, no emacs) into =scheme-check.sh=;
+   capture real ones with a capture hook once. Non-breaking.
+3. *=if:= + =timeout= on our hooks.* =timeout= is safe now; =if: "Edit(**/*.scm)"=
+   needs one measurement first. Non-breaking if it works; a silent no-op hook
+   if the glob form is unsupported — so test before shipping.
+4. *Key runtime state by session as well as project* (clojure-mcp-light path
+   scheme, ralph-loop ownership stamp) for proxy/REPL pidfiles. *Breaking* for
+   anyone relying on the current =${CLAUDE_PLUGIN_DATA}/projects/<slug>/= paths
+   for logs — keep logs per project, move only pid/lock files.
+5. *Agent frontmatter*: pin =model=/=effort=/=maxTurns= on =geiser-setup=,
+   unique tmux session names, =initialPrompt: "/guile:emacs-setup"=.
+   Non-breaking (=model= pin changes cost for users on another default).
+
+Not adopted: auto-rewriting delimiters (clojure-mcp-light) — our check-only
+choice stands, but borrow its backup/restore and "file changed on disk" notice
+if that ever changes. Commands, LSP, MCP: nothing in the evidence argues for
+reversing the declines.

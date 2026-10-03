@@ -1,0 +1,250 @@
+#+TITLE: Plugin marketplaces: how third-party catalogues name, pin, release and rename
+#+DATE: 2026-10-02
+#+STARTUP: showall
+
+Survey slice: repositories that publish =.claude-plugin/marketplace.json=,
+especially multi-plugin catalogues. Question framing comes from our own
+=guile-skills= marketplace (one plugin, =guile=, a =renames= entry
+=guile-skills → guile=, =$schema= at SchemaStore) and issue #13 (should the
+marketplace be named for the owner, giving =guile@dsp-dr=?).
+
+Every claim is tagged *measured* (read directly, path or URL given) or
+*inherited* (someone else's statement, source given).
+
+* Method and limits
+
+- Official catalogue: =~/.claude/plugins/marketplaces/claude-plugins-official/.claude-plugin/marketplace.json=,
+  file mtime 2026-09-30, =.gcs-sha= =ab024cd…=. That directory is *not* its own git
+  repo (=git rev-parse= resolves to =~/.claude=), so there is no history to diff;
+  "what changed since 2026-09-28" is limited to counts. *measured*
+- Crawl DB =aygp-dr/github-skills-search/data/github.db= is *0 bytes* (mtime
+  2026-09-24). Nothing to query; not used. *measured*
+- GitHub code search: the shared budget ran out. Two =renames=-filtered queries
+  returned =[]=, and a direct API probe showed =X-Ratelimit-Remaining: 0= on the
+  =code_search= resource; it also reported =total_count: 39104= for
+  =filename:marketplace.json path:.claude-plugin=. Those empty results are
+  probably the rate limit, not a true zero. *measured*
+- 3 repo searches (by stars; topic =claude-code-marketplace=; created ≥ 2026-08-01),
+  then 35 =marketplace.json= files fetched by contents API into a scratch dir.
+  Sample is star-biased plus a slice of new, zero-star repos. *measured*
+- CLI ground truth: Zod schema strings extracted from the installed binary
+  =~/.local/share/claude/versions/2.1.287=. These are descriptions shipped in
+  the CLI, not docs. *measured*
+- Schemas: =https://json.schemastore.org/claude-code-marketplace.json= (88 KB,
+  fetched 2026-10-02). =https://anthropic.com/claude-code/marketplace.schema.json=
+  — used as =$schema= by 8 of the 35 catalogues, including the official one —
+  returns an *HTML page*, not JSON Schema. *measured*
+
+* Repositories examined
+
+Plugin count and fields come from HEAD =marketplace.json= on 2026-10-02. "Src" is
+the shape of =source=: rel = =./path=, root = =./=, gh = ={source: github}=,
+url = ={source: url}=, gsd = ={source: git-subdir}=, arc = ={source: archive}=;
++sha/+ref mark pins. Push = =pushed_at=. Naming: O = owner/org, T = topic or
+catalogue, P = flagship plugin or project.
+
+| Repo                                                       | Mkt name                            | Name | Plugins | Src                       | Notable fields                                                                    | Tags seen                     | Push       |
+|------------------------------------------------------------+-------------------------------------+------+---------+---------------------------+-----------------------------------------------------------------------------------+-------------------------------+------------|
+| [[https://github.com/anthropics/claude-plugins-official]]  | claude-plugins-official             | O    |     315 | url+sha 164, gsd+sha(+ref) 98, rel 53 | renames(9), strict(14), version(14), displayName(14), lspServers, skills, tags | none                          | 2026-10-02 |
+| [[https://github.com/melodic-software/claude-code-plugins]] | melodic-software                    | O    |      84 | rel                       | renames(15, chained), relevance, defaultEnabled, allowCrossMarketplaceDependenciesOn, displayName | none                          | 2026-10-02 |
+| [[https://github.com/shopwareLabs/ai-coding-tools]]        | shopware-ai-coding-tools            | O    |      10 | rel                       | renames ={"gh-tooling": null}=, metadata.pluginRoot                               | agent-skills-latest           | 2026-09-25 |
+| [[https://github.com/wshobson/agents]]                     | claude-code-workflows               | T    |      94 | rel 92, gsd 2 (1 +sha)    | metadata.version 1.7.1, per-entry version                                         | none                          | 2026-10-01 |
+| [[https://github.com/WYRE-AI/msp-claude-plugins]]          | msp-claude-plugins                  | T    |      85 | rel                       | displayName, tags, repository                                                     | none                          | 2026-09-29 |
+| [[https://github.com/danielrosehill/Claude-Code-Plugins]]  | danielrosehill                      | O    |     171 | gh (no pin)               | displayName, license, version                                                     | none                          | 2026-09-17 |
+| [[https://github.com/netresearch/claude-code-marketplace]] | netresearch-claude-code-marketplace | O    |      40 | gh (no pin)               | =value_type= (not in any schema)                                                  | v1.13.0 …                     | 2026-09-30 |
+| [[https://github.com/Piebald-AI/claude-code-lsps]]         | claude-code-lsps                    | T    |      38 | rel                       | lspServers, version, tags                                                         | none                          | 2026-07-25 |
+| [[https://github.com/trailofbits/skills-curated]]          | skills-curated                      | T    |      29 | rel                       | author, version                                                                   | none                          | 2026-07-14 |
+| [[https://github.com/jmanhype/claude-code-plugin-marketplace]] | multi-agent-intelligence-marketplace | T  |      22 | rel                       | license, repository, version                                                      | v1.0.0                        | 2026-10-01 |
+| [[https://github.com/fivetaku/gptaku_plugins]]             | gptaku-plugins                      | O    |      19 | rel                       | category, tags                                                                    | none                          | 2026-10-01 |
+| [[https://github.com/paddo/claude-tools]]                  | paddo-tools                         | O    |      11 | rel                       | (minimal)                                                                         | none                          | 2026-09-23 |
+| [[https://github.com/obra/superpowers-marketplace]]        | superpowers-marketplace             | P    |      10 | url 9, url+ref 1          | per-entry version (6.3.0 …), strict                                               | v1.0.12                       | 2026-09-08 |
+| [[https://github.com/wondelai/skills]]                     | wondelai-skills                     | O    |      10 | root                      | skills[], strict, version, license                                                | v1.8.0 …                      | 2026-09-10 |
+| [[https://github.com/MadAppGang/claude-code]]              | mag-claude-plugins                  | O    |       9 | rel                       | strict, version                                                                   | v2.7.0, tools/claudeup-gui/v0.2.0 | 2026-03-15 |
+| [[https://github.com/phuryn/pm-skills]]                    | pm-skills                           | T    |       9 | rel                       | top-level version                                                                 | v2.1.0                        | 2026-09-14 |
+| [[https://github.com/colla69/personal-claude-plugin-marketplace]] | personal-claude-plugin-marketplace | T |       9 | rel                       | category, tags                                                                    | none                          | 2026-09-17 |
+| [[https://github.com/hoblin/claude-ruby-marketplace]]      | claude-ruby-marketplace             | T    |       8 | rel                       | version                                                                           | none                          | 2026-09-07 |
+| [[https://github.com/ITlusions/ITL.Claude.PluginMarketplace]] | itl-claude-tools                  | O    |       7 | rel                       | (minimal)                                                                         | togaf-plugin/v1.0.0 …         | 2026-09-29 |
+| [[https://github.com/alexei-led/cc-thingz]]                | alexei-led-cc-thingz                | O    |       7 | rel                       | version, license, repository                                                      | v6.17.0 …                     | 2026-09-30 |
+| [[https://github.com/anthropics/skills]]                   | anthropic-agent-skills              | O    |       5 | root ×5                   | skills[] (5 plugins carved from one tree), strict                                 | none                          | 2026-09-29 |
+| [[https://github.com/mukiwu/muki-ai-plugins]]              | muki-ai-plugins                     | O    |       5 | rel 4, gh 1               | homepage                                                                          | none                          | 2026-09-30 |
+| [[https://github.com/LerianStudio/ring]]                   | ring                                | P    |       4 | gsd+ref(main) ×4          | version, license, repository                                                      | ring-tw-team@1.0.0 …          | 2026-09-18 |
+| [[https://github.com/sgaunet/claude-plugins]]              | sylvain-marketplace                 | O    |       4 | rel                       | version                                                                           | v0.21.0 …                     | 2026-09-24 |
+| [[https://github.com/SawyerHood/sawyer-mart]]              | sawyer-mart                         | O    |       3 | rel                       | strict                                                                            | none                          | 2026-01-12 |
+| [[https://github.com/buildatscale-tv/claude-code-plugins]] | buildatscale-claude-code            | O    |       3 | rel                       | commands, hooks, skills inline                                                    | none                          | 2026-05-01 |
+| [[https://github.com/mercadopago/mercadopago-claude-marketplace]] | mercadopago-claude-marketplace | O  |       2 | rel                       | license, repository, version                                                      | none                          | 2026-09-22 |
+| [[https://github.com/ivan-magda/claude-code-plugin-template]] | my-team-plugin-marketplace       | T    |       2 | rel                       | template; version                                                                 | v1.4.0 …                      | 2026-06-28 |
+| [[https://github.com/TechNickAI/ai-coding-config]]         | ai-coding-config                    | P    |       1 | rel                       | tags, version                                                                     | none                          | 2026-09-21 |
+| [[https://github.com/KuaaMU/agent-plugins]]                | agent-plugins                       | T    |       1 | url+sha                   | category                                                                          | none                          | 2026-09-10 |
+| [[https://github.com/dr-dimitru/claude-plugins-marketplace]] | dr-dimitru-claude-tools           | O    |       1 | gh+ref(v0.2.1)            | license, repository                                                               | none                          | 2026-09-29 |
+| [[https://github.com/Troglodyne-Internet-Widgets/claude-plugins-marketplace]] | troglodyne-marketplace | O |     1 | url (no pin)              | version                                                                           | none                          | 2026-09-30 |
+| [[https://github.com/UltimaPhoenix/claude-plugins-marketplace-beta]] | ultimaphoenix-beta        | O    |       1 | arc+sha256                | release-asset zip                                                                 | none                          | 2026-09-30 |
+| [[https://github.com/rodmena-limited/claude-plugins-marketplace]] | rodmena                      | O    |       1 | rel                       | version                                                                           | none                          | 2026-09-27 |
+| [[https://github.com/agold-seqera/slop-tools]]             | agold-seqera                        | O    |       1 | root                      | (minimal)                                                                         | none                          | 2026-09-23 |
+
+All rows *measured* (fetched =marketplace.json=, =repos/{r}= and =repos/{r}/tags=).
+
+* Q1: Naming, and how many plugins
+
+- Naming: of 35 catalogues, 22 are named for the owner or org (O), 10 for a topic
+  or catalogue (T), and 3 for a flagship plugin or project (P). *measured*
+- The 7 single-plugin catalogues: 5 are named for the owner
+  (=agold-seqera=, =rodmena=, =dr-dimitru-claude-tools=, =troglodyne-marketplace=,
+  =ultimaphoenix-beta=), 1 is generic (=agent-plugins=) and 1 uses the repo name
+  (=ai-coding-config=). *None of the single-plugin catalogues shares its plugin's
+  name*, which is the situation we are in. *measured*
+- Several newer single-plugin catalogues sit in a separate repo named
+  =claude-plugins-marketplace= that points at the plugin repo (dr-dimitru,
+  Troglodyne, UltimaPhoenix, rodmena). This is the "catalogue owned by the
+  person, plugins elsewhere" shape that issue #13 argues for. *measured*
+- Plugin ids show up as =plugin@marketplace=. melodic-software's PR text uses
+  =@melodic-software= ids throughout
+  ([[https://github.com/melodic-software/claude-code-plugins/commit/b3bb5f3]]). *measured*
+- Size: the median catalogue holds 8 plugins. The large ones are the official one
+  (315), danielrosehill (171), wshobson (94), WYRE (85), melodic (84) and
+  netresearch (40). *measured*
+- Name rules in CLI 2.1.287: no spaces, no path separators, no =..=, no control
+  or bidi characters. Names reserved for the built-in directory are refused, and
+  so is a "claude.ai prefix" used by =marketplace add --claudeai=. *measured*
+  (binary strings). The melodic commit says that from 2.1.287,
+  =claude plugin validate= rejects third-party *plugin* names that begin
+  =claude-=. *inherited*
+  ([[https://github.com/melodic-software/claude-code-plugins/commit/b3bb5f3]]).
+  I did not find that check in the binary.
+
+* Q2: Field usage
+
+** Official catalogue (315 entries, up from 314 in the 2026-09-28 survey)
+*measured*, from the local copy:
+- top level: =$schema= (the Anthropic URL that returns HTML), =description=,
+  =renames= (9 entries, all vendor renames such as =azure-skills → azure= and
+  =convex-backend → convex=). It has no =metadata= block.
+- Per-entry key frequency: category 301, homepage 299, author 233, displayName 14,
+  strict 14 (all =false=), version 14 (only the =./plugins/*-lsp= entries,
+  all =1.0.0=), lspServers 12, skills 3, tags 3 (each =["community-managed"]=),
+  keywords 1.
+- Sources: 164 =url=, 98 =git-subdir=, 53 relative. *Every one of the 263
+  remote sources carries =sha=.* 97 =git-subdir= entries also carry =ref=.
+
+** Third-party: what we do not use yet
+- =relevance= (melodic, 15 entries). Example:
+  ={"topic":"shell scripts","signals":{"filesRead":["**/*.sh"],"cli":["shellcheck","shfmt"]}}=.
+  The 2.1.287 schema says it feeds the spinner tip "Working with {topic}?",
+  session-start auto-suggest, and ranking when browsing a marketplace. Signals
+  are =cli= (first command token), =hosts=, =filesRead= (globs) and
+  =manifestDeps=. It is absent from SchemaStore. *measured* (binary + file)
+- =defaultEnabled= (melodic: 10 =false=, 2 =true=): "whether the plugin starts
+  enabled when the user has no explicit setting". *measured* (binary)
+- =allowCrossMarketplaceDependenciesOn= (melodic: =["claude-plugins-official"]=):
+  lists the marketplaces whose plugins may be auto-installed as dependencies,
+  without transitive trust. *measured*
+- =metadata.pluginRoot= (shopware =./plugins=): base directory for bare source
+  names. *measured*
+- =forceRemoveDeletedPlugins= (top level): auto-uninstalls plugins that are
+  removed from the catalogue. It is in both SchemaStore and the binary, but none
+  of the 35 catalogues uses it. *measured*
+- The =archive= source (UltimaPhoenix): an HTTPS zip plus an optional =sha256=,
+  "verified on every download". The digest serves as version identity only when
+  no =version= is declared. *measured* (binary + file)
+- =displayName= (official 14, WYRE, danielrosehill, melodic) and =tags= (common).
+  =category= is near-universal in larger catalogues. *measured*
+- Not used by anyone sampled: per-entry =headers= / =headersHelper= (in the binary).
+  *measured*
+
+** Our current file vs the field
+- We put =description= and =version= under =metadata=. That is valid (SchemaStore
+  has =metadata.version=), but the official catalogue and about half the sample
+  use a top-level =description=. *measured*
+- Our =metadata.version= is =1.0.0= while =plugin.json= is =0.4.1= and git
+  tags reach =v0.4.1=, so the two numbers mean different things without saying
+  so. *measured*
+- SchemaStore, our =$schema=, has no =renames=, =relevance= or =defaultEnabled=.
+  It does not set =additionalProperties: false=, so validation still passes, but
+  editors will not autocomplete them. *measured*
+
+* Q3: Versioning and release
+
+- Pinning: the official catalogue pins a =sha= on every external source. Among
+  third parties, pins are rare. One =url+sha= (KuaaMU), one =gh+ref= tag
+  (dr-dimitru =v0.2.1=), one =git-subdir+sha= (wshobson's =hol-guard=), one
+  =archive+sha256=. danielrosehill (171) and netresearch (40) use unpinned
+  =github= sources that track the default branch. LerianStudio pins =ref: main=,
+  which pins nothing. *measured*
+- The update signal is the version string. The CLI says the update signal is
+  =plugin.json= =version=, then the entry's =version=, then (for archives) the
+  digest. "Changing only the digest while a version is declared does not
+  trigger an update." *measured* (binary, archive source description). So a
+  catalogue that moves a =sha= without bumping =version= ships nothing to users
+  who already have the plugin.
+- Separate-repo catalogues (obra) list a per-plugin =version= in each entry
+  (=superpowers 6.3.0= …) and tag the catalogue repo separately (=v1.0.12=).
+  *measured*
+- Monorepos with per-plugin tags: LerianStudio =ring-tw-team@1.0.0= (npm-style
+  =name@ver=), ITlusions =togaf-plugin/v1.0.0= (path-style), MadAppGang mixes
+  repo tags =v2.7.0= with =tools/claudeup-gui/v0.2.0=. *measured*
+- Single-version monorepos (wondelai, sgaunet, alexei-led, netresearch) use plain
+  =vX.Y.Z= repo tags. *measured*
+- melodic bumps a renamed plugin to =1.0.0= ("breaking") and keeps a CHANGELOG per
+  plugin. *inherited* (commit message b3bb5f3).
+
+* Q4: Renames, deprecation, monorepo layout
+
+** What the CLI does with =renames= (2.1.287) *measured*
+- Schema description: "Append-only map of old plugin name → current name (or
+  null when removed). The loader follows this on plugin-not-found and migrates
+  user settings to the new name."
+- The resolver (=$dt= in the bundle) follows *chains* up to a depth limit and
+  reports =cycle=, =target-missing= or =chain-too-deep= as unresolved. A null
+  value means =removed=.
+- Migration (=Ten=) rewrites keys in =enabledPlugins= and =pluginConfigs= in
+  each settings source, and only those two maps. Nothing in that function
+  touches the install record. This fits our measurement that =renames= only
+  half-migrates. *measured* (function body). The cause is inferred, not traced.
+- Keys are *plugin* names. I found no marketplace-level rename: none of
+  =previousNames=, =marketplaceRenames= or =oldMarketplace= appears in the
+  binary. A marketplace rename (=guile-skills= → =dsp-dr=) would therefore change
+  every id from =guile@guile-skills= to =guile@dsp-dr= with no migration path.
+  *measured (absence; string search only)*
+
+** Practice in the wild
+- melodic-software: 15 renames, including many-to-one consolidation
+  (=boris=, =thariq-skills= and =fable-5-playbook= all go to =playbooks=). A rename
+  of a renamed plugin is *chained* rather than edited
+  (=claude-config-audit → claude-config → harness-config=); the PR cites
+  upstream guidance to append, not edit. Commit type =refactor!=. The PR states
+  the minimum CLI for migration as 2.1.193. *measured* map / *inherited* version
+  claim. [[https://github.com/melodic-software/claude-code-plugins/commit/b3bb5f3]]
+- The same repo also has gaps. =bug-report → bugs= (3b2225b, 2026-08-23) and
+  =provenance → attribution= (2669391, 2026-09-27) were =!= renames, but neither
+  appears in the =renames= map at either commit or at HEAD. *measured*
+- shopware: ={"gh-tooling": null}=, a tombstone for a plugin moved to another
+  repo (07fbc82, =refactor(marketplace)!: remove gh-tooling=). This is the only
+  deprecation-by-null in the sample. Their earlier removals (2026-01) predate it
+  and have no tombstone. *measured*
+- The official catalogue uses =renames= only for vendor renames and has no null
+  tombstones. *measured*
+- Monorepo layouts: =./plugins/<name>/= with relative sources is the dominant
+  shape (official LSPs, melodic, shopware via =pluginRoot=, wshobson, WYRE).
+  anthropics/skills and wondelai expose several plugins from one root =./= with
+  =strict: false= and an explicit =skills[]= list, so they cut plugins out of one
+  tree without a =plugin.json= each. *measured*
+
+* Implications for guile-skills (not decisions)
+
+1. Keep =renames= append-only. If =guile= is ever renamed, chain it; never edit
+   =guile-skills → guile=. That costs nothing and is non-breaking.
+2. Add =relevance= to the =guile= entry (topic "Guile", =filesRead=
+   =["**/*.scm","**/*.sld"]=, =cli= =["guile","guile3","guild"]=). It is
+   additive and non-breaking, though SchemaStore will not autocomplete it. It is
+   the only mechanism in the sample that steers discovery and auto-suggest.
+3. Make the version signals agree: drop or explain =metadata.version 1.0.0=,
+   because =plugin.json= is what the CLI reads. Non-breaking.
+4. Change =$schema=. The Anthropic URL is not JSON Schema, and SchemaStore lags
+   the CLI. Either keep SchemaStore and validate with
+   =claude plugin validate= in CI, or drop =$schema=. Non-breaking.
+5. Issue #13, an owner-named marketplace: the majority pattern (22 of 35; 5 of 7
+   single-plugin catalogues) supports it. It is *breaking*: ids change from
+   =guile@guile-skills= to =guile@dsp-dr=, and =renames= cannot bridge a
+   marketplace rename. If we do it, do it once, ideally as a new
+   =dsp-dr/claude-plugins= catalogue repo that sources =guile= by =github= +
+   =ref= tag, and leave the old marketplace in place with a README pointer
+   rather than deleting it.
