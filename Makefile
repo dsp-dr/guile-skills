@@ -12,7 +12,7 @@ PROXY_SCRIPTS  := skills/repl-proxy/scripts
 GUILE ?= $(shell command -v guile3 2>/dev/null || command -v guile-3.0 2>/dev/null || echo guile)
 GUILD ?= $(shell command -v guild3 2>/dev/null || command -v guild-3.0 2>/dev/null || echo guild)
 
-.PHONY: references eval-suite audit dx dx-kill wip try-clean check-contracts fmt check-scheme help start stop status eval lint lint-org lint-claude test check-evals check-frontmatter check-monitors check-scripts check-version sync-scripts checks try try-in ship-check readme paths clean release-staging release-production
+.PHONY: emacs references eval-suite audit dx dx-kill wip try-clean check-contracts fmt check-scheme help start stop status eval lint lint-org lint-claude test check-evals check-frontmatter check-monitors check-scripts check-version sync-scripts checks try try-in ship-check readme paths clean release-staging release-production
 
 help:
 	@echo "guile-skills"
@@ -45,6 +45,7 @@ help:
 	@echo ""
 	@echo "  gmake references  fetch and verify the pinned Emacs/Guile/Geiser sources (outside the repo)"
 	@echo "  gmake dx       tmux session: emacs -nw, the REPL, a validator harness"
+	@echo "  gmake emacs    the same as gmake dx"
 	@echo "  gmake dx-kill  tear that session down, REPL and proxy included"
 	@echo "  gmake wip      what is uncommitted, unpushed or unnoted, every worktree"
 	@echo "  gmake audit    model-graded convention review; PASS/FAIL. MANUAL, not in checks"
@@ -190,6 +191,10 @@ try-clean:
 # Lives under $$XDG_CACHE_HOME, shared read-only by every worktree; ~1 GB.
 references:
 	@./scripts/fetch-references.sh
+
+# `gmake emacs' is `gmake dx' under the name people reach for. PHONY matters: the
+# repo has an emacs/ directory, so without it make answers "Nothing to be done".
+emacs: dx
 
 dx:
 	@./scripts/dx.sh
