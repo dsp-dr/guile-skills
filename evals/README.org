@@ -39,6 +39,37 @@ Until a run exists under =evals/results/=, treat every claim about these cases a
 untested. This plugin's argument is that unverified claims are the failure mode,
 and an eval suite nobody has run is that failure in miniature.
 
+* How to run, by tier (measured 2026-10-04, CLI 2.1.287, plugin 0.4.2)
+
+| tier | cases | grants | needs | cost | runs here? |
+|------+-------+--------+-------+------+------------|
+| 1: did the skill fire | =trigger-*= | Read, Glob, Grep, Skill | nothing: no sandbox, no judge | ~$0.25 per with-arm run, ~$0.07 per baseline run | *yes* |
+| 2: did it run Guile, and right | the five cases above | + Bash | the Bash sandbox, plus a judge for the =llm= graders | not yet measured | *no* on the maintainer's Mac (see Status) |
+
+Tier 1 runs here today:
+
+#+begin_src sh
+claude plugin eval . --tag tier1 --scaffold --trust-plugin --no-publish --max-cost-usd 5
+#+end_src
+
+=trigger-resume= ("I'm resuming work on this Guile project, get me set up"), 3
+runs per arm: the setup skill fired 3/3 with the plugin and 0/3 without, for
+$0.92 in 165 s. Each arm runs *isolated*: no other skills, no CLAUDE.md, no
+installed plugins. So a tier-1 rate is the plugin's trigger rate *alone*. The
+trigger benchmark (=evals/trigger/run.py=) measures it among a real user's ~80
+competing skills. The gap between the two is the cost of that competition,
+which is the comparison that explains the misses in EXPERIMENTS-invocation.
+
+Tier 2 needs a host where the Bash sandbox will run. Choose one:
+
+1. A Linux runner with =bubblewrap= and =socat=, an API-key secret (the owner's
+   call) and a cost cap, as coalesce-labs/catalyst-cloud-skills does
+   (docs/research/plugin-ecosystem/ci-release-evals.org). An ephemeral runner
+   also makes =stale-listener='s process killing safe.
+2. A machine whose =~/.docker= holds no symbolic links.
+3. Pointing =DOCKER_CONFIG= elsewhere for the run. *Not done*: that sidesteps a
+   guard protecting credentials, and only the owner should choose it.
+
 * Form
 
 Each case is a directory holding =prompt.md= (frontmatter: =name=, =tags=,
