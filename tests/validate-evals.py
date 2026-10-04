@@ -29,7 +29,9 @@ def frontmatter_name(skill_md: pathlib.Path) -> str | None:
     text = skill_md.read_text()
     if not text.startswith("---"):
         return None
-    end = text.index("\n---", 3)
+    end = text.find("\n---", 3)
+    if end == -1:
+        return None      # fence never closed
     for line in text[3:end].splitlines():
         if line.startswith("name:"):
             return line.split(":", 1)[1].strip()
@@ -69,6 +71,9 @@ def check(path: pathlib.Path) -> list[str]:
 
     for index, item in enumerate(evals):
         where = f"{path} eval[{index}]"
+        if not isinstance(item, dict):
+            errors.append(f"{where}: is a {type(item).__name__}, not an object")
+            continue
         bad = set(item) - EVAL
         gone = EVAL - set(item)
         if bad:

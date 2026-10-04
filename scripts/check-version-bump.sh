@@ -31,7 +31,7 @@ git rev-parse --verify --quiet "$BASE" >/dev/null || {
     echo "check-version-bump: cannot resolve base ref '$BASE'" >&2; exit 2; }
 
 SHIPPED="skills/ .claude-plugin/ scripts/lib/ monitors/ agents/ commands/ hooks/ \
-         output-styles/ themes/ workflows/"
+         output-styles/ themes/ workflows/ evals/ assets/ .lsp.json .mcp.json"
 
 # `git diff' cannot see a file that is not tracked yet, so an entirely NEW shipped
 # component -- a new skill directory, a new agent, a new monitor -- was invisible

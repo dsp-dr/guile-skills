@@ -23,7 +23,7 @@ reference fetched 2026-09-28.
 | hooks             | =hooks/hooks.json=          | *yes* --- Scheme balance check, log baseline |
 | MCP servers       | =.mcp.json=                 | no --- blocked, issue #1      |
 | channels          | manifest =channels=         | no --- an MCP server over stdio |
-| LSP servers       | =.lsp.json=                 | no --- maturity not established |
+| LSP servers       | =.lsp.json=                 | no --- *declined*, see below  |
 | output styles     | =output-styles/*.md=        | no                            |
 | themes            | =themes/*.json=             | no                            |
 | workflows         | =workflows/*.js=            | no                            |

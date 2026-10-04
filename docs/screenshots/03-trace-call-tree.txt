@@ -1,0 +1,27 @@
+# ,trace (fib 5) through the logging proxy, guile-sicp, 2026-09-29
+# Captured from the REPL transcript the proxy writes. The proxy records both
+# directions with timestamps; -> is client-to-REPL, <- is REPL-to-client.
+
+(use-modules (sicp ch1))
+,trace (fib 5)
+
+trace: |  |  |  |  1
+trace: |  |  |  2
+trace: |  |  |  (fib 2)
+trace: |  |  |  |  (fib 1)
+trace: |  |  |  |  1
+trace: |  |  |  |  (fib 0)
+trace: |  |  |  |  0
+trace: |  |  |  1
+trace: |  |  3
+trace: |  |  (fib 3)
+trace: |  |  |  (fib 2)
+trace: |  |  |  |  (fib 1)
+trace: |  |  |  |  1
+trace: |  |  |  |  (fib 0)
+trace: |  |  |  |  0
+trace: |  |  |  1
+trace: |  |  |  (fib 1)
+trace: |  |  |  1
+trace: |  |  2
+trace: |  5

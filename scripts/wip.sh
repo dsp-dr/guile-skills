@@ -92,4 +92,4 @@ if [ "$held" = 0 ]; then
 else
     printf '\033[1msomething is held only on this machine -- see above.\033[0m\n'
 fi
-exit 0
+exit "$held"

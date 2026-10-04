@@ -12,7 +12,7 @@ PROXY_SCRIPTS  := skills/repl-proxy/scripts
 GUILE ?= $(shell command -v guile3 2>/dev/null || command -v guile-3.0 2>/dev/null || echo guile)
 GUILD ?= $(shell command -v guild3 2>/dev/null || command -v guild-3.0 2>/dev/null || echo guild)
 
-.PHONY: references dx dx-kill wip try-clean check-contracts fmt check-scheme help start stop status eval lint lint-org lint-claude test check-evals check-frontmatter check-monitors check-scripts check-version sync-scripts checks try try-in ship-check readme paths clean release-staging release-production
+.PHONY: references eval-suite audit dx dx-kill wip try-clean check-contracts fmt check-scheme help start stop status eval lint lint-org lint-claude test check-evals check-frontmatter check-monitors check-scripts check-version sync-scripts checks try try-in ship-check readme paths clean release-staging release-production
 
 help:
 	@echo "guile-skills"
@@ -47,6 +47,8 @@ help:
 	@echo "  gmake dx       tmux session: emacs -nw, the REPL, a validator harness"
 	@echo "  gmake dx-kill  tear that session down, REPL and proxy included"
 	@echo "  gmake wip      what is uncommitted, unpushed or unnoted, every worktree"
+	@echo "  gmake audit    model-graded convention review; PASS/FAIL. MANUAL, not in checks"
+	@echo "  gmake eval-suite  run the eval cases once the CLI is new enough. MANUAL"
 	@echo "  gmake release-staging              regression tests + validation, no publish"
 	@echo "  gmake release-production TAG=vX.Y.Z   same gate, then gh skill publish --tag"
 
@@ -79,6 +81,16 @@ lint:
 		echo "lint: no guild on PATH; skipping Scheme warnings (shell checks still run)"; \
 	fi
 	@for s in scripts/*.sh scripts/lib/*.sh skills/*/scripts/*.sh; do sh -n "$$s" || exit 1; done
+# bin/ was removed in 8d71a62 and must stay removed: files there join the Bash
+# tool's PATH, and claude.ai and Cowork refuse a plugin that has one. The stale
+# hint it left behind survived three releases because nothing looked for it.
+# ${CLAUDE_SKILL_DIR} deliberately has NO guard. It is legitimate in a shipped
+# script -- it is set for a skill at runtime -- and ship-check.sh exists to
+# verify exactly that usage. The defect it caused was in CONTRIBUTING.org, which
+# told a human to paste it into a shell where it is unset; that is a prose
+# problem, and a grep broad enough to catch it flagged three correct files.
+	@if grep -rn "bin/guile-repl" skills/ scripts/ 2>/dev/null | grep -v -- "-workspace/"; then \
+		echo "lint: a shipped path names bin/, which was removed in 8d71a62" >&2; exit 1; fi
 	@echo "Lint complete."
 
 test:
@@ -184,6 +196,19 @@ dx:
 
 dx-kill:
 	@./scripts/dx.sh --kill
+
+# Runs the eval cases, but only once the CLI is new enough AND the free probe says
+# the gate is open. Below either bar it reports and spends nothing. Like `audit',
+# deliberately outside `checks': a full suite is cases x runs x two arms of real
+# model calls. PROBE_CASE, RUNS, THRESHOLD and SUITE_CEILING override the defaults.
+eval-suite:
+	@./scripts/eval-suite.sh
+
+# Model-graded, costs tokens, and NOT part of `checks' or any workflow on purpose:
+# it is not reproducible the way the deterministic validators are, and a gate that
+# disagrees with itself teaches people to ignore it. Run it by hand before a release.
+audit:
+	@./scripts/audit.sh $${BASE:+--base $$BASE}
 
 # Answers one question: is anything being held back? Across every worktree.
 wip:

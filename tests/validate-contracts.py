@@ -99,14 +99,18 @@ import sys
 # measured it, what we concluded. That belongs in contracts/ because an unknown key
 # in a strict entry stops the plugin loading and an unknown top-level manifest key
 # fails --strict.
+# Anchored on a KEY -- the quoted name must be followed by a colon. Without that
+# the pattern matched string values too, so a monitor whose description contained
+# the word "contract" was reported as a leak.
 CONTRACT_KEYS = re.compile(
     r'"(?:_comment|contract|contract_version|contractVersion|schema_version|'
     r'schemaVersion|measured_on|measured_faults|cli_validates|'
-    r'validated_by|manifest_reference\w*)"'
+    r'validated_by|manifest_reference\w*)"\s*:'
 )
 
 OPERATIONAL = [
     ".claude-plugin/plugin.json",
+    ".claude-plugin/marketplace.json",
     "hooks/hooks.json",
     "monitors/monitors.json",
 ]
@@ -126,12 +130,17 @@ def check_drift(root: pathlib.Path) -> list[str]:
     cell_path = root / "contracts" / "cell.json"
     if not cell_path.exists():
         return [f"{cell_path.relative_to(root)} is missing; nothing pins the contract"]
-    cell = json.loads(cell_path.read_text())
+    try:
+        cell = json.loads(cell_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return [f"contracts/cell.json is not valid JSON: {exc}"]
     pinned = cell.get("claude_cli")
     live = live_cli_version()
     if live is None:
-        print("  ..    claude CLI not on PATH; drift check skipped")
-        return []
+        return ["the claude CLI is not on PATH, so every claim in "
+                "contracts/artifacts.json about what it enforces is unverified. "
+                "A skipped check is not a passing one -- install the CLI or run "
+                "the other targets individually."]
     if pinned != live:
         return [
             f"contract drift: contracts/cell.json pins claude_cli {pinned!r} but "
@@ -147,8 +156,14 @@ def check_shape(root: pathlib.Path) -> list[str]:
     art_path = root / "contracts" / "artifacts.json"
     if not art_path.exists():
         return [f"{art_path.relative_to(root)} is missing"]
+    try:
+        doc = json.loads(art_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return [f"contracts/artifacts.json is not valid JSON: {exc}"]
+    if "artifacts" not in doc:
+        return ["contracts/artifacts.json has no top-level 'artifacts' key"]
     errors = []
-    for a in json.loads(art_path.read_text())["artifacts"]:
+    for a in doc["artifacts"]:
         rel = a["file"]
         if "*" in rel:
             continue                      # globbed artifacts have their own validators

@@ -24,6 +24,8 @@ deployable:
           - "output-styles/**"
           - "themes/**"
           - "workflows/**"
+          - ".lsp.json"
+          - ".mcp.json"
 
 plugin:
   - changed-files:

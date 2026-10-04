@@ -58,12 +58,10 @@ gmake stop
 
 ## How it works
 
-```example
-agent / Emacs+Geiser ──▶ 127.0.0.1:PORT+1 ──▶ 127.0.0.1:PORT
-                              (proxy)          (guile3 --debug --listen)
-                                 │
-                                 └──▶ ${CLAUDE_PLUGIN_DATA}/projects/<slug>/repl.log
-```
+    agent / Emacs+Geiser ──▶ 127.0.0.1:PORT+1 ──▶ 127.0.0.1:PORT
+                                  (proxy)          (guile3 --debug --listen)
+                                     │
+                                     └──▶ ${CLAUDE_PLUGIN_DATA}/projects/<slug>/repl.log
 
 The port pair is derived from the working directory, so a project — and each worktree of it — always gets its own. The transcript is keyed the same way, under the plugin's data directory rather than inside your repository, because it contains whatever you evaluated. Rotated at 4 MiB, five generations.
 
