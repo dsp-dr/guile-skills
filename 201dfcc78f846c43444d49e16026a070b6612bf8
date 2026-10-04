@@ -1,0 +1,18 @@
+Root cause found by a triage subagent reading the two shells' behaviour, then
+reproduced minimally: /bin/sh gives child_env=[UNSET] where bash gives
+child_env=[tag-only].
+
+Calibration, four plantings:
+  A  prefix form restored, export kept       -> 6/6 (export alone suffices)
+  B  A plus assertion removed                -> 6/6
+  C  no export, no pass-through, assertion    -> 4/6, cause printed
+  D  as C, assertion removed                  -> 4/6, cause not printed
+
+A and B are why the commit does not claim the assertion catches a silent pass:
+it does not. C against D is what the assertion is actually worth -- the same
+failure, with the reason attached. An earlier draft placed it after the outcome
+checks, where C showed it never printed at all; that draft would have shipped a
+diagnostic that cannot fire.
+
+Deviation: this rides on the icon branch rather than its own. main was red, so
+nothing else on the branch could be validated against a green gate first.
