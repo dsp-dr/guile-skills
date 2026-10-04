@@ -1,0 +1,25 @@
+Written in Guile rather than shell to dog-food the tooling, per the project's
+own direction. Three bugs along the way, all measured:
+
+1. Guile 3.0.10 on this host SEGFAULTS in both `system*' and
+   `open-input-pipe'. gdb puts the crash in libc's
+   posix_spawn_file_actions_addclosefrom_np(), reached from scm_system_star.
+   Guile 2.2.7 on the same host runs the identical form fine, so it is a 3.0
+   regression against FreeBSD 15.1, not a sandbox artifact -- it reproduces
+   with the sandbox disabled. The probe therefore shells out through `system',
+   which uses system(3) and is unaffected, reading output back from a file.
+   This constrains any future Guile tooling here that needs a subprocess,
+   which includes the validator port in #15.
+
+2. Guile's core bytevector-copy takes one argument, not three; the 3-arg R7RS
+   form is not available. Replaced with an explicit byte comparison.
+
+3. Guile's format rejects ~-8a (negative mincol). ~8a already left-justifies.
+
+ImageMagick's abort was found by the probe itself and confirmed by hand. An
+earlier reading of 'exit=0' for magick was wrong: the status came from `head'
+at the end of a pipe, not from magick.
+
+Cores: ImageMagick dumped magick.core into the repo root during this work and
+it was removed. JSCWarmUp.core, 5.6 GB, dated 2026-09-30, was already there and
+was deliberately left alone. Both are covered by .gitignore:18.
