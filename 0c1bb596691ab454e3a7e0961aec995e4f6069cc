@@ -1,0 +1,10 @@
+Found while running the generator as the user asked. Their own attempt was
+`guild3 -C assets/gen-icon.scm', which fails for an unrelated reason: guild is
+the compiler driver and has no -C. The script carries a #!/usr/bin/env guile3
+shebang and is meant to be run, not compiled.
+
+The latent bug would have surfaced for anyone who ran it twice. It did not
+surface earlier because the only prior run was on a cold cache.
+
+Verified: cmp assets/icon-1-hypotrochoid.svg assets/icon.svg is identical, so
+the shipped icon remains reproducible from source.
