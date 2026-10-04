@@ -61,8 +61,14 @@ other prompt unchanged:
 | "what does the call tree of (fib 5) look like" | 1/2 | 0/2 |
 | "profile the connect procedure in irc/irc.scm" | 1/2 | 0/2 |
 
-Two runs per prompt cannot separate these from noise, so the finding is the
-total: guidance content does not move invocation. The generic "set up" prompts
+Two runs per prompt cannot separate these from noise. Neither can the total:
+36 runs put 0.61 inside a 95% interval of about +/-0.16. So the finding is
+narrower than it first read: *no change large enough for this benchmark to
+see*, roughly 16 points or more. It is not "guidance does not move
+invocation". (Correction, 2026-10-02, after a power check prompted by "On
+Randomness in Agentic Evals", arXiv 2602.07150: single-run agentic scores swing
+2-6 points, and its authors recommend multi-run pass@1 with a power
+analysis.) The generic "set up" prompts
 and the =fold= "check it" prompt still reach no skill. That points back at
 the skill boundaries and descriptions, as T1 and T2 did.
 
@@ -75,7 +81,11 @@ Generic "set up" prompts are where invocation fails. They split between
 =repl-server= and =emacs-setup= when they reach a skill at all. That argues for
 one front door: a =setup= skill absorbing the server, the proxy's transcript
 role and Emacs, with =eval= separate and its description saying "instead of
-running guile yourself". It is a *prediction*, not a result: 2 runs per
+running guile yourself". Detecting a lift from 0.61 to 0.85 needs about 52 runs per arm; 0.61 to 0.75
+needs about 173 (two-proportion test, alpha 0.05, power 0.8). Any A/B must be
+sized for that before it is run.
+
+It is a *prediction*, not a result: 2 runs per
 prompt, prompts written by the person proposing the change, one model, one
 scratch project. The test is to re-run this benchmark after the reshape:
 

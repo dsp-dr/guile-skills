@@ -1,0 +1,235 @@
+#+TITLE: Skill design and triggering: what multi-skill plugins do
+#+DATE: 2026-10-02
+#+AUTHOR: dsp-dr (research agent, skill-design slice)
+
+Survey for =guile= 0.4.1, whose 18-prompt trigger benchmark
+(=evals/trigger/benchmark.json=) sits at 0.61 on both 0.4.0 and 0.4.1
+(EXPERIMENTS-invocation.org, T1-T3). Failures cluster in two shapes: generic
+setup ("set up guile", "get this guile project ready") and "check it by running
+it" (q06 =fold=), where the model reaches for Bash instead of a skill.
+
+Labels: *measured* = read it here, path or URL cited. *inherited* = someone
+else's claim, not checked by us. Nothing here measures another plugin's trigger
+rate; every trigger-rate claim from outside this repo is inherited.
+
+* Sources and what failed
+
+- Official catalog, =~/.claude/plugins/marketplaces/claude-plugins-official=:
+  33 SKILL.md files, all read for frontmatter and directory layout (measured).
+- Crawl DB =aygp-dr/github-skills-search/data/github.db= is a *0-byte file*
+  (=ls -la=, 2026-09-24 mtime). Nothing to query. Used the experiment write-ups
+  instead: =experiments/004-clojure-skills/README.md=,
+  =011-guile-skills/README.md=, =007-skill-contents/FINDINGS.md=.
+- GitHub: six REPL skills fetched by contents API (below). Code search returned
+  403 (rate limit, shared with the other agents) on the first query; per the
+  brief, no retry. So Racket, Common Lisp/SLIME, Elixir IEx and Python REPL
+  skills are *not covered* except through 004/007's Clojure-centred data.
+- This session's own skill listing (built-in and user skills) is quoted where
+  it shows a phrasing pattern; those descriptions are measured as text, their
+  trigger rates are not.
+
+* Skills examined
+
+| repo / location | skill | desc chars / words | trigger phrasing | body words | extra dirs |
+|------------------------------------------------+------------------------------+------------+----------------------------------------------------------+------+---------------------|
+| dsp-dr/guile-skills (ours)                      | repl-server                  | 346 / 61   | "Use when starting or resuming work..."                  |  465 | scripts, evals      |
+| dsp-dr/guile-skills (ours)                      | repl-eval                    | 295 / 51   | "Use whenever a claim about Guile code should be checked" |  559 | scripts, evals      |
+| dsp-dr/guile-skills (ours)                      | repl-proxy                   | 367 / 62   | "Use when you need a reviewable history..."              |  484 | scripts, evals      |
+| dsp-dr/guile-skills (ours)                      | emacs-setup                  | 444 / 76   | "Use when asked to set up Emacs, Geiser..."              |  918 | scripts, evals      |
+| [[https://github.com/abogoyavlensky/nreplctl/blob/HEAD/skills/nrepl-eval/SKILL.md][abogoyavlensky/nreplctl]] | nrepl-eval        | 928 / 156  | "Use this whenever you work in a Clojure project (deps.edn / project.clj, a .nrepl-port file...)" + "Strongly prefer it over cold ..." + "Triggers: ..." | 1086 | -    |
+| [[https://github.com/BetterThanTomorrow/calva-backseat-driver/blob/HEAD/assets/skills/backseat-driver/SKILL.md][calva-backseat-driver]] | backseat-driver | 805 / 96 | "Use when: working in Clojure ... project, be it reading, planning, developing..." + tool names + "Also use ... when PLANNING or DISCUSSING" | 1788 | refs in dev/ |
+| calva-backseat-driver                            | editing-clojure-files        | 611 / 83   | "Use whenever you consider any of these tools: ..."       | 1203 | -                   |
+| [[https://github.com/metabase/metabase/blob/HEAD/.claude/skills/clojure-eval/SKILL.md][metabase/metabase]] | clojure-eval | 188 / 30 | "Use this when you need to test code, check if edited files compile, verify function behavior..." | 837 | _shared sibling |
+| metabase/metabase                                | clojure-write                | 184 / 21   | "Use when writing, developing, or refactoring Clojure"   |  984 | -                   |
+| [[https://github.com/bhauman/clojure-mcp-light/blob/HEAD/skills/clojure-eval/SKILL.md][bhauman/clojure-mcp-light]] | clojure-eval | 188 / 30 | identical to metabase's (same description, body drifted) | 793 | -  |
+| [[https://github.com/penpot/penpot/blob/HEAD/.agents/skills/nrepl-eval/SKILL.md][penpot/penpot]] | nrepl-eval | 85 / 11 | no "use when" at all | 175 | - |
+| official: mcp-server-dev                         | build-mcp-server             | 486        | quoted user phrases + "It is the entry point ... hands off to specialized skills" | ~1800 | references/ (8) |
+| official: mcp-server-dev                         | build-mcp-app                | 453        | quoted phrases + "Use AFTER the build-mcp-server skill has settled..." | ~2900 | references/ (6) |
+| official: mcp-server-dev                         | build-mcpb                   | 403        | quoted phrases                                           | ~1200 | references/ (2) |
+| official: telegram/discord/imessage              | configure                    | 209-234    | "asks \"how do I set this up\" or \"who can reach me,\"" | ~650  | -                   |
+| official: telegram/discord/imessage              | access                       | 199-201    | "Use when the user asks to pair, approve someone..."     | ~700  | -                   |
+| official: cwc-makers                             | m5-onboard / cardputer-buddy | 329 / 411  | "Use whenever the user plugs in..." / "after the device is already provisioned via m5-onboard" | 3700 / 300 | - |
+| official: plugin-dev                             | 7 skills (hook-, agent-, ...)| 290-525    | third person: "This skill should be used when the user asks to \"...\"" | 1500-3500 | references/, examples/, scripts/ |
+| official: skill-creator                          | skill-creator                | 319        | "Use when users want to ..."                              | ~5000 | references/, scripts/, agents/, assets/ |
+| official: project-artifact                       | project-artifact             | 906        | "Use when ... Not for single-PR changes or public docs." | ~3000 | swe.md, template    |
+
+Body word counts for official skills are bytes/6.5, approximate; the REPL rows
+and ours are exact word counts (measured).
+
+* Q1 -- How multi-skill plugins split work
+
+*Measured, official catalog:*
+
+- *Router + specialists.* =mcp-server-dev= (3 skills) is the only explicit
+  front door. =build-mcp-server='s description ends: "It is the entry point for
+  MCP server development — it interrogates the user about their use case,
+  determines the right deployment model (remote HTTP, MCPB, local stdio), picks
+  a tool-design pattern, and hands off to specialized skills." The body has a
+  "Phase 5 — Scaffold and hand off" step: "Summarize the decisions so far, then
+  load the =build-mcp-app= skill" and "restate the design brief in one paragraph
+  so the next skill doesn't re-ask." The router can also finish the job itself
+  for the common case (remote HTTP, no UI) from =references/=. Specialists name
+  the router in their own description: "Use AFTER the build-mcp-server skill has
+  settled the deployment model, or when the user already knows they want UI
+  widgets."
+- *Lifecycle split.* =cwc-makers=: =m5-onboard= (first contact, "Use whenever
+  the user plugs in or wants to flash/provision/reset") then =cardputer-buddy=
+  ("after the device is already provisioned via m5-onboard"). The setup skill
+  is the fat one (3,700 words); the follow-on skill is 300.
+- *Verb split, two skills.* The channel plugins (telegram, discord, imessage)
+  each ship exactly =configure= (setup + status) and =access= (policy). The
+  setup skill owns the vaguest prompts: "how do I set this up".
+- *Noun split, many skills.* =plugin-dev= (7: hooks, agents, commands, MCP,
+  settings, structure, skills). Works because every user prompt names the noun.
+- 11 of 19 official plugins with skills ship one skill; 6 ship two, one ships three (mcp-server-dev), one seven (plugin-dev).
+
+*Measured, Clojure REPL ecosystem:* the widely copied packs split
+*eval / write / review* (metabase: =clojure-eval=, =clojure-write=,
+=clojure-review=), or *drive-the-REPL / edit-structurally* (backseat-driver,
+editing-clojure-files). None has a separate "start the server" or "record the
+transcript" skill; process lifecycle lives inside the eval skill (metabase
+clojure-eval's body: discover ports, else start one, "do not supply a port").
+
+*Reading for us.* Our split is by *infrastructure component* (server, proxy,
+eval, editor). Nobody else in the sample splits that way; users do not phrase
+prompts as components. A user-intent split (set up / evaluate) matches the
+channel-plugin and metabase patterns, and our own T1 data: prompts that name
+the component trigger, prompts that name the intent do not.
+
+* Q2 -- Descriptions
+
+*Length (measured).* Official: 154-906 chars, most 200-500. Clojure REPL: 85
+(penpot) to 928 (nreplctl). Ours: 295-444. Length alone does not separate the
+sample; what the extra words *do* does.
+
+*Phrasing patterns found (measured text, inherited effect):*
+
+1. *Quoted user utterances.* plugin-dev and mcp-server-dev: "This skill should
+   be used when the user asks to \"build an MCP server\", \"create an MCP\"...".
+   Channel =configure=: "asks \"how do I set this up\" or \"who can reach me,\"".
+   nreplctl: "Triggers: \"run the tests\", \"eval this in the repl\", \"does this
+   work in the running repl\"...". plugin-dev's =skill-development= prescribes
+   it ("Include exact phrases users would say") and third-person voice.
+2. *Context/project-marker triggers, not task triggers.* nreplctl: "Use this
+   whenever you work in a Clojure project (deps.edn / project.clj, a
+   `.nrepl-port` file, or the user mentions a running repl/nrepl) and need
+   to...". backseat-driver: "Use when: working in Clojure ... project, be it
+   reading, planning, developing, or evaluating code". These fire on *where
+   you are*, which is exactly what our "set up this project" prompts provide.
+3. *Name the native alternative and say why it loses.* nreplctl, verbatim:
+   "Strongly prefer it over cold `clojure -M:test`, `lein test`, or `bb test`,
+   which boot a fresh JVM every time — the running nREPL is warm and holds the
+   project's loaded state (the integrant system, DB pool, caches), so it is far
+   faster and can test against the live system." This is the only description
+   in the sample written against the model's Bash reflex, and the reflex is our
+   q06 failure. Backseat-driver says the same in its body ("Always use this tool
+   rather than launching a terminal REPL"), which per T3 is the wrong place.
+4. *Anti-undertrigger / pushy wording.* skill-creator, verbatim: "currently
+   Claude has a tendency to \"undertrigger\" skills ... please make the skill
+   descriptions a little bit \"pushy\" ... even if they don't explicitly ask
+   for a 'dashboard.'" Seen in this session's listing: standard-change "Trigger
+   on any of these even if the person doesn't say \"standard-change\"
+   explicitly"; claude-api "TRIGGER — read BEFORE opening the target file;
+   don't skip because it \"looks like a one-liner\""; backseat-driver "Also use
+   this skill when PLANNING or DISCUSSING ... — not only at the moment of REPL
+   evaluation."
+5. *Negative triggers.* Rare. Official: project-artifact "Not for single-PR
+   changes or public docs." claude-api's "SKIP only when ...". No Clojure REPL
+   skill has one. Our benchmark has 0 false positives (T1), so negatives are
+   not our problem; they are cheap insurance if we widen triggers.
+6. *Sequencing between sibling skills.* "Use AFTER the build-mcp-server skill
+   has settled..."; "after the device is already provisioned via m5-onboard".
+7. *"Use PROACTIVELY"*: absent from every SKILL.md in the official catalog;
+   it is a subagent-description convention (e.g. the =rust-pro=,
+   =code-reviewer= agents in this session). No evidence it helps skills.
+
+*Why "check it" prompts bypass skills (measured text, inherited claim).*
+skill-creator, "How skill triggering works": "Claude only consults skills for
+tasks it can't easily handle on its own — simple, one-step queries ... may not
+trigger a skill even if the description matches perfectly, because Claude can
+handle them directly with basic tools." =guile -c '(fold ...)'= is a one-step
+Bash call. Our =repl-eval= description gives an abstract epistemic trigger
+("whenever a claim about Guile code should be checked by running it") but never
+says why a bare =guile= in Bash is worse. Pattern 3 is the direct counter.
+
+*Naming.* Clojure skills are named =<lang>-<verb>= (=clojure-eval=,
+=nrepl-eval=) so the language is in the name the model scans. Ours are
+=repl-*= under plugin =guile=; whether the =guile:= prefix shows in the
+listing is host-dependent (it does in this session: =guile:repl-eval=).
+
+* Q3 -- Progressive disclosure
+
+- Official guidance (measured, plugin-dev =skill-development=): body target
+  1,500-2,000 words, under 3,000; detail into =references/=; "Information
+  should live in either SKILL.md or references files, not both". skill-creator:
+  "<500 lines ideal".
+- Practice: 9 of 33 official skills have =references/=; mcp-server-dev routes
+  to named reference files per branch ("Scaffold inline using
+  =references/remote-http-scaffold.md="). 007 found ~17 of 75 Clojure skills
+  use =references/= (inherited from that write-up).
+- Clojure REPL bodies are 175-1,788 words; ours 465-918, all well under budget.
+  Size is not our constraint. Merging four skills into two would give bodies of
+  roughly 1,000-1,400 words, still inside the guideline without references/.
+- Glossaries: none found in any examined skill. backseat-driver opens with a
+  one-line definition instead: "*\"Use the REPL\"* means: call the
+  `clojure_evaluate_code` tool." That is the glossary move done in one sentence.
+
+* Q4 -- Getting the model to use the live REPL
+
+All measured from the fetched files; effect inherited (none publish a trigger
+benchmark).
+
+- *One eval CLI, invoked through Bash.* metabase and clojure-mcp-light both
+  ship =clj-nrepl-eval=; penpot ships =scripts/nrepl-eval.mjs=; nreplctl ships
+  =nreplctl=. The skill does not fight Bash; it gives Bash a better command.
+  007: "Every ecosystem ships its own eval CLI" (inherited).
+- *Discovery before eval.* metabase =clojure-eval=: list running servers in
+  the project dir first, and "IF you start a REPL do not supply a port".
+  nreplctl: stale =.nrepl-port= handling ("Don't assume the REPL is ...").
+- *Warm state as the argument.* nreplctl's description sells the running REPL
+  on what a cold process lacks (loaded system, caches). For us the equivalent
+  is: loaded project modules, the debugger/trace meta-commands, and the logged
+  transcript a bare =guile= skips (T1 notes q06's Bash run "bypass[ed] the
+  logged proxy").
+- *Define the phrase.* backseat-driver's "\"Use the REPL\" means: call ..."
+  plus "Always use this tool rather than launching a terminal REPL" and
+  "ClojureDocs before guessing".
+- *Check before claiming* is the common epistemic line. 007 (inherited): ~19
+  of 75 skills warn against hallucinating APIs or claiming success without
+  running anything; ~31 make REPL-first the core workflow.
+- *Tool preference ladder.* metabase =clojure-write=: "When clojure-mcp tools
+  are available ... always use them instead of shell commands like
+  ./bin/mage -repl ... Only fall back ... when clojure-mcp is not available."
+- Guile has no counterpart on GitHub (011, inherited): almost no
+  language-level Guile skills exist, so there is nothing to copy directly.
+
+* Testable description patterns for our benchmark
+
+Each is a description-only change, A/B against 0.4.1 on the 18 prompts, 2+ runs.
+
+| ID | change | targets | evidence |
+|----+---------------------------------------------------------------------------------------------------------------------------------+---------------+----------------------------------|
+| D1 | Project-marker trigger: "Use whenever you work in a Guile project (=.scm= files, =(define-module ...)=, a =guix.scm= / =Makefile= calling guile) ..." | q02 q03 q12 q13 | nreplctl, backseat-driver        |
+| D2 | Name the Bash alternative and why it loses: "Prefer this over running =guile= / =guile3 -c= from the shell: a fresh process has none of the project's load path or loaded modules and is not recorded in the transcript." | q06 q07 q08   | nreplctl "Strongly prefer it over cold ..." |
+| D3 | Quoted utterances: "\"set up guile\", \"get this project ready\", \"check it\", \"does X take ...? check\", \"what does (f x) return\"" | all generic   | plugin-dev, channel configure, nreplctl "Triggers:" |
+| D4 | Pushy clause: "even if the user does not mention a REPL" / "don't skip because it looks like a one-liner" | q06 q12 q13   | skill-creator, claude-api        |
+| D5 | Front-door description on the setup skill: "the entry point for any Guile project setup — decides REPL, proxy and Emacs and hands off" | q03 q11 q12 q13 | build-mcp-server               |
+| D6 | Sibling sequencing on eval: "Use AFTER setup has a REPL listening, or whenever ..." | q01 vs q06 confusion | build-mcp-app, cardputer-buddy |
+| D7 | Negative clause: "Not for Clojure, Racket or other Lisps, or non-Guile Emacs setup" | n03 n05 (guard while widening) | project-artifact, claude-api SKIP |
+
+* Recommended split
+
+Two skills, by user intent, router + worker:
+
+- =setup= (front door): absorbs repl-server, repl-proxy and emacs-setup.
+  Description = D1 + D3 (setup phrases) + D5 + D7. Body branches like
+  build-mcp-server: always start server + proxy; Emacs/Geiser branch only if
+  asked or a =.dir-locals.el= exists; detailed proxy and dir-locals material
+  moves to =references/=.
+- =eval=: repl-eval as is, with description D2 + D3 (check-phrases) + D4 + D6,
+  and the backseat-driver one-liner defining "check it" as "send it to the
+  REPL". Body keeps the =nc= one-liner as *the better Bash command*, the
+  pattern every Clojure eval skill uses.
+
+Test D1-D4 on the current four skills first: if they lift q06/q12/q13 without
+the merge, the merge is a separate question (maintenance, not triggering).
