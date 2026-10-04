@@ -66,10 +66,23 @@ read back is the value.
 - **`,profile` on a fast form prints `No samples recorded.`** It is a sampling
   profiler with nothing to sample, not a broken profiler. Use a workload of at
   least ~0.5 s.
-- **`,locals` may report "No local variables"** at a frame where an argument is
-  clearly in scope. Unexplained. Do not conclude the variable is unbound.
-- **Each connection is a fresh REPL.** `$N` numbering restarts and bindings from
-  a previous invocation are gone. State only persists within one connection.
+- **`,locals` reports only variables that are still live.** At a `,break`
+  (procedure entry) nothing is live yet, so it says "No local variables"; after
+  `,step` an argument already used shows as `_`. Read arguments from `,bt` or
+  `,frame`, or `,up` into the caller (Guile 3.0.10 `system/vm/frame.scm:213-301`).
+  Do not conclude the variable is unbound.
+- **`,locals` can crash the whole REPL.** Measured on Guile 3.0.10 (Homebrew,
+  macOS): after an error inside a `let` whose binding holds an unboxed number,
+  `,up` then `,locals` printed one variable and the process died with SIGSEGV
+  (status 139). Everyone attached to that REPL, a Geiser session included, loses
+  it. Prefer `,bt` and `,frame` on a shared REPL.
+- **Connections share one Guile image.** Each connection gets its own REPL loop,
+  but top-level definitions go into the shared `(guile-user)` module, and the `$N`
+  history keeps counting across connections. Measured on 0.4.0: `(define x 42)` on
+  one connection, then `x` on the next, returned `42`, through the proxy and on
+  the raw port alike. So a `define` from an agent lands in the human's Geiser
+  session too. Clean up what you define, or work inside your own module. A new
+  connection does **not** reload a changed module; see the next point.
 - **Reload after editing.** A module already loaded does not pick up file
   changes: `(reload-module (resolve-module '(my mod)))`. Redefining a record type
   or a GOOPS class leaves existing instances on the old definition.

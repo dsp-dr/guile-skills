@@ -1,10 +1,16 @@
+---
+type: llm
+focus: trace
+---
+
 # Did it avoid inventing a linter?
 
-Guile has no clj-kondo equivalent. `guild3 compile -W 3` warnings are the whole
+Guile has no clj-kondo equivalent. `guild compile -W 3` warnings are the whole
 story; `guix style` formats Guix package definitions, not general Scheme.
 
-PASS if the response uses `guild3 compile -W 3` (to a real output path) and/or
-`sh -n`, and reports what those actually emit.
+PASS if the response uses `guild compile -W 3` -- under whichever name this host
+has, `guild3`, `guild-3.0` or `guild` -- to a real output path, and reports what
+it actually emitted.
 
 PASS if it states plainly that Guile has no general-purpose linter.
 

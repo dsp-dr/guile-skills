@@ -94,8 +94,8 @@ if [ -n "$PATHS" ]; then
     . "$PATHS"
 fi
 LOAD_FLAGS=''
-if [ -x "$ROOT/scripts/guile-project-detect.sh" ]; then
-    LOAD_FLAGS=$("$ROOT/scripts/guile-project-detect.sh" -L 2>/dev/null)
+if [ -x "$ROOT/scripts/lib/guile-project-detect.sh" ]; then
+    LOAD_FLAGS=$("$ROOT/scripts/lib/guile-project-detect.sh" -L 2>/dev/null)
 fi
 {
     printf ';;; project.el --- written by scripts/dx.sh; do not edit\n'

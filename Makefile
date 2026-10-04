@@ -12,7 +12,7 @@ PROXY_SCRIPTS  := skills/repl-proxy/scripts
 GUILE ?= $(shell command -v guile3 2>/dev/null || command -v guile-3.0 2>/dev/null || echo guile)
 GUILD ?= $(shell command -v guild3 2>/dev/null || command -v guild-3.0 2>/dev/null || echo guild)
 
-.PHONY: eval-suite audit dx dx-kill wip try-clean check-contracts fmt check-scheme help start stop status eval lint lint-org lint-claude test check-evals check-frontmatter check-monitors check-scripts check-version sync-scripts checks try try-in ship-check readme paths clean release-staging release-production
+.PHONY: references eval-suite audit dx dx-kill wip try-clean check-contracts fmt check-scheme help start stop status eval lint lint-org lint-claude test check-evals check-frontmatter check-monitors check-scripts check-version sync-scripts checks try try-in ship-check readme paths clean release-staging release-production
 
 help:
 	@echo "guile-skills"
@@ -43,6 +43,7 @@ help:
 	@echo "  gmake readme   regenerate the generated .md docs from their .org sources"
 	@echo "  gmake clean    remove compiled files"
 	@echo ""
+	@echo "  gmake references  fetch and verify the pinned Emacs/Guile/Geiser sources (outside the repo)"
 	@echo "  gmake dx       tmux session: emacs -nw, the REPL, a validator harness"
 	@echo "  gmake dx-kill  tear that session down, REPL and proxy included"
 	@echo "  gmake wip      what is uncommitted, unpushed or unnoted, every worktree"
@@ -94,6 +95,8 @@ lint:
 
 test:
 	@./tests/test-proxy.sh
+	@./tests/test-dir-locals.sh
+	@./tests/test-release-idempotency.sh
 
 # Tracked .org files only, so a stray scratch file in the tree is not linted.
 ORG_FILES := $(shell git ls-files '*.org' 2>/dev/null)
@@ -183,6 +186,11 @@ try-clean:
 # One session holding the four things you actually do: edit, a REPL, the metadata
 # checks on a loop, and a shell. Emacs runs on a PROJECT-LOCAL profile, so the
 # user's own ~/.emacs.d is never read or written.
+# The pinned source corpus reviewers read instead of recalling (scripts/references.tsv).
+# Lives under $$XDG_CACHE_HOME, shared read-only by every worktree; ~1 GB.
+references:
+	@./scripts/fetch-references.sh
+
 dx:
 	@./scripts/dx.sh
 

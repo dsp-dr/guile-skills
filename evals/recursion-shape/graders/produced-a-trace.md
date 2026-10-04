@@ -1,3 +1,9 @@
+---
+type: llm
+focus: trace
+weight: 2
+---
+
 # Was a real trace produced?
 
 PASS if the response contains actual `,trace` output from a running Guile — the

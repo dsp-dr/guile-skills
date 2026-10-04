@@ -1,0 +1,244 @@
+[
+ {
+  "id": "q01",
+  "run": 0,
+  "calls": [
+   "skill:guile:repl-server"
+  ]
+ },
+ {
+  "id": "q01",
+  "run": 1,
+  "calls": [
+   "skill:guile:repl-server"
+  ]
+ },
+ {
+  "id": "q02",
+  "run": 0,
+  "calls": [
+   "skill:guile:repl-server"
+  ]
+ },
+ {
+  "id": "q02",
+  "run": 1,
+  "calls": [
+   "skill:guile:repl-server"
+  ]
+ },
+ {
+  "id": "q03",
+  "run": 0,
+  "calls": [
+   "tool:Bash"
+  ]
+ },
+ {
+  "id": "q03",
+  "run": 1,
+  "calls": [
+   "tool:Bash"
+  ]
+ },
+ {
+  "id": "q04",
+  "run": 0,
+  "calls": [
+   "skill:guile:emacs-setup"
+  ]
+ },
+ {
+  "id": "q04",
+  "run": 1,
+  "calls": [
+   "skill:guile:emacs-setup"
+  ]
+ },
+ {
+  "id": "q05",
+  "run": 0,
+  "calls": [
+   "tool:Bash"
+  ]
+ },
+ {
+  "id": "q05",
+  "run": 1,
+  "calls": [
+   "tool:Bash"
+  ]
+ },
+ {
+  "id": "q06",
+  "run": 0,
+  "calls": [
+   "tool:Bash"
+  ]
+ },
+ {
+  "id": "q06",
+  "run": 1,
+  "calls": [
+   "tool:Bash"
+  ]
+ },
+ {
+  "id": "q07",
+  "run": 0,
+  "calls": [
+   "skill:guile:repl-eval"
+  ]
+ },
+ {
+  "id": "q07",
+  "run": 1,
+  "calls": []
+ },
+ {
+  "id": "q08",
+  "run": 0,
+  "calls": [
+   "tool:Bash"
+  ]
+ },
+ {
+  "id": "q08",
+  "run": 1,
+  "calls": [
+   "skill:guile:repl-eval"
+  ]
+ },
+ {
+  "id": "q09",
+  "run": 0,
+  "calls": [
+   "skill:guile:repl-proxy"
+  ]
+ },
+ {
+  "id": "q09",
+  "run": 1,
+  "calls": [
+   "skill:guile:repl-proxy"
+  ]
+ },
+ {
+  "id": "q10",
+  "run": 0,
+  "calls": [
+   "tool:Bash"
+  ]
+ },
+ {
+  "id": "q10",
+  "run": 1,
+  "calls": [
+   "tool:Bash"
+  ]
+ },
+ {
+  "id": "q11",
+  "run": 0,
+  "calls": [
+   "skill:guile:repl-proxy"
+  ]
+ },
+ {
+  "id": "q11",
+  "run": 1,
+  "calls": [
+   "skill:guile:repl-proxy"
+  ]
+ },
+ {
+  "id": "q12",
+  "run": 0,
+  "calls": [
+   "tool:Bash"
+  ]
+ },
+ {
+  "id": "q12",
+  "run": 1,
+  "calls": [
+   "tool:Bash"
+  ]
+ },
+ {
+  "id": "q13",
+  "run": 0,
+  "calls": [
+   "tool:Bash"
+  ]
+ },
+ {
+  "id": "q13",
+  "run": 1,
+  "calls": [
+   "tool:Bash"
+  ]
+ },
+ {
+  "id": "n01",
+  "run": 0,
+  "calls": []
+ },
+ {
+  "id": "n01",
+  "run": 1,
+  "calls": []
+ },
+ {
+  "id": "n02",
+  "run": 0,
+  "calls": []
+ },
+ {
+  "id": "n02",
+  "run": 1,
+  "calls": []
+ },
+ {
+  "id": "n03",
+  "run": 0,
+  "calls": [
+   "tool:Bash"
+  ]
+ },
+ {
+  "id": "n03",
+  "run": 1,
+  "calls": [
+   "tool:Bash"
+  ]
+ },
+ {
+  "id": "n04",
+  "run": 0,
+  "calls": [
+   "tool:Bash"
+  ]
+ },
+ {
+  "id": "n04",
+  "run": 1,
+  "calls": [
+   "tool:Bash"
+  ]
+ },
+ {
+  "id": "n05",
+  "run": 0,
+  "calls": [
+   "tool:Bash"
+  ]
+ },
+ {
+  "id": "n05",
+  "run": 1,
+  "calls": [
+   "tool:Bash"
+  ]
+ }
+]

@@ -323,7 +323,7 @@ artifact --- no baseline file, no threshold, no target, not in CI.
   implemented. ~PLAN.org:44~'s own line --- "a check that cannot fail is
   decoration" --- currently applies to the eval suite itself.
 - *Gate 2 is violated by our own artifact.*
-  ~skills/guile-repl-eval-workspace/iteration-1/benchmark.md~ is an unfilled
+  ~evals/workspace/guile-repl-eval-workspace/iteration-1/benchmark.md~ is an unfilled
   template: ~**Model**: <model-name>~, ~Pass Rate 0% ± 0%~, and "(3 runs each per
   configuration)" contradicting ~runs_per_configuration: 1~ in the JSON beside
   it. No ~benchmark.md~ exists for proxy or server at all.

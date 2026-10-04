@@ -20,15 +20,35 @@ name: Publish on merge
 on:
   pull_request:
     types: [closed]
+  # Recovery: publishes whatever version main names, idempotently. Safe to run
+  # at any time -- a version already published is a green no-op, and a publish
+  # that stopped between tag and release is finished (scripts/release.sh).
+  workflow_dispatch:
 
 permissions:
   contents: write
 
+# One publish at a time, queued rather than cancelled. Merging a release PR that
+# folds in other PRs fires `closed' for each of them, and any that carried
+# `deployable' starts its own publish of the SAME main. For 0.4.0, #22 and #26
+# both started, both passed the tag check before either had created the tag, and
+# raced on an immutable tag until one was cancelled by hand (after a 502).
+# Serialised, the second run sees the tag and stops as below.
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
 jobs:
   publish:
+    # base.ref == main: a PR merged into another PR's branch changed nothing on
+    # main, yet without this its `closed' event would publish main anyway. That
+    # is a no-op when main's version is already out, and an early publish when
+    # it is not. Stacked deployable PRs are not a supported path (RELEASING.org).
     if: >-
-      github.event.pull_request.merged == true &&
-      contains(github.event.pull_request.labels.*.name, 'deployable')
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged == true &&
+       github.event.pull_request.base.ref == 'main' &&
+       contains(github.event.pull_request.labels.*.name, 'deployable'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -44,19 +64,32 @@ jobs:
           echo "tag=v$version"    >> "$GITHUB_OUTPUT"
           echo "publishing v$version"
 
-      - name: Stop if that tag already exists
+      # The state machine lives in scripts/release.sh (tested by
+      # tests/test-release-idempotency.sh); this step only asks it. `done' skips
+      # every later step and the run is green; `conflict' fails; `none' and
+      # `resume' go on to the gate and publish, which finishes what is missing.
+      - name: Publish state
+        id: tagcheck
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if git rev-parse --verify --quiet "refs/tags/${{ steps.v.outputs.tag }}" >/dev/null; then
-            echo "::error::${{ steps.v.outputs.tag }} already exists. Raise version in plugin.json."
-            exit 1
-          fi
+          tag="${{ steps.v.outputs.tag }}"
+          state=$(GH=gh ./scripts/release.sh status "$tag")
+          echo "state of $tag: $state"
+          case $state in
+            done)      echo "skip=true" >> "$GITHUB_OUTPUT" ;;
+            conflict*) echo "::error::$tag exists at ${state#conflict }, not at HEAD. Raise version in plugin.json."; exit 1 ;;
+          esac
 
       - name: Install Guile and netcat
+        if: steps.tagcheck.outputs.skip != 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y guile-3.0 netcat-openbsd
+          sudo apt-get install -y --no-install-recommends emacs-nox
 
       - name: Install gh with `gh skill` (needs >= 2.90.0)
+        if: steps.tagcheck.outputs.skip != 'true'
         run: |
           curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
           sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
@@ -67,17 +100,24 @@ jobs:
           gh skill --help >/dev/null 2>&1 || {
             echo "::error::this gh has no \`gh skill\`; cannot publish"; exit 1; }
 
-      - name: Install Claude Code CLI
-        run: npm install -g @anthropic-ai/claude-code
+      - name: Install the pinned Claude Code CLI
+        if: steps.tagcheck.outputs.skip != 'true'
+        run: |
+          pinned=$(python3 -c "import json;print(json.load(open('contracts/cell.json'))['claude_cli'])")
+          echo "contracts/cell.json pins $pinned"
+          npm install -g "@anthropic-ai/claude-code@$pinned"
+          claude --version
 
       # The same gate a human runs locally: tests, manifest validation, eval
       # suites, and `gh skill publish --dry-run', then the real publish.
       - name: Gate and publish
+        if: steps.tagcheck.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: ./scripts/release.sh production "${{ steps.v.outputs.tag }}"
 
       - name: Summary
+        if: steps.tagcheck.outputs.skip != 'true'
         run: |
           {
             echo "### Published ${{ steps.v.outputs.tag }}"

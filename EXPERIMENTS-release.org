@@ -1,0 +1,166 @@
+#+TITLE: Experiments: shipping a release, and knowing whether it shipped
+#+DATE: 2026-09-30
+#+AUTHOR: dsp-dr
+
+What the 0.4.0 release taught about this repository's release machinery: the
+rename's migration, a race the release itself triggered, the idempotency that
+fixed it, a TLA+ model of the labels and the pipeline, and what already exists
+that the model rediscovers.
+
+Run on a macOS laptop (Darwin 24.1, arm64), Claude Code 2.1.285 and 2.1.286, on
+2026-09-30, and in GitHub Actions (ubuntu-latest, pinned CLI 2.1.261). Labels as
+in [[file:EXPERIMENTS-channels.org][EXPERIMENTS-channels.org]]: *measured* (run and watched), *inherited* (read,
+not run), *not established* (not settled, and saying so).
+
+* R1 -- Does =renames= carry an install across a plugin rename?
+
+*Question.* 0.4.0 renames the plugin =guile-skills= to =guile=. The marketplace
+declares =renames: {guile-skills: guile}=. What happens to an existing install?
+
+*Result.* Half of it. In a throwaway =CLAUDE_CONFIG_DIR=: after =marketplace
+update=, =plugin list= notes "Renamed to guile" but still lists 0.3.0.
+=plugin update guile-skills@guile-skills= fails with "not found", after which
+=enabledPlugins= holds =guile@guile-skills= and =installed_plugins= is empty.
+=plugin install guile@guile-skills= completes it. The field itself is strictly
+validated: a non-string value, an array, a misspelled key and a target missing
+from =plugins[]= all fail =--strict=.
+
+*Label:* measured, on 2.1.285. CI's =validate --strict= on the pinned 2.1.261
+accepted the field; the migration itself was not re-run there.
+
+*Consequence.* The README tells users to reinstall under the new name, and
+=contracts/artifacts.json= records the sequence.
+
+* R2 -- The release PR raced itself
+
+*Question.* #26 folded #22-#25 in with merge commits, so that merging it would
+mark them merged too. What does =publish.yml= see?
+
+*Result.* One =closed= event per PR. #23-#25 were not =deployable= and skipped.
+#22 *was*, so two publish runs started on the same =main= in the same second.
+Both passed "stop if that tag already exists" before either had created
+=v0.4.0=, so both would have run =gh skill publish --tag v0.4.0= against a
+ruleset-immutable tag. #26's won and published (=c3ee1e4=, 19:12:34Z). #22's was
+cancelled by hand, after the first cancel returned a GitHub 502.
+
+*Label:* measured (runs =36763939163=, published; =36763942588=, cancelled).
+
+*Lesson.* A check-then-act on shared state without mutual exclusion is a race,
+even in CI. The cancel landing in time was luck.
+
+* R3 -- Idempotent publishing
+
+*Question.* What does a publish have to look at to be safe to run again?
+
+*Result.* Both artifacts. =gh skill publish= creates a tag and then a release,
+and a run can die between the two. A first fix (skip when the tag is at HEAD)
+made duplicates safe but made that half state permanent, since every later run
+would skip it. =scripts/release.sh status TAG= now reports none, done,
+resume or conflict, and =production= acts on it: publish, no-op, create only the
+release, or refuse. It re-reads the state afterwards, so a publish that reports
+success but leaves no release fails. =publish.yml= runs in one =concurrency=
+group, queued rather than cancelled, and gains =workflow_dispatch= for recovery.
+
+=tests/test-release-idempotency.sh= drives every state with a stubbed =gh=
+against a throwaway origin: the new script passes 6/6 and the old one 1/6.
+Against the real repository, =status v0.4.0= from =main='s commit says =done=.
+
+*Label:* measured. Shipped in #28.
+
+* R4 -- A model of the labels and the pipeline
+
+*Question.* From a PR's labels, can a person tell whether it passed, and
+whether it shipped?
+
+*Method.* [[file:tla/GuilePublish.tla][tla/GuilePublish.tla]] transcribes =gate.yml=, =publish.yml= and
+=release.sh=, in the style of =aygp-dr/standard-change/tla=: one boolean
+constant per rule, and [[file:tla/check.sh][tla/check.sh]] runs every rule both ways. The details
+are in [[file:tla/README.org][tla/README.org]].
+
+*Result.* All eight rules on: 125,373 distinct states, no error. Each rule off
+produces its named violation, 8 of 8. With the rules as deployed on =main=,
+the publish side holds (=NoFalseGreen=, =NoTagRace=, =NoRedOnPublished=) and
+the labels do not. TLC's shortest counterexamples:
+
+| Invariant | Counterexample |
+|-----------+----------------|
+| =EndMeansHeadPassed= | commit 0 passes (=release:end=); a push's gate fails; the PR still shows =release:end= |
+| =GateFailureVisible= | a failed gate leaves the labels at ={}=, the same as never having run |
+| =PublishOutcomeVisible= | a failed publish changes nothing on the PR |
+
+*Label:* measured (TLC 2.19, Java 21).
+
+*Two findings the model made about its own design.* =CurrentHeadOnly= was first
+paired with the wrong invariant; the check showed its absence breaks
+=EndMeansHeadPassed=, not =NoStuckStart=. And guarding only the /end/ of a
+stale gate run leaves =release:start= stuck forever, so the rule has to cover
+the start too.
+
+* R5 -- Is this just other workflows, rebuilt?
+
+*Question.* Is a hand-built label state machine standard practice for a CI/CD
+system with several live versions?
+
+*Result.* Mostly it rebuilds existing primitives:
+
+| Our mechanism | The standard primitive | What the primitive gives that labels cannot |
+|---------------+------------------------+---------------------------------------------|
+| =release:start= / =release:end= | check runs and a required status check | state per /commit/, so a new push can never inherit an old verdict |
+| a publish outcome label (proposed) | GitHub Deployments and environments | per-version history, status, "what is live where" |
+| serialised, idempotent tagging | release-please, semantic-release, changesets | the release-PR pattern, done |
+| races between publish runs | =concurrency= groups, merge queues | mutual exclusion by design |
+| several live versions, users pin one | package registries (npm dist-tags, PyPI) | the whole model |
+
+What is ours: the directory (R6); checking claims against the CLI and the
+pinned source rather than the documentation (=contracts/=, =gmake references=);
+and the reason =aygp-dr/standard-change= models labels at all, which is that it
+chose them as its ITIL state carrier, with class, lifecycle and action on
+separate axes. That model needs TLA+ because of that choice. This repository
+inherited the labels without the reason.
+
+*Label:* inherited for the prior art (not re-run here). One detail is not
+established: whether a deployment recorded against a merge commit appears on
+the merged PR's timeline.
+
+*Decision.* =release:start= and =release:end= are *kept*: another system reads
+them. So the model's job changes from "which labels to fix" to "the exact
+semantics a consumer must handle". That consumer must treat =release:end= as
+"some commit of this PR passed", not "the head passed" (=EndMeansHeadPassed=).
+It must treat the absence of both labels as "failed *or* never ran"
+(=GateFailureVisible=), and read nothing about publishing from them
+(=PublishOutcomeVisible=). The four label changes in =tla/README.org= are
+deferred. Adding a label is safe for that consumer; changing what an existing
+label means is not.
+
+* R6 -- The directory is a second state machine, and nothing here observes it
+
+*Question.* Is the directory webhook part of the state this models?
+
+*Result.* No, and it cannot be the same machine. [[file:RELEASING.org][RELEASING.org]] records that the
+directory "tracks =main= and reads the version from
+=.claude-plugin/plugin.json=; the tag is a git artifact beside that, not the
+mechanism. The push is what the directory sees", and that "a listing held for
+content-policy review stays held". So the directory is driven by the *push to
+main*, in parallel with =publish.yml=, not downstream of it. The two can
+disagree in both directions:
+
+- publish fails (no tag, no release), yet the directory ingests the push and
+  goes live;
+- publish is green, yet the listing is held, or the delivery failed and the
+  directory never saw it.
+
+"Published" in R3 and R4 means published *on GitHub*. That is not what a
+directory user gets.
+
+*Label:* inherited (RELEASING.org, secrets.org). Not established from here:
+which events the webhook subscribes to, whether 0.4.0's deliveries succeeded,
+and the listing's state. Reading deliveries needs =admin:repo_hook=, and the
+portal needs the maintainer's session. Both are the directory administrator's
+side, on another host.
+
+*Consequence.* A model that includes the directory would add an unobserved
+component beside PUBLISH: delivery (pending, delivered, failed) and listing
+(absent, scanning, live, held). It would add an invariant this repository cannot
+check today: every version live in the directory was gated. Worth writing once
+the administrator's side can report those states. Until then, the honest
+statement is that the machine modelled here ends at GitHub.

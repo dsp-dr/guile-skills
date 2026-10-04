@@ -32,11 +32,16 @@ for guile_candidate in guile3 guile-3.0 guile; do
     command -v "$guile_candidate" >/dev/null 2>&1 && { GUILE=$guile_candidate; break; }
 done
 GUILE=${GUILE:-guile}
-if nc -h 2>&1 | grep -q '\-N'; then NCS="-N"; else NCS=""; fi
+# Behaviour, not help text: macOS nc lists -N but means "adaptive write timeout"
+# by it and rejects the bare flag. Decided against the live REPL below, once.
+NCS="-N"
 
+# Kill only the PIDs this run started (docs/isolation.org, step 6). A pattern --
+# even one carrying the derived port -- reaches whatever else matches it, and
+# another session's REPL is someone else's work.
+PIDS=''
 cleanup() {
-    pkill -f "guile-repl-proxy.scm --listen $PROXY_PORT" 2>/dev/null
-    pkill -f "listen=$PORT" 2>/dev/null
+    for pid in $PIDS; do kill "$pid" 2>/dev/null; done
     rm -rf "$WORK"
 }
 trap cleanup EXIT INT TERM
@@ -49,10 +54,16 @@ echo "test-proxy: $GUILE, port $PORT -> proxy $PROXY_PORT"
 
 # --- bring up REPL and proxy ----------------------------------------------
 $GUILE --debug --listen="$PORT" -c '(sleep 90)' >/dev/null 2>&1 &
+PIDS="$PIDS $!"
 sleep 2
 "$ROOT/skills/repl-proxy/scripts/guile-repl-proxy.scm" --listen "$PROXY_PORT" --target "$PORT" --log "$LOG" \
     >"$WORK/proxy.err" 2>&1 &
+PROXY_PID=$!
+PIDS="$PIDS $PROXY_PID"
 sleep 3
+
+# Empty input evaluates nothing, so this does not disturb E1's `$1 = 2'.
+printf '' | nc -N 127.0.0.1 "$PORT" >/dev/null 2>&1 || NCS=""
 
 # --- E1: the socket REPL answers -----------------------------------------
 out=$(printf '(+ 1 1)\n' | nc $NCS 127.0.0.1 "$PORT" 2>/dev/null)
@@ -100,17 +111,86 @@ case $err in
 esac
 
 # --- E5: rotation past the threshold --------------------------------------
-pkill -f "guile-repl-proxy.scm --listen $PROXY_PORT" 2>/dev/null
+kill "$PROXY_PID" 2>/dev/null
 sleep 1
 ROT="$WORK/rot.log"
 dd if=/dev/zero bs=1024 count=4200 2>/dev/null | tr '\0' 'x' > "$ROT"
 "$ROOT/skills/repl-proxy/scripts/guile-repl-proxy.scm" --listen "$PROXY_PORT" --target "$PORT" --log "$ROT" \
     >/dev/null 2>&1 &
+ROT_PID=$!
+PIDS="$PIDS $ROT_PID"
 sleep 3
 if [ -f "$ROT.1" ] && [ "$(wc -c < "$ROT")" -lt 4194304 ]; then
     check yes 'E5 log rotates past 4 MiB'
 else
     check no  'E5 log rotates past 4 MiB'
+fi
+
+# --- E8: connections share the image's top-level bindings -----------------
+# repl-eval's SKILL.md said each connection was a fresh REPL whose bindings were
+# gone. They are not: a define on one connection is visible on the next.
+printf '(define e8-shared 314)\n' | nc $NCS 127.0.0.1 "$PROXY_PORT" >/dev/null 2>&1
+out=$(printf 'e8-shared\n' | nc $NCS 127.0.0.1 "$PROXY_PORT" 2>/dev/null)
+case $out in *'= 314'*) check yes 'E8 a define on one connection is visible on the next';;
+             *)         check no  'E8 a define on one connection is visible on the next';; esac
+
+# --- E7: rotation BETWEEN connections reopens the log ----------------------
+# Before 0.4.0 the open port kept writing to the renamed file: after the first
+# mid-run rotation everything went to LOG.1 and LOG never came back.
+dd if=/dev/zero bs=1024 count=4200 2>/dev/null | tr '\0' 'x' >> "$ROT"
+printf '(+ 1 1)\n' | nc $NCS 127.0.0.1 "$PROXY_PORT" >/dev/null 2>&1   # rotates after it closes
+sleep 1
+printf '(+ 2 2)\n' | nc $NCS 127.0.0.1 "$PROXY_PORT" >/dev/null 2>&1
+sleep 1
+if [ -f "$ROT" ] && grep -q '(+ 2 2)' "$ROT" && [ "$(wc -c < "$ROT")" -lt 4194304 ]; then
+    check yes 'E7 a rotation between connections reopens the log'
+else
+    check no  'E7 a rotation between connections reopens the log'
+fi
+
+# --- E9: a client that drops early does not kill the proxy -----------------
+# repl-eval probes liveness with `nc -z', which connects and disconnects before
+# the REPL's banner is forwarded. Until 0.4.2 the next write raised SIGPIPE and
+# the proxy died silently (exit 141): the FIRST repl-eval call through the proxy
+# killed it. Measured: the unfixed proxy dies on 2 of 4 suite runs with one
+# probe, and the fixed one survives 10 of 10.
+kill "$ROT_PID" 2>/dev/null; sleep 1
+"$ROOT/skills/repl-proxy/scripts/guile-repl-proxy.scm" --listen "$PROXY_PORT" --target "$PORT" \
+    --log "$WORK/e9.log" >"$WORK/e9.err" 2>&1 &
+E9_PID=$!
+PIDS="$PIDS $E9_PID"
+sleep 2
+# The death is a race (about 60% per probe on the unfixed proxy, measured), so
+# probe five times: an unfixed proxy survives all five roughly 1% of the time.
+for _ in 1 2 3 4 5; do
+    nc -z 127.0.0.1 "$PROXY_PORT" >/dev/null 2>&1
+    sleep 0.5
+done
+sleep 1
+if kill -0 "$E9_PID" 2>/dev/null; then
+    out=$(GUILE_REPL_PORT=$PORT GUILE_SKILL_DATA="$WORK" \
+          sh "$ROOT/skills/repl-eval/scripts/guile-repl-eval.sh" '(+ 40 2)' 2>&1)
+    case $out in *'= 42'*) check yes 'E9 the proxy survives an early disconnect, and repl-eval works through it';;
+                 *)        check no  "E9 repl-eval through the surviving proxy failed: $out";; esac
+else
+    wait "$E9_PID" 2>/dev/null; rc=$?
+    check no "E9 the proxy died after an early disconnect (exit $rc; 141 is SIGPIPE) err=[$(head -c 300 "$WORK/e9.err")] log=[$(tail -c 300 "$WORK/e9.log" 2>/dev/null)]"
+fi
+
+# --- E10: the proxy ignores SIGPIPE (deterministic) -------------------------
+# E9 exercises the real path but is a race. This checks the mechanism itself:
+# a proxy that ignores SIGPIPE survives `kill -PIPE`; one that does not dies
+# every time, with no output and exit 141.
+if kill -0 "$E9_PID" 2>/dev/null; then
+    kill -PIPE "$E9_PID" 2>/dev/null
+    sleep 1
+    if kill -0 "$E9_PID" 2>/dev/null; then
+        check yes 'E10 the proxy ignores SIGPIPE'
+    else
+        check no  'E10 the proxy died on SIGPIPE'
+    fi
+else
+    check no 'E10 not run: the E9 proxy was already dead'
 fi
 
 echo

@@ -52,3 +52,8 @@ skill:repl-server:
   - changed-files:
       - any-glob-to-any-file:
           - "skills/repl-server/**"
+
+skill:emacs-setup:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "skills/emacs-setup/**"

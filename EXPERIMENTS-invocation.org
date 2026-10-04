@@ -1,0 +1,121 @@
+#+TITLE: Experiments: which skill does a prompt actually invoke?
+#+DATE: 2026-09-30
+#+AUTHOR: dsp-dr
+
+Earlier benchmarks (=evals/workspace/=) measured what a skill does *once
+loaded*. They showed little quality change (+0.04 to +0.10 pass rate) and mostly
+time savings. Nothing measured *invocation*: whether a prompt reaches a skill
+at all. That decides whether four skills should become fewer.
+
+Run on a macOS laptop, Claude Code 2.1.285, the plugin at 0.4.0 (=guile=, four
+skills) loaded with =--plugin-dir=, in the user's real configuration, with about
+80 of their own skills competing. The runner and data are in [[file:evals/trigger/][evals/trigger/]].
+Labels as in [[file:EXPERIMENTS-release.org][EXPERIMENTS-release.org]].
+
+* T1 -- First tool call
+
+*Method.* 18 prompts: 13 that should reach a Guile skill (some accept either of
+two) and 5 that should not (Python, a conceptual question, Rust Emacs, a README
+typo, a Clojure nREPL). Two runs each, in a scratch project with modules under
+=irc/= rather than =src/=. Only the =Skill= tool is allowed, and a run is scored
+by its first tool call.
+
+*Result.* 22/36 = 0.61, below the 0.85 bar. No false positives: none of the
+five negatives reached a Guile skill.
+
+| Prompt shape | Result |
+|--------------+--------|
+| names the thing ("start a guile repl", "emacs with geiser", "record everything evaluated", "connect my emacs to the agent's repl") | 2/2 each, the right skill |
+| generic setup ("set up this project so I can debug it", "get this guile project ready", "set up guile") | Bash first, both runs |
+| "does srfi-1's fold take the accumulator first? check it" | Bash first; it ran guile itself, bypassing the logged proxy |
+| "Geiser connects but (use-modules ...) fails" | Bash first; debugged by hand |
+
+*Label:* measured. =evals/trigger/results/2026-09-30-first-tool.json=.
+
+* T2 -- Allowing four tool calls first
+
+*Question.* Is "first tool call" too strict, and do those prompts reach a skill
+after one look around?
+
+*Result.* Sometimes. Of the eight failing or half-passing prompts, re-run
+allowing up to four tool calls: "set up this project so I can debug it" reached
+=emacs-setup= in 1 of 2 runs, and "set up guile" reached =repl-server= in 1 of 2.
+The =fold= prompt never did (0/4 over T1 and T2), and neither did the
+=use-modules= one or "get this guile project ready".
+
+*Label:* measured. =evals/trigger/results/2026-09-30-first-four-tools.json=.
+
+* T3 -- Did 0.4.1's guidance fixes move invocation?
+
+*Question.* Between T1 (0.4.0) and 0.4.1, the skills' guidance changed
+(=emacs-setup= on when Geiser sends the load path; =repl-eval= on what a
+connection shares). Their descriptions, which are what triggering matches on,
+did not. Does invocation change?
+
+*Result.* No. 22/36 = 0.61 again, with three prompts trading places and every
+other prompt unchanged:
+
+| Prompt | 0.4.0 | 0.4.1 |
+|--------+-------+-------|
+| "geiser connects but (use-modules (irc irc)) says no code for module" | 0/2 | 2/2, =emacs-setup= |
+| "what does the call tree of (fib 5) look like" | 1/2 | 0/2 |
+| "profile the connect procedure in irc/irc.scm" | 1/2 | 0/2 |
+
+Two runs per prompt cannot separate these from noise. Neither can the total:
+36 runs put 0.61 inside a 95% interval of about +/-0.16. So the finding is
+narrower than it first read: *no change large enough for this benchmark to
+see*, roughly 16 points or more. It is not "guidance does not move
+invocation". (Correction, 2026-10-02, after a power check prompted by "On
+Randomness in Agentic Evals", arXiv 2602.07150: single-run agentic scores swing
+2-6 points, and its authors recommend multi-run pass@1 with a power
+analysis.) The generic "set up" prompts
+and the =fold= "check it" prompt still reach no skill. That points back at
+the skill boundaries and descriptions, as T1 and T2 did.
+
+*Label:* measured, against the rebased #30 tree, 2026-10-01.
+=evals/trigger/results/2026-10-01-0.4.1-first-tool.json=.
+
+* T4 -- The same prompt, isolated: claude plugin eval tier 1
+
+*Question.* Can invocation be measured with a no-plugin baseline and without
+the user's competing skills, on this machine?
+
+*Result.* Yes. =evals/trigger-resume= grants no Bash, so no sandbox, and has
+one deterministic grader. With the plugin the setup skill fired 3/3; without it,
+0/3, for $0.92 in 165 s. This prompt also fired in the real environment (T1, q02,
+2/2). So the case that matters next is the prompts that miss there ("set up
+guile", "get this guile project ready", the =fold= "check it"). Isolated against
+real, it separates "the description never matches" from "the description is
+outcompeted".
+
+*Label:* measured, 2026-10-04, CLI 2.1.287, plugin 0.4.2.
+
+* What it implies, and how sure
+
+Generic "set up" prompts are where invocation fails. They split between
+=repl-server= and =emacs-setup= when they reach a skill at all. That argues for
+one front door: a =setup= skill absorbing the server, the proxy's transcript
+role and Emacs, with =eval= separate and its description saying "instead of
+running guile yourself". Detecting a lift from 0.61 to 0.85 needs about 52 runs per arm; 0.61 to 0.75
+needs about 173 (two-proportion test, alpha 0.05, power 0.8). Any A/B must be
+sized for that before it is run.
+
+It is a *prediction*, not a result: 2 runs per
+prompt, prompts written by the person proposing the change, one model, one
+scratch project. The test is to re-run this benchmark after the reshape:
+
+#+begin_src sh
+python3 evals/trigger/run.py              # T1 shape
+python3 evals/trigger/run.py --tools 4    # T2 shape
+#+end_src
+
+* Isolation, learned while running it
+
+- The installed copy of the plugin came from the directory as
+  =guile-skills@synced=, not =@guile-skills=. Disabling by the marketplace name
+  did nothing, and each skill appeared twice. =run.py= now aborts a run whose
+  init lists a skill twice.
+- Plugin hooks fire under =claude -p= even with every tool denied. The runs
+  left =.baseline= files for the scratch project in two plugin data
+  directories.
+- Both are rows in [[file:docs/isolation.org][docs/isolation.org]].

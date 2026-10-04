@@ -1,0 +1,146 @@
+[
+ {
+  "id": "q03",
+  "run": 0,
+  "calls": [
+   "tool:Bash",
+   "tool:Read",
+   "tool:Agent",
+   "tool:Bash"
+  ]
+ },
+ {
+  "id": "q03",
+  "run": 1,
+  "calls": [
+   "tool:Bash",
+   "skill:guile:emacs-setup"
+  ]
+ },
+ {
+  "id": "q05",
+  "run": 0,
+  "calls": [
+   "tool:Bash",
+   "tool:Bash",
+   "tool:Read",
+   "tool:Bash"
+  ]
+ },
+ {
+  "id": "q05",
+  "run": 1,
+  "calls": [
+   "tool:Bash",
+   "tool:Bash",
+   "tool:Read",
+   "tool:Read"
+  ]
+ },
+ {
+  "id": "q06",
+  "run": 0,
+  "calls": [
+   "tool:Bash",
+   "tool:Bash"
+  ]
+ },
+ {
+  "id": "q06",
+  "run": 1,
+  "calls": [
+   "tool:Bash",
+   "tool:Bash"
+  ]
+ },
+ {
+  "id": "q07",
+  "run": 0,
+  "calls": [
+   "skill:guile:repl-eval"
+  ]
+ },
+ {
+  "id": "q07",
+  "run": 1,
+  "calls": [
+   "skill:guile:repl-eval"
+  ]
+ },
+ {
+  "id": "q08",
+  "run": 0,
+  "calls": [
+   "tool:Bash",
+   "skill:guile:repl-eval"
+  ]
+ },
+ {
+  "id": "q08",
+  "run": 1,
+  "calls": [
+   "tool:Bash",
+   "tool:Read",
+   "tool:Bash",
+   "tool:Write"
+  ]
+ },
+ {
+  "id": "q10",
+  "run": 0,
+  "calls": [
+   "tool:Bash",
+   "tool:Bash",
+   "tool:Bash",
+   "tool:Read"
+  ]
+ },
+ {
+  "id": "q10",
+  "run": 1,
+  "calls": [
+   "tool:Bash",
+   "skill:guile:repl-proxy"
+  ]
+ },
+ {
+  "id": "q12",
+  "run": 0,
+  "calls": [
+   "tool:Bash",
+   "tool:Bash",
+   "tool:Read",
+   "tool:Read"
+  ]
+ },
+ {
+  "id": "q12",
+  "run": 1,
+  "calls": [
+   "tool:Bash",
+   "tool:Bash",
+   "tool:Read",
+   "tool:Bash"
+  ]
+ },
+ {
+  "id": "q13",
+  "run": 0,
+  "calls": [
+   "tool:Bash",
+   "tool:Bash",
+   "tool:Bash",
+   "tool:Read"
+  ]
+ },
+ {
+  "id": "q13",
+  "run": 1,
+  "calls": [
+   "tool:Bash",
+   "tool:Bash",
+   "tool:Bash",
+   "skill:guile:repl-server"
+  ]
+ }
+]

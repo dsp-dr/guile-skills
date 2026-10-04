@@ -28,11 +28,15 @@ esac
 
 # <shared file>:<skill that needs it>
 # guile-repl-server.sh spawns the proxy, so the server skill carries it too.
+# emacs-setup derives the same ports and load path the REPL uses, so it
+# carries the path script and the layout detector.
 PAIRS='guile-repl-paths.sh:repl-server
 guile-repl-paths.sh:repl-eval
 guile-repl-paths.sh:repl-proxy
 guile-repl-proxy.scm:repl-server
-guile-repl-proxy.scm:repl-proxy'
+guile-repl-proxy.scm:repl-proxy
+guile-repl-paths.sh:emacs-setup
+guile-project-detect.sh:emacs-setup'
 
 drift=0
 echo "$PAIRS" | while IFS=: read -r file skill; do

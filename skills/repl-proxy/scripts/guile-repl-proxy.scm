@@ -75,19 +75,24 @@ exec "$(command -v guile3 || command -v guile-3.0 || command -v guile)" -s "$0" 
 
 Keeps LOG-FILE.1 .. LOG-FILE.N, oldest discarded. Called once at startup and
 again between connections, so a session is never cut in half mid-transcript."
-  (when (and (file-exists? log-file)
-             (> (stat:size (stat log-file)) max-log-bytes))
-    ;; Walk down from the oldest so nothing is overwritten before it moves.
-    (let loop ((n (- max-log-generations 1)))
-      (when (>= n 1)
-        (let ((older (format #f "~a.~a" log-file n))
-              (newer (format #f "~a.~a" log-file (+ n 1))))
-          (when (file-exists? older)
-            (if (= (+ n 1) max-log-generations)
-                (delete-file older)          ; falls off the end
-                (rename-file older newer))))
-        (loop (- n 1))))
-    (rename-file log-file (string-append log-file ".1"))))
+  ;; Returns #t when it rotated and #f otherwise. Not `when': its false case is
+  ;; unspecified, which is truthy, and the caller reopens the log on truth.
+  (if (and (file-exists? log-file)
+           (> (stat:size (stat log-file)) max-log-bytes))
+      (begin
+        ;; Walk down from the oldest so nothing is overwritten before it moves.
+        (let loop ((n (- max-log-generations 1)))
+          (when (>= n 1)
+            (let ((older (format #f "~a.~a" log-file n))
+                  (newer (format #f "~a.~a" log-file (+ n 1))))
+              (when (file-exists? older)
+                (if (= (+ n 1) max-log-generations)
+                    (delete-file older)          ; falls off the end
+                    (rename-file older newer))))
+            (loop (- n 1))))
+        (rename-file log-file (string-append log-file ".1"))
+        #t)
+      #f))
 
 (define (log-chunk log-port direction bv)
   "Render BV into LOG-PORT, one line per line of payload, tagged with DIRECTION."
@@ -154,8 +159,22 @@ keep forwarding the other until it closes too."
               (loop (lset-difference eq? readers retired))))))))
 
 (define (serve listen-port target-port log-file)
+  ;; Ignore SIGPIPE. Its default action terminates the process, silently: no
+  ;; stderr and exit status 141. A client that disconnects before the REPL's
+  ;; banner has been forwarded (`nc -z', which repl-eval uses as its liveness
+  ;; probe since 0.4.0, or a Geiser that gives up) made the next write raise
+  ;; SIGPIPE, so the proxy died on the first repl-eval call and every later call
+  ;; reported "nothing listening". Ignored, the write fails with EPIPE instead,
+  ;; and `pump' already catches and logs a failed write ("write to peer
+  ;; failed").
+  (sigaction SIGPIPE SIG_IGN)
   (mkdir-p (dirname log-file))
   (rotate-logs! log-file)
+  ;; log-port is reassigned after a rotation between connections. Renaming a
+  ;; file does not move an open port: before 0.4.0 the port kept writing to the
+  ;; renamed inode, so after the first rotation everything went to LOG.1,
+  ;; LOG never existed again, the size check never fired again, and LOG.1 grew
+  ;; without bound.
   (let ((log-port (open-file log-file "a"))
         (listener (socket PF_INET SOCK_STREAM 0)))
     (setsockopt listener SOL_SOCKET SO_REUSEADDR 1)
@@ -187,8 +206,10 @@ keep forwarding the other until it closes too."
              (client (car accepted)))
         (format log-port ";; connection ~a at ~a\n" n (iso-8601-now))
         (force-output log-port)
-        ;; One upstream connection per client connection: the REPL keeps state
-        ;; per connection, so reusing one would leak bindings between clients.
+        ;; One upstream connection per client connection, so each client gets its
+        ;; own REPL loop and prompt state. Top-level BINDINGS are not per
+        ;; connection: every connection shares the image's (guile-user) module and
+        ;; the $N history (measured, 0.4.1).
         (catch #t
           (lambda ()
             (let ((repl (socket PF_INET SOCK_STREAM 0)))
@@ -203,8 +224,10 @@ keep forwarding the other until it closes too."
                     "repl-proxy: no REPL on port ~a -- is it started?\n"
                     target-port)))
         (close-port client)
-        ;; Between connections, never mid-transcript.
-        (rotate-logs! log-file)
+        ;; Between connections, never mid-transcript; reopen after a rotation.
+        (when (rotate-logs! log-file)
+          (close-port log-port)
+          (set! log-port (open-file log-file "a")))
         (accept-loop (+ n 1))))))
 
 (define option-spec

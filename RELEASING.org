@@ -5,11 +5,11 @@
 This plugin's version lives in one place: =version= in [[file:.claude-plugin/plugin.json][=.claude-plugin/plugin.json=]]. Raise it on every release --- the directory and =gh skill install --pin= both key off it.
 
 ** What counts as patch / minor / major
-Semver, judged against what an installer of this plugin actually depends on: the three skills' behavior and their =SKILL.md= contracts, =skills/*/scripts/*.sh= as a public interface, and the plugin manifest itself.
+Semver, judged against what an installer of this plugin actually depends on: the skills' behavior and their =SKILL.md= contracts, =skills/*/scripts/*.sh= as a public interface, and the plugin manifest itself.
 
 | Bump    | When                                                                                                                                                                                                                                                                      |
 |---------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| *patch* | Wording/doc fixes in a =SKILL.md= or this repo's own docs; a =skills/*/scripts/*.sh= fix that doesn't change its arguments or output shape; adding a regression test; anything in =evals/= or the =*-workspace/= benchmark output.                                        |
+| *patch* | Wording/doc fixes in a =SKILL.md= or this repo's own docs; a =skills/*/scripts/*.sh= fix that doesn't change its arguments or output shape; adding a regression test; anything in =evals/= or the =evals/workspace/= benchmark output.                                        |
 | *minor* | A new skill added; a new optional flag on a =skills/*/scripts/*.sh= script; a =SKILL.md= description or instructions change that widens /when/ it triggers or /what it covers/, without breaking an existing caller.                                                      |
 | *major* | Removing or renaming a skill or a =skills/*/scripts/*.sh= script; changing a script's existing argument/output contract; changing the derived-port scheme in =guile-repl-paths.sh=; anything that would silently break someone who scripted against the previous version. |
 
@@ -28,7 +28,9 @@ gmake release-production TAG=v0.2.0      # same gate, then the real `gh skill pu
 ** Publishing from a merged PR
 
 The path labeler applies *deployable* to any PR touching =skills/=,
-=.claude-plugin/= or =scripts/lib/= --- the paths that decide what an installed
+=.claude-plugin/=, =scripts/lib/= or any other plugin component directory
+(=monitors/=, =agents/=, =hooks/=, =commands/= and the rest listed in
+=.github/labeler.yml=) --- the paths that decide what an installed
 user receives. Merging a PR that carries that label publishes a release
 (=.github/workflows/publish.yml=).
 
@@ -127,6 +129,55 @@ Two related traps, both real:
   git ls-remote origin refs/notes/commits
   git rev-parse refs/notes/commits
   #+end_src
+
+** =release:start= and =release:end= are an interface
+
+Another system reads these two labels, so their names and their current
+semantics are fixed: adding labels is fine, and changing when these two are
+set or cleared is not. What they do and do not mean, including that
+=release:end= can outlive a later failing push, is specified in
+[[file:tla/README.org][tla/README.org]] ("What a consumer of the labels must assume").
+
+** No stacked deployable PRs
+
+A PR whose base is another PR's branch gets no =checks= and no =gate=, because
+both run only for PRs into =main=. Its =deployable= label and its version bump
+are judged against a base that is not what users receive. So deployable changes
+are never stacked. When several belong in one release, *fold* them: each PR
+targets =main=, and a single release PR merges them in, carries the one bump at
+the highest level of anything inside it, and is the one that publishes. That is
+what 0.2.0 (#17, folding #8 and #12) and 0.4.0 (#26) did. =publish.yml= also
+publishes only for PRs whose base is =main=, so a stack merged by mistake starts
+no publish.
+
+Non-deployable work (docs, CI, the model) may stack freely. Nothing publishes
+for it.
+
+** Folding PRs into one release PR
+
+Merging a release PR that contains other PRs' merge commits marks each of them
+merged, and GitHub fires =closed= for every one. Any that carried =deployable=
+starts its own publish of the same =main=. For 0.4.0 that was #22 beside #26.
+=publish.yml= therefore runs in one =concurrency= group, queued rather than
+cancelled.
+
+** Publishing is idempotent
+
+=scripts/release.sh production TAG= can be rerun at any point.
+=scripts/release.sh status TAG= names the state it will act on:
+
+| state    | meaning                     | production does                                  |
+|----------+-----------------------------+--------------------------------------------------|
+| none     | no tag                      | gate, then =gh skill publish --tag=              |
+| done     | tag at HEAD, release exists | nothing; exit 0                                  |
+| resume   | tag at HEAD, no release     | gate, then =gh release create= from the tag      |
+| conflict | tag on another commit       | exit 1: a bump that did not happen               |
+
+After publishing it re-reads the state and fails unless it is =done=, so a
+publish that claims success but leaves no release is caught. To finish a stuck
+release, run the *Publish on merge* workflow by hand (=workflow_dispatch=); it
+publishes the version =main= names, and does nothing if that is already done.
+=tests/test-release-idempotency.sh= covers all four states with a stubbed =gh=.
 
 ** After the merge, confirm the release happened
 

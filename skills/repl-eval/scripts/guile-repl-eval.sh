@@ -39,13 +39,25 @@ else
     PROGRAM=$(cat)
 fi
 
-if nc -h 2>&1 | grep -q '\-N'; then NC_SHUTDOWN="-N"; else NC_SHUTDOWN=""; fi
-
-reply=$(printf '%s\n' "$PROGRAM" | nc $NC_SHUTDOWN 127.0.0.1 "$PORT" 2>/dev/null) || {
+# Decide by behaviour, not by grepping `nc -h'. The flag we want is the one that
+# half-closes after stdin EOF, so the REPL sees end of input and the reply comes
+# back. netcat-openbsd (Debian, Ubuntu) needs -N for that; without it nc waits
+# forever. macOS nc ALSO lists -N, but there it is "adaptive write timeout" and
+# takes a value, so `nc -N host port' dies with "invalid tcp adaptive write
+# timeout value" -- and the old help-grep then reported "nothing listening" while
+# the proxy was up. macOS nc half-closes on EOF by default. So: -z decides
+# whether anything is listening, -N is tried first, and plain nc is the fallback
+# only when -N itself is refused.
+if ! nc -z 127.0.0.1 "$PORT" >/dev/null 2>&1; then
     echo "repl-eval: nothing listening on 127.0.0.1:$PORT" >&2
     echo "  start one with the repl-server skill" >&2
     exit 1
-}
+fi
+reply=$(printf '%s\n' "$PROGRAM" | nc -N 127.0.0.1 "$PORT" 2>/dev/null) ||
+    reply=$(printf '%s\n' "$PROGRAM" | nc 127.0.0.1 "$PORT" 2>/dev/null) || {
+        echo "repl-eval: 127.0.0.1:$PORT accepts connections but nc could not complete a round-trip" >&2
+        exit 1
+    }
 
 if [ -z "$reply" ]; then
     echo "repl-eval: no reply from 127.0.0.1:$PORT" >&2

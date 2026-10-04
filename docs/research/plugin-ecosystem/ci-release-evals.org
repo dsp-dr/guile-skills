@@ -1,0 +1,223 @@
+#+TITLE: Plugin ecosystem survey: CI, release and eval practice
+#+DATE: 2026-10-02
+
+Slice of the four-way ecosystem survey: how other Claude Code plugin and skill
+repos test, validate, release and report. Written against guile v0.4.1, whose own
+practice (validate --strict, labeler, =gh skill publish --tag=, release gate labels,
+unscored =claude plugin eval= suite, TLA+ model) is not re-described here.
+
+Every claim is labelled *measured* (read it; source cited) or *inherited* (stated
+by someone else, not checked). "Read" means the workflow or script was read via
+=gh api .../contents=; nothing from another repo was run.
+
+* Method and limits
+
+- Code searches: 6 of 6 budget. Queries: ="claude plugin eval"=,
+  =claude plugin validate path:.github/workflows=,
+  =plugin eval path:.github/workflows ANTHROPIC_API_KEY= (zero hits),
+  =".claude-plugin/plugin.json" filename:release-please-config.json=,
+  ="gh skill publish" path:.github/workflows=,
+  =bubblewrap socat claude path:.github/workflows=. Repo searches: 0 used.
+- The crawl DB =aygp-dr/github-skills-search/data/github.db= is a *0-byte file*
+  (measured, =ls -la=, 2026-09-24 mtime), so it contributed nothing. Not touched
+  beyond =ls=.
+- Official catalog =~/.claude/plugins/marketplaces/claude-plugins-official=
+  (=.gcs-sha= ab024cdc) has no =.github/= directory: the catalog is shipped, not
+  its CI (measured).
+- GitHub code search is lexical and capped; "nobody does X" below means "none of
+  the repos found does X", not a census.
+
+* Repos examined
+
+| Repo | Pushed | What is relevant |
+|------+--------+------------------|
+| [[https://github.com/coalesce-labs/catalyst-cloud-skills][coalesce-labs/catalyst-cloud-skills]] | 2026-10-02 | *Scores =claude plugin eval= in GitHub Actions* on PR and on publish, via a verdict wrapper; deterministic description-vs-case check on every PR |
+| [[https://github.com/globalmindsolution/gms-marketplace][globalmindsolution/gms-marketplace]] | 2026-10-01 | Evals local-only by ADR; release gate judges a =--json= result with per-kind policy, Wilson-free pooled rates, freshness check; tag+release from manifest version |
+| [[https://github.com/latent-sre/homelab-agents][latent-sre/homelab-agents]] | 2026-09-24 | Replaced a 1,450-line runner with =plugin eval=; re-grades from traces because native =tool_used= counts failed spawns; dated baselines committed |
+| [[https://github.com/open-coder-ai/context-report][open-coder-ai/context-report]] | 2026-09-30 | Ingests =plugin eval --ablation with-without= JSON; Wilson / Newcombe intervals on the with-without delta |
+| [[https://github.com/lukasmalkmus/pngx][lukasmalkmus/pngx]] | - | =claude plugin validate . --strict= plus per-manifest validate; version-equality job across manifests |
+| [[https://github.com/endorlabs/ai-plugins][endorlabs/ai-plugins]] | 2026-08-27 | No =claude= CLI in CI: =quick_validate.py= per skill, =json.tool= per manifest, =bash -n= hooks, README states marketplace version |
+| [[https://github.com/anolilab/skills][anolilab/skills]] | 2026-08-31 | SHA-pinned actions, harden-runner, =npx skills@1.5.23 add . --list= discovery check, eval *scaffold* smoke-test (scaffold must produce a non-empty diff) |
+| [[https://github.com/apollographql/skills][apollographql/skills]] | - | =skills-ref validate= (from agentskills/agentskills) + =gh skill publish --dry-run= on PR; release = ours minus labels |
+| [[https://github.com/navikt/copilot][navikt/copilot]] | - | =gh skill publish --dry-run= as "agentskills.io spec" validation job gating publish |
+| [[https://github.com/agentclash/agentclash][agentclash/agentclash]] | - | Manual =workflow_dispatch= publish, =dry_run= default true; documents that =gh skill publish= cuts its own release and needs a repo-admin PAT |
+| [[https://github.com/kennedym-ds/copilot_orchestrator][kennedym-ds/copilot_orchestrator]] | - | Tag-triggered publish, writes a =$GITHUB_STEP_SUMMARY= publish record |
+| [[https://github.com/AvdLee/SwiftUI-Agent-Skill][AvdLee/SwiftUI-Agent-Skill]] | 2026-09-29 | =workflow_dispatch= with version input: semver check, refuse existing or non-increasing tag, =jq= bump of 4 plugin.json + marketplace.json, commit, release |
+| [[https://github.com/VeryGoodOpenSource/vgv-ai-flutter-plugin][VeryGoodOpenSource/vgv-ai-flutter-plugin]] | - | release-please =simple= with =extra-files= jsonpath =$.version= on =.claude-plugin/plugin.json= |
+| [[https://github.com/GoogleCloudPlatform/data-agent-kit-plugin][GoogleCloudPlatform/data-agent-kit-plugin]] | - | Same, bumping five manifests (claude, codex, root, mcp, package) in one release PR |
+| [[https://github.com/Arize-ai/phoenix][Arize-ai/phoenix]] | - | Installs =bubblewrap socat= and flips the Ubuntu 24.04 AppArmor userns sysctl so the Claude sandbox works on a runner |
+
+* Q1. Testing plugins in CI; who runs =claude plugin eval=
+
+** Finding: one repo found scores =plugin eval= in Actions, and it avoids Bash entirely
+
+*Measured* ([[https://github.com/coalesce-labs/catalyst-cloud-skills/blob/main/.github/workflows/ci.yml][ci.yml]], [[https://github.com/coalesce-labs/catalyst-cloud-skills/blob/main/scripts/run-evals.mjs][scripts/run-evals.mjs]], [[https://github.com/coalesce-labs/catalyst-cloud-skills/blob/main/evals/README.md][evals/README.md]]):
+
+- Separate =evals= job, =needs: check=, ubuntu-latest, CLI installed unpinned
+  (=bun add -g @anthropic-ai/claude-code=) but floor-asserted (>= 2.1.224 for
+  =--json= result documents).
+- Secrets: =ANTHROPIC_API_KEY_FOR_EVALS= and =CLAUDE_CODE_PLUGIN_EVAL_ENABLEMENT=,
+  the latter exported as =CLAUDE_CODE_WALNUT_SPIRE= (the early-access gate).
+  Whether that gate still exists on our CLI floor (2.1.286) is *inherited/unknown*;
+  our README says eval is "available from 2.1.286".
+- Path filter: skips (with a =::notice=) unless the diff touches =skills/=, =evals/=
+  or =.claude-plugin/=. Missing secrets produce a loud =::warning= and exit 0 —
+  "never fails open silently", never reports green having scored nothing.
+- Command: =plugin eval . --json <tmp> --threshold 1 --ablation with-without
+  --model claude-sonnet-5 --judge-model claude-haiku-4-5-20251001 --no-publish
+  --runs 3 --max-cost-usd 20=. Model pinned so a model rollout does not read as a
+  plugin regression.
+- *The exit code is not trusted.* A probe runs =plugin eval . --no-publish= in an
+  empty temp dir first: "currently in early access" = gate closed, "No eval cases
+  found" = open. Then the =--json= document is parsed and fails on: =partial: true=;
+  roster (dirs under =evals/= with =coverage.json=) not fully scored;
+  =casesTotal= ≠ cases present; any case < 1.0 with the plugin; *any baseline-arm
+  run scoring 1.0* ("not testing the skill").
+- Same suite re-runs on the publish (tag) workflow, before =npm publish=.
+- Cost design: every case is =allowed_tools: [Skill, Read, Glob, Grep]=,
+  =max_turns: 6=, one =tool_used= grader on =Skill= with an =input_match= regex and
+  =arm: both=. Zero =llm= graders, so judge cost $0; 8 cases × 3 runs × 2 arms.
+  *No Bash, so the sandbox question never arises.*
+
+** Finding: the other serious users keep scoring out of CI
+
+- *gms-marketplace* — *measured* ([[https://github.com/globalmindsolution/gms-marketplace/blob/main/scripts/eval_gate.py][scripts/eval_gate.py]]): evals are "local-only
+  ... never by CI" (ADR-0108). The release gate runs the CLI at =--threshold 0
+  --json= and applies its own policy: =negative=/=control= cases must pass every
+  run; =description= cases are pooled per skill against =--min-skill-rate= and per
+  suite against =--min-suite-rate=; =explicit= (slash) cases ungated. Refuses
+  partial runs, unknown schema, unmapped cases, missing gated cases, errored runs
+  with no turn, and *result files older than =--max-age-hours=* ("the CLI only
+  WARNS when it cannot write =--json=, so a stale file ... could otherwise be
+  judged"). Argument for not using threshold 1: a skill routing 90% scores 3/3 on
+  a prompt only 73% of the time.
+- *homelab-agents* — *measured* (=scripts/eval_routing.py= docstring): native
+  =tool_used= "counts a call whose input matches its regex whether or not the
+  spawn SUCCEEDED", and cannot express "Skill X *or* Agent Y"; so it re-grades from
+  traces and keeps native graders only as a tripwire. Also measured there: the
+  eval child session sees ~16 *bundled* CLI skills regardless of =--clean-room=, so
+  routing competes with them. Dated baselines committed under
+  =evals/baselines/2026-09-14-.../benchmark.json=.
+- *context-report* — *measured* (=efficacy/pluginval.py=): ingests the
+  with-without result and reports Wilson intervals and a Newcombe difference on
+  the delta; lists grader types =regex, tool_used, tool_order, file_exists, llm,
+  baseline=.
+- Search for =plugin eval= + =ANTHROPIC_API_KEY= in workflows: zero hits
+  (measured). So catalyst is the only CI scorer found.
+
+** Sandbox dependencies for Bash-granting runs on a runner
+
+*Measured* ([[https://github.com/Arize-ai/phoenix/blob/main/.github/workflows/claude-skills-audit.yml][Arize-ai/phoenix claude-skills-audit.yml]]): =apt-get install bubblewrap
+socat=, then =sysctl -w kernel.apparmor_restrict_unprivileged_userns=0= because
+"Ubuntu 24.04+ blocks the unprivileged user namespaces it relies on by default".
+That workflow uses claude-code-action, not =plugin eval=; that the same steps
+satisfy =plugin eval='s Bash sandbox is *inherited* (plausible, unverified).
+Our own README already names "a Linux runner with bubblewrap and socat"; the
+AppArmor sysctl is the missing piece.
+
+** Grader design lessons
+
+- One binary grader per case, so run score ∈ {0,1} and rates are countable
+  (catalyst, gms; measured).
+- Set =arm= explicitly. Catalyst's README (measured): a =tool_used= on =Skill= with
+  no =arm= is with-only and excluded from the score "unless every grader in the
+  case is with-only"; adding a second grader silently drops the baseline from
+  scoring. Our cases mix =with-only= indicators with scored graders —
+  check they still score what we think.
+- Bind cases to descriptions deterministically: =coverage.json= names the phrase
+  the prompt sends and every phrase the =description:= quotes; a no-model unit test
+  fails if they drift (catalyst, measured). That is free and runs on every PR.
+- Negative/control cases ("must never fire") are first-class (gms, measured);
+  our suite has none.
+- Fail the baseline: a case the baseline arm passes tests nothing (catalyst
+  enforces it; our README states it in prose only).
+
+* Q2. Release mechanics
+
+- *release-please with =extra-files= jsonpath* is the common automated bump.
+  Measured in [[https://github.com/VeryGoodOpenSource/vgv-ai-flutter-plugin/blob/main/.release-please-config.json][VGV]] and [[https://github.com/GoogleCloudPlatform/data-agent-kit-plugin/blob/main/release-please-config.json][GCP data-agent-kit]]: =release-type: simple=, =extra-files:
+  [{type: json, path: .claude-plugin/plugin.json, jsonpath: $.version}]=, release
+  PR carries CHANGELOG + bump. Search returned ~30 such configs (measured, count
+  only; most are MCP servers).
+- *Version-file-driven tag* (ours, apollo, gms): read =plugin.json#version=, skip
+  if release exists, create tag/release. gms adds: changelog section
+  =## [x.y.z]= must exist and becomes the release notes (truncated under GitHub's
+  125k limit); tag-without-release (failed prior run) is completed, not errored
+  (measured, gms release.yml).
+- *Dispatch-with-version* (AvdLee, measured): input validated as semver, refuses
+  existing or non-increasing tag (=sort -V=), =jq= rewrites every manifest, bot
+  commit, =softprops/action-gh-release= with generated notes.
+- *Manifest-equality checks* (pngx, gms, endor; measured): CI fails if
+  plugin.json / marketplace.json / other manifests disagree; endor also
+  asserts README states the version. gms resolves a pinned marketplace =ref= *at
+  that ref* with =fetch-depth: 0=, after a moved path broke every install
+  (measured, ci.yml comments).
+- *gh skill publish caveats* (agentclash, measured comments): it "cuts its OWN
+  GitHub release and adds the =agent-skills= repo topic", needs repo-admin rights
+  the default =GITHUB_TOKEN= lacks, and conflicts with another release job on the
+  same tag. navikt / apollo / genesis / goodpatch all gate publish on
+  =gh skill publish --dry-run= (measured).
+- *Official directory pins by SHA* (measured, marketplace.json): all 262 object
+  sources carry =sha=; 97 also carry =ref=, of which 86 =main=, 6 =master=, only 2
+  a version tag. Only 14 of 315 entries carry a =version=. So the directory tracks
+  a commit, not our tag; =plugin.json#version= is what the client compares.
+  No =guile=/=scheme=/=lisp= entry (measured).
+- No changesets or semantic-release found for plugins (absence within these
+  searches only).
+
+* Q3. Validation in CI
+
+- =claude plugin validate . --strict= is common: ~50 workflow hits (measured,
+  search c2). pngx also validates the manifest file directly (measured).
+- =skills-ref validate= from agentskills/agentskills, built from source in CI
+  (apollo validate-skills.yml, measured).
+- =gh skill publish --dry-run= used as the agentskills.io spec validator (navikt,
+  apollo, genesis; measured).
+- =npx skills@<pinned> add . --list= as a discovery check (anolilab, measured).
+- No-CLI fallbacks: =python -m json.tool= on every JSON, =bash -n= on hooks,
+  frontmatter =quick_validate.py= (endor, gms; measured). =quick_validate.py=
+  ships in the official =skill-creator= plugin (measured, catalog path
+  =plugins/skill-creator/skills/skill-creator/scripts/=).
+- Eval-fixture smoke test: anolilab runs each =evals/*/scaffold.sh= in a temp
+  dir and fails on an empty diff (measured). Analogue for us: run
+  =no-linter-claim='s =scaffold_script= in CI with no model.
+- Supply chain: SHA-pinned actions + =step-security/harden-runner= (anolilab,
+  measured). Link checking: none found.
+
+* Q4. Deployments / environments / reporting directory state
+
+- No repo examined records a publish as a GitHub Deployment. Environments
+  queried (measured, =repos/*/environments=): apollo, navikt, AvdLee have only
+  =copilot= (the coding-agent environment); catalyst, gms, guile-skills none;
+  agentclash's are for its app, not skills. Absence, not a census.
+- What does exist: =$GITHUB_STEP_SUMMARY= publish record (kennedym-ds, measured);
+  =repository_dispatch= to a downstream consumer on every main push, with a loud
+  warning when the token is unset (catalyst =notify-catalyst-cloud=, measured) —
+  their downstream index lagged "27 commits and a whole skill" before it.
+- Nobody found polls the official directory and reports back. Since the directory
+  pins SHAs (above), a scheduled job comparing our =main= SHA / version to the
+  =claude-plugins-official= entry would be novel (inherited idea, unbuilt).
+
+* Adoptable patterns for guile (ranked)
+
+1. *Score in CI the catalyst way.* A =workflow_dispatch= + path-filtered =evals=
+   job; secret =ANTHROPIC_API_KEY_FOR_EVALS=; separate CLI pin ≥ 2.1.286 (our
+   =contracts/cell.json= pins 2.1.261 for =validate=, measured, so the eval job
+   cannot reuse it); install =bubblewrap socat= and set the AppArmor userns sysctl;
+   =--json= + =--model= pinned + =--max-cost-usd=; a wrapper that rejects partial,
+   short-roster, stale and baseline-passing results. Cost: API spend (5 cases ×
+   3 runs × 2 arms = 30 Bash-capable runs plus =llm= judge calls), a secret in a
+   public repo's Actions (PR-from-fork never sees it; fine). Risk: Bash sandbox on
+   the runner is inherited-unverified; =stale-listener= (=kills-processes=) is safe
+   on an ephemeral runner, which is a point in CI's favour over the laptop.
+2. *Split the suite*: a Bash-free routing tier (=Skill=/=Read= only, =tool_used=
+   graders, $0 judge) that can run on every relevant PR, and the Bash
+   behaviour tier on dispatch/release. Cost: a few new cases. Risk: low.
+3. *Deterministic case↔description binding* (=coverage.json= + test, no model).
+   Cost: small script in =make checks=. Risk: none; catches a description edit that
+   silently orphans a case.
+4. *Per-kind gate policy* (gms): must-never cases at 100%, routing pooled per
+   skill with a floor, threshold 0 at the CLI. Adds negative cases we lack.
+5. *Release hygiene*: CHANGELOG section required and used as release notes; a
+   tag-without-release is completed. Cheap. Recording publish as a Deployment
+   is open ground — nobody does it, so low precedent, low risk.
