@@ -146,7 +146,7 @@ A Guile socket REPL is unauthenticated arbitrary code execution. That is why eve
 - [EXPERIMENTS.org](EXPERIMENTS.org) — six real failures, four of them silent
 - [EXPERIMENTS-channels.org](EXPERIMENTS-channels.org) — C1–C8, a channel server: declined, with the measurements that decided it
 - [EXPERIMENTS-release.org](EXPERIMENTS-release.org) — R1–R6, shipping 0.4.0: the rename's half-migration, a publish race, idempotency, a TLA+ model of the labels, and the directory as a second state machine
-- [EXPERIMENTS-invocation.org](EXPERIMENTS-invocation.org) — T1–T3, which skill a prompt actually reaches: 0.61 on 0.4.0 and on 0.4.1, and where it fails
+- [EXPERIMENTS-invocation.org](EXPERIMENTS-invocation.org) — T1–T4, which skill a prompt actually reaches: 0.61 on 0.4.0 and on 0.4.1, and where it fails
 - [CONTRIBUTING.org](CONTRIBUTING.org) — tooling versions, the four testing layers, conventions
 - [RELEASING.org](RELEASING.org) — what counts as patch, minor, major, and how to cut one
 - [Roadmap](docs/roadmap.org) — what the history says is still missing, and what to do first

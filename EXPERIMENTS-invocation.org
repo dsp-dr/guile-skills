@@ -75,6 +75,21 @@ the skill boundaries and descriptions, as T1 and T2 did.
 *Label:* measured, against the rebased #30 tree, 2026-10-01.
 =evals/trigger/results/2026-10-01-0.4.1-first-tool.json=.
 
+* T4 -- The same prompt, isolated: claude plugin eval tier 1
+
+*Question.* Can invocation be measured with a no-plugin baseline and without
+the user's competing skills, on this machine?
+
+*Result.* Yes. =evals/trigger-resume= grants no Bash, so no sandbox, and has
+one deterministic grader. With the plugin the setup skill fired 3/3; without it,
+0/3, for $0.92 in 165 s. This prompt also fired in the real environment (T1, q02,
+2/2). So the case that matters next is the prompts that miss there ("set up
+guile", "get this guile project ready", the =fold= "check it"). Isolated against
+real, it separates "the description never matches" from "the description is
+outcompeted".
+
+*Label:* measured, 2026-10-04, CLI 2.1.287, plugin 0.4.2.
+
 * What it implies, and how sure
 
 Generic "set up" prompts are where invocation fails. They split between
