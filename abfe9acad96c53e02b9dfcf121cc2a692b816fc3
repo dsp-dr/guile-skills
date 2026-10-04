@@ -1,0 +1,19 @@
+The deployable/SHIPPED divergence was surfaced by an architecture-review
+subagent (finding B4) and confirmed here by set-diffing the two lists, which
+now comes out empty both ways.
+
+Not fixed here, from the same review and worth issues of their own:
+- The loopback rule in docs/boundaries.org has no enforcing check. Changing
+  INADDR_LOOPBACK to INADDR_ANY in all three proxy copies passes all ten local
+  gates while publishing an unauthenticated REPL on every interface.
+- gmake lint still treats a missing guild as a pass (Makefile:77-82), inside
+  checks.
+- Makefile:105,109,128 guard with '|| { echo skipping; exit 0; }' on their own
+  recipe line; make runs each line in a fresh shell, so exit 0 skips nothing
+  and the recipe dies Error 127. Right outcome, wrong reason, lying message.
+- docs/surfaces.org contradicts its own table: agents/ and hooks/ are marked
+  present in the rows and NOT BUILT in the mermaid 40 lines later.
+
+Version choice: patch rather than minor. No shipped surface gains or loses a
+capability; gmake icons is a developer target, and assets/probe-converters.scm
+ships only because assets/ is in SHIPPED.
