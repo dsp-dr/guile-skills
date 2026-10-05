@@ -13,6 +13,7 @@ GUILE ?= $(shell command -v guile3 2>/dev/null || command -v guile-3.0 2>/dev/nu
 GUILD ?= $(shell command -v guild3 2>/dev/null || command -v guild-3.0 2>/dev/null || echo guild)
 
 .PHONY: emacs references eval-suite audit dx dx-kill wip try-clean check-contracts fmt check-scheme help start stop status eval lint lint-org lint-claude test check-evals check-frontmatter check-monitors check-scripts check-version sync-scripts checks try try-in ship-check readme paths clean release-staging release-production
+.PHONY: icons references eval-suite audit dx dx-kill wip try-clean check-contracts fmt check-scheme help start stop status eval lint lint-org lint-claude test check-evals check-frontmatter check-monitors check-scripts check-version sync-scripts checks try try-in ship-check readme paths clean release-staging release-production
 
 help:
 	@echo "guile-skills"
@@ -28,6 +29,7 @@ help:
 	@echo "  gmake lint-claude  claude plugin validate . --strict"
 	@echo "  gmake check-evals  validate every skills/*/evals/evals.json"
 	@echo "  gmake check-frontmatter  validate every skills/*/SKILL.md frontmatter"
+	@echo "  gmake icons        which SVG->PNG converter on this host renders our icon"
 	@echo "  gmake check-monitors  validate monitors/monitors.json (the CLI does not)"
 	@echo "  gmake check-contracts  the pinned product contract still holds"
 	@echo "  gmake check-scheme every tracked .scm is balanced (the hook, repo-wide)"
@@ -285,3 +287,10 @@ ifndef TAG
 	$(error TAG is required. Usage: gmake release-production TAG=v0.1.0)
 endif
 	@./scripts/release.sh production $(TAG)
+
+# gen-icon.scm emits SVG because Guile has no raster graphics. Anything wanting
+# a PNG needs an external converter, and which ones work differs per host:
+# on nexus ImageMagick aborts on this SVG while rsvg-convert is fine. The probe
+# tests fidelity, not just presence -- `convert SIZE...' then writes the PNGs.
+icons:
+	@guile3 assets/probe-converters.scm

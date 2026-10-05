@@ -5,6 +5,13 @@
 ;; for a Guile skills repo to generate its own icon. Each curve is normalized to
 ;; fill a consistent fraction of the canvas so the five compare fairly.
 
+;; `~,2f' is an (ice-9 format) directive, not one the core `simple-format'
+;; understands. Without this import the script works only on a cold
+;; auto-compile -- loading the compiler happens to pull (ice-9 format) in and
+;; upgrade `format' process-wide -- and then fails on every later run, once the
+;; .go is cached and no compiler is loaded. Measured on guile 3.0.10.
+(use-modules (ice-9 format))
+
 (define SIZE 256)
 (define CENTER (/ SIZE 2))
 (define TARGET-R (* 0.92 CENTER))  ; leave a small margin inside the rounded card
@@ -44,10 +51,18 @@
                polylines))
    "</svg>\n"))
 
+;; Write beside this script, not into whatever directory the shell happens to
+;; be in. Run from the repo root the old way, the candidates landed next to
+;; .gitignore instead of under assets/, where the ignore rule expects them --
+;; and an untracked file under a SHIPPED path fails check-version-bump before
+;; the real test suite gets a chance to run.
+(define OUT-DIR (dirname (car (command-line))))
+
 (define (write-icon filename stroke polylines)
-  (call-with-output-file filename
-    (lambda (port) (display (svg-doc stroke polylines) port)))
-  (format #t "wrote ~a\n" filename))
+  (let ((path (string-append OUT-DIR "/" filename)))
+    (call-with-output-file path
+      (lambda (port) (display (svg-doc stroke polylines) port)))
+    (format #t "wrote ~a\n" path)))
 
 (define TAU (* 2 (acos -1)))
 
